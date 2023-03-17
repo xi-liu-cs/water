@@ -12,7 +12,7 @@ public class fog_start : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        RenderSettings.fogColor = new Vector4(0.15f, 0.25f, 0.55f, 1f);
+        RenderSettings.fogColor = new Vector4(0.15f, 0.25f, 0.45f, 1f);
     }
 
     // Update is called once per frame
