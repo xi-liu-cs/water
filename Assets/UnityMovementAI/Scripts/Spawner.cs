@@ -13,6 +13,7 @@ namespace UnityMovementAI
 
         public float boundaryPadding = 1f;
         public float spaceBetweenObjects = 1f;
+        public Vector3 offset; /* position offset adjustment */
 
         public MovementAIRigidbody[] thingsToAvoid;
 
@@ -33,12 +34,11 @@ namespace UnityMovementAI
 
             /* Find the size of the map */
             float distAway = Camera.main.WorldToViewportPoint(Vector3.zero).z;
-
             bottomLeft = Camera.main.ViewportToWorldPoint(new Vector3(0, 0, distAway));
             Vector3 topRight = Camera.main.ViewportToWorldPoint(new Vector3(1, 1, distAway));
             widthHeight = topRight - bottomLeft;
 
-            /* Create the create the objects */
+            /* Create the objects */
             for (int i = 0; i < numberOfObjects; i++)
             {
                 /* Try to place the objects multiple times before giving up */
@@ -59,16 +59,9 @@ namespace UnityMovementAI
 
             Vector3 pos = new Vector3();
             pos.x = bottomLeft.x + Random.Range(boundaryPadding + halfSize, widthHeight.x - boundaryPadding - halfSize);
-
-            if (isObj3D)
-            {
-                pos.z = bottomLeft.z + Random.Range(boundaryPadding + halfSize, widthHeight.z - boundaryPadding - halfSize);
-            }
-            else
-            {
-                pos.y = bottomLeft.y + Random.Range(boundaryPadding + halfSize, widthHeight.y - boundaryPadding - halfSize);
-            }
-
+            pos.y = bottomLeft.y + Random.Range(boundaryPadding + halfSize, widthHeight.y - boundaryPadding - halfSize);
+            pos.z = bottomLeft.z + Random.Range(boundaryPadding + halfSize, widthHeight.z - boundaryPadding - halfSize);
+            pos += offset;
             if (CanPlaceObject(halfSize, pos))
             {
                 Transform t = Instantiate(obj, pos, Quaternion.identity) as Transform;

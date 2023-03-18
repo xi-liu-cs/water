@@ -13,6 +13,7 @@ public class fog_start : MonoBehaviour
     void Start()
     {
         RenderSettings.fogColor = new Vector4(0.15f, 0.25f, 0.45f, 1f);
+        RenderSettings.fogDensity = 0.008f;
     }
 
     // Update is called once per frame
