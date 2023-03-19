@@ -59,7 +59,7 @@ Shader "Custom/coral"
         {
             // Albedo comes from a texture tinted by color
             fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
-            o.Albedo = c.rgb + float3(1, 0, 0);
+            o.Albedo = c.rgb + noise(c.rgb) + float3(0.5, 0, 0);
             o.Albedo *= tex2D(_Detail, IN.uv_Detail).rgb * 2;
             o.Normal = (UnpackNormal(tex2D(_BumpMap, IN.uv_BumpMap)) + UnpackNormal(tex2D(_BumpMap2, IN.uv_BumpMap2))) / 2;
             // Metallic and smoothness come from slider variables
