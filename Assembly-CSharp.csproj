@@ -83,6 +83,7 @@
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Terrain\terrain_small.shader" />
      <None Include="Assets\Scripts\Terrain\terrain.shader" />
+     <None Include="Assets\Scripts\Water\coral.shader" />
      <None Include="Assets\Scripts\Fog\fog.shader" />
      <None Include="Assets\Scripts\Seafloor\seafloor.shader" />
     <Reference Include="UnityEngine">
