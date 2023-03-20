@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,40 +9,49 @@ using Unity.MLAgents.Actuators;
 public class rov : Agent
 {
     Rigidbody rigid_body;
+    public Transform target;
+    public Vector3 initial_position;
+    public float speed = 1f,
+    sensitivity = 10f,
+    force_multiplier = 10f;
     void Start()
     {
         rigid_body = GetComponent<Rigidbody>();
+        initial_position = gameObject.transform.position;
     }
 
     int overlap = 0;
     public bool is_overlap(){ return overlap > 0; }
-    void OnTriggerEnter(Collider other){ ++overlap; }
-    void OnTriggerExit(Collider other){ --overlap; }
+    void OnTriggerEnter(Collider other){ ++overlap; /* Debug.Log("on trigger enter"); */ }
+    void OnTriggerExit(Collider other)
+    { 
+        --overlap;
+        Debug.Log("on trigger exit name is" + other.gameObject.name);
+        if(String.Equals(other.gameObject.name, "Landscape"))
+        {
+            SetReward(-1.0f);
+            EndEpisode();
+        }
+    }
     
-    public Transform target;
-    public Vector3 initial_position;
     public override void OnEpisodeBegin()
     {
-
+        transform.position = initial_position;
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
         sensor.AddObservation(target.localPosition);
         sensor.AddObservation(this.transform.localPosition);
-        sensor.AddObservation(rigid_body.velocity.x);
-        sensor.AddObservation(rigid_body.velocity.y);
-        sensor.AddObservation(rigid_body.velocity.z);
+        sensor.AddObservation(rigid_body.velocity);
     }
 
-    public float force_multiplier = 10;
-    public override void OnActionReceived(ActionBuffers action_buffers)
+    public override void OnActionReceived(ActionBuffers actions)
     {
-        Vector3 control_signal = Vector3.zero;
-        control_signal.x = action_buffers.ContinuousActions[0];
-        control_signal.y = action_buffers.ContinuousActions[1];
-        control_signal.z = action_buffers.ContinuousActions[2];
-        rigid_body.AddForce(force_multiplier * control_signal);
+        float dx = actions.ContinuousActions[0],
+        dy = actions.ContinuousActions[1],
+        dz = actions.ContinuousActions[2];
+        transform.position += new Vector3(dx, dy, dz) * Time.deltaTime * speed;
 
         float distance_to_target = Vector3.Distance(this.transform.localPosition, target.localPosition);
         if(distance_to_target < 1.42f)
@@ -51,38 +61,15 @@ public class rov : Agent
         }
         if(is_overlap()) /* if the rov collides with an object */
         {
-            SetReward(-1.0f);
+            SetReward(-1.0f); /* Debug.Log("collision"); */
         }
     }
 
-    public float speed = 1f,
-    sensitivity = 10f;
     public override void Heuristic(in ActionBuffers actions_out)
-    {
+    {/* in inspector behavior parameters script, change to heuristic only */
         ActionSegment<float> continuous_actions_out = actions_out.ContinuousActions;
-        if(Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A))
-        {/* transform.Translate(new Vector3(-speed * Time.deltaTime, 0, 0)); */
-            continuous_actions_out[0] -= speed * Time.deltaTime;
-        }
-        if(Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.D))
-        {/* transform.Translate(new Vector3(speed * Time.deltaTime, 0, 0)); */
-            continuous_actions_out[0] += speed * Time.deltaTime;
-        }
-        if(Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W))
-        {/* transform.Translate(new Vector3(0, speed * Time.deltaTime, 0)); */
-            continuous_actions_out[1] += speed * Time.deltaTime;
-        }
-        if(Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S))
-        {/* transform.Translate(new Vector3(0, -speed * Time.deltaTime, 0)); */
-            continuous_actions_out[1] -= speed * Time.deltaTime;
-        }
-        if(Input.GetKey(KeyCode.Alpha1) || Input.GetKey(KeyCode.Keypad1))
-        {/* transform.Translate(new Vector3(0, 0, speed * Time.deltaTime)); */
-            continuous_actions_out[2] += speed * Time.deltaTime;
-        }
-        if(Input.GetKey(KeyCode.Alpha2) || Input.GetKey(KeyCode.Keypad2))
-        {/* transform.Translate(new Vector3(0, 0, -speed * Time.deltaTime)); */
-            continuous_actions_out[2] -= speed * Time.deltaTime;
-        }
+        continuous_actions_out[0] = -Input.GetAxisRaw("Horizontal"); /* negative since the scene is reflected */
+        continuous_actions_out[1] = Input.GetAxisRaw("Vertical");
+        continuous_actions_out[2] = Input.GetAxisRaw("FrontBack");
     }
 }
