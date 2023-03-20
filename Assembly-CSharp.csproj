@@ -80,6 +80,8 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\FollowPath.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\ThirdPersonCamera.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
+     <Compile Include="Assets\Scripts\Collider\collider.cs" />
+     <Compile Include="Assets\Scripts\Rov\rov.cs" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Terrain\terrain_small.shader" />
      <None Include="Assets\Scripts\Terrain\terrain.shader" />
@@ -329,6 +331,9 @@
     <Reference Include="UnityEditor.UnityConnectModule">
         <HintPath>C:\Program Files\Unity 2021.3.11f1\Editor\Data\Managed\UnityEngine\UnityEditor.UnityConnectModule.dll</HintPath>
     </Reference>
+    <Reference Include="Unity.Collections.LowLevel.ILSupport">
+        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\PackageCache\com.unity.collections@1.2.4\Unity.Collections.LowLevel.ILSupport\Unity.Collections.LowLevel.ILSupport.dll</HintPath>
+    </Reference>
     <Reference Include="System.IO.Abstractions">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\PackageCache\com.unity.ml-agents@2.0.1\Plugins\System.IO.Abstractions.dll</HintPath>
     </Reference>
@@ -361,9 +366,6 @@
     </Reference>
     <Reference Include="Newtonsoft.Json">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\PackageCache\com.unity.nuget.newtonsoft-json@3.0.2\Runtime\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.Collections.LowLevel.ILSupport">
-        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\PackageCache\com.unity.collections@1.2.4\Unity.Collections.LowLevel.ILSupport\Unity.Collections.LowLevel.ILSupport.dll</HintPath>
     </Reference>
     <Reference Include="netstandard">
         <HintPath>C:\Program Files\Unity 2021.3.11f1\Editor\Data\NetStandard\ref\2.1.0\netstandard.dll</HintPath>
@@ -734,17 +736,17 @@
     <Reference Include="Unity.ML-Agents">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.ML-Agents.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.Barracuda.ONNX">
-        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Barracuda.ONNX.dll</HintPath>
-    </Reference>
     <Reference Include="Unity.Barracuda.iOSBLAS">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Barracuda.iOSBLAS.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.Barracuda.BurstBLAS">
-        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Barracuda.BurstBLAS.dll</HintPath>
+    <Reference Include="Unity.Barracuda.ONNX">
+        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Barracuda.ONNX.dll</HintPath>
     </Reference>
     <Reference Include="Unity.VSCode.Editor">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.VSCode.Editor.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.Barracuda.BurstBLAS">
+        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Barracuda.BurstBLAS.dll</HintPath>
     </Reference>
     <Reference Include="Unity.TextMeshPro.Editor">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.TextMeshPro.Editor.dll</HintPath>
@@ -764,6 +766,9 @@
     <Reference Include="Unity.Burst.Editor">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Burst.Editor.dll</HintPath>
     </Reference>
+    <Reference Include="Unity.Postprocessing.Editor">
+        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Postprocessing.Editor.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEditor.UI">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\UnityEditor.UI.dll</HintPath>
     </Reference>
@@ -779,17 +784,20 @@
     <Reference Include="Unity.Services.Core">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Services.Core.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.Mathematics">
-        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Mathematics.dll</HintPath>
-    </Reference>
     <Reference Include="Unity.ML-Agents.CommunicatorObjects">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.ML-Agents.CommunicatorObjects.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.Mathematics">
+        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Mathematics.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Services.Core.Analytics">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Services.Core.Analytics.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Burst">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Burst.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.Postprocessing.Runtime">
+        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Postprocessing.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Services.Core.Environments">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Services.Core.Environments.dll</HintPath>
@@ -800,6 +808,9 @@
     <Reference Include="Unity.Mathematics.Editor">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Mathematics.Editor.dll</HintPath>
     </Reference>
+    <Reference Include="Unity.Collections">
+        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Collections.dll</HintPath>
+    </Reference>
     <Reference Include="Unity.Barracuda.Editor">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Barracuda.Editor.dll</HintPath>
     </Reference>
@@ -808,15 +819,6 @@
     </Reference>
     <Reference Include="Unity.ML-Agents.Editor">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.ML-Agents.Editor.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.Postprocessing.Editor">
-        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Postprocessing.Editor.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.Postprocessing.Runtime">
-        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Postprocessing.Runtime.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.Collections">
-        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\ScriptAssemblies\Unity.Collections.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
