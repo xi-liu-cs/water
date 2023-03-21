@@ -12,7 +12,7 @@ public class rov : Agent
     public Transform target;
     public Vector3 initial_position;
     public float speed = 1f,
-    sensitivity = 10f,
+    sensitivity = 1f,
     force_multiplier = 10f;
     void Start()
     {
@@ -26,7 +26,7 @@ public class rov : Agent
     void OnTriggerExit(Collider other)
     { 
         --overlap;
-        Debug.Log("on trigger exit name is" + other.gameObject.name);
+        Debug.Log("on trigger exit name is " + other.gameObject.name);
         if(String.Equals(other.gameObject.name, "Landscape"))
         {
             SetReward(-1.0f);
@@ -54,9 +54,9 @@ public class rov : Agent
         transform.position += new Vector3(dx, dy, dz) * Time.deltaTime * speed;
 
         float distance_to_target = Vector3.Distance(this.transform.localPosition, target.localPosition);
-        if(distance_to_target < 1.42f)
+        if(distance_to_target < 1f)
         {
-            SetReward(1.0f);
+            SetReward(1f);
             EndEpisode();
         }
         if(is_overlap()) /* if the rov collides with an object */

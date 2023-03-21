@@ -7,24 +7,6 @@
     "move": {
         "checkpoints": [
             {
-                "steps": 0,
-                "file_path": "results\\0\\move\\move-0.onnx",
-                "reward": null,
-                "creation_time": 1679330260.4299161,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-0.pt"
-                ]
-            },
-            {
-                "steps": 896,
-                "file_path": "results\\0\\move\\move-896.onnx",
-                "reward": null,
-                "creation_time": 1679331003.2064362,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-896.pt"
-                ]
-            },
-            {
                 "steps": 1728,
                 "file_path": "results\\0\\move\\move-1728.onnx",
                 "reward": null,
@@ -50,15 +32,33 @@
                 "auxillary_file_paths": [
                     "results\\0\\move\\move-6725.pt"
                 ]
+            },
+            {
+                "steps": 20000,
+                "file_path": "results\\0\\move\\move-20000.onnx",
+                "reward": -3.0,
+                "creation_time": 1679335171.2601166,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-20000.pt"
+                ]
+            },
+            {
+                "steps": 178373,
+                "file_path": "results\\0\\move\\move-178373.onnx",
+                "reward": -3.0,
+                "creation_time": 1679361402.4655538,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-178373.pt"
+                ]
             }
         ],
         "final_checkpoint": {
-            "steps": 6725,
+            "steps": 178373,
             "file_path": "results\\0\\move.onnx",
             "reward": -3.0,
-            "creation_time": 1679332988.2514148,
+            "creation_time": 1679361402.4655538,
             "auxillary_file_paths": [
-                "results\\0\\move\\move-6725.pt"
+                "results\\0\\move\\move-178373.pt"
             ]
         }
     }

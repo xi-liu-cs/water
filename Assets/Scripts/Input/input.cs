@@ -5,11 +5,12 @@ using UnityEngine;
 public class input : MonoBehaviour
 {
     public float speed = 1f,
-    sensitivity = 10f;
+    sensitivity = 1f;
     public bool move = true;
 
     void Update()
     {
+        if(Input.GetMouseButtonDown(1)) move = !move; /* right click, press esc to exit controlling the camera */
         if(!move) return;
         if(Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A))
         {
@@ -36,10 +37,11 @@ public class input : MonoBehaviour
             transform.Translate(new Vector3(0, 0, -speed * Time.deltaTime));
         }
 
+        float factor = sensitivity / 10f;
         Transform c = Camera.main.transform;
         c.Rotate(0, Input.GetAxis("Mouse X") * sensitivity, 0);
         c.Rotate(-Input.GetAxis("Mouse Y") * sensitivity, 0, 0);
-        c.Rotate(0, 0, -Input.GetAxis("QandE") * 90 * Time.deltaTime);
+        c.Rotate(0, 0, -Input.GetAxis("QandE") * 90 * Time.deltaTime * factor);
         if(Input.GetMouseButtonDown(0))
             Cursor.lockState = CursorLockMode.Locked;
     }
