@@ -7,42 +7,6 @@
     "move": {
         "checkpoints": [
             {
-                "steps": 1728,
-                "file_path": "results\\0\\move\\move-1728.onnx",
-                "reward": null,
-                "creation_time": 1679331095.8138177,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-1728.pt"
-                ]
-            },
-            {
-                "steps": 2944,
-                "file_path": "results\\0\\move\\move-2944.onnx",
-                "reward": null,
-                "creation_time": 1679332436.0870855,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-2944.pt"
-                ]
-            },
-            {
-                "steps": 6725,
-                "file_path": "results\\0\\move\\move-6725.onnx",
-                "reward": -3.0,
-                "creation_time": 1679332988.2514148,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-6725.pt"
-                ]
-            },
-            {
-                "steps": 20000,
-                "file_path": "results\\0\\move\\move-20000.onnx",
-                "reward": -3.0,
-                "creation_time": 1679335171.2601166,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-20000.pt"
-                ]
-            },
-            {
                 "steps": 178373,
                 "file_path": "results\\0\\move\\move-178373.onnx",
                 "reward": -3.0,
@@ -50,15 +14,51 @@
                 "auxillary_file_paths": [
                     "results\\0\\move\\move-178373.pt"
                 ]
+            },
+            {
+                "steps": 282109,
+                "file_path": "results\\0\\move\\move-282109.onnx",
+                "reward": -3.0,
+                "creation_time": 1679442934.6532047,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-282109.pt"
+                ]
+            },
+            {
+                "steps": 287027,
+                "file_path": "results\\0\\move\\move-287027.onnx",
+                "reward": -9.0,
+                "creation_time": 1679443799.071307,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-287027.pt"
+                ]
+            },
+            {
+                "steps": 287347,
+                "file_path": "results\\0\\move\\move-287347.onnx",
+                "reward": null,
+                "creation_time": 1679446787.4865847,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-287347.pt"
+                ]
+            },
+            {
+                "steps": 287603,
+                "file_path": "results\\0\\move\\move-287603.onnx",
+                "reward": null,
+                "creation_time": 1679446887.7526424,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-287603.pt"
+                ]
             }
         ],
         "final_checkpoint": {
-            "steps": 178373,
+            "steps": 287603,
             "file_path": "results\\0\\move.onnx",
-            "reward": -3.0,
-            "creation_time": 1679361402.4655538,
+            "reward": null,
+            "creation_time": 1679446887.7526424,
             "auxillary_file_paths": [
-                "results\\0\\move\\move-178373.pt"
+                "results\\0\\move\\move-287603.pt"
             ]
         }
     }
