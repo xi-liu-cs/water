@@ -82,12 +82,19 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\FollowPath.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\ThirdPersonCamera.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
+     <Compile Include="Assets\Style\BarracudaStyleTransfer.cs" />
+     <Compile Include="Assets\Style\StyleData.cs" />
+     <Compile Include="Assets\Style\TextureScaler.cs" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Terrain\terrain_small.shader" />
+     <None Include="Assets\Style\Resources\TextureToSRGBTensor.compute" />
      <None Include="Assets\Scripts\Terrain\terrain.shader" />
+     <None Include="Assets\Style\Resources\FrameToTilesConverter.compute" />
      <None Include="Assets\Scripts\Water\coral.shader" />
+     <None Include="Assets\Style\Resources\StyleDepthMotion.compute" />
      <None Include="Assets\Scripts\Fog\fog.shader" />
      <None Include="Assets\Scripts\Seafloor\seafloor.shader" />
+     <None Include="Assets\Style\Resources\BFrameGenerator.compute" />
     <Reference Include="UnityEngine">
         <HintPath>C:\Program Files\Unity 2021.3.11f1\Editor\Data\Managed\UnityEngine\UnityEngine.dll</HintPath>
     </Reference>
@@ -344,7 +351,7 @@
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\PackageCache\com.unity.burst@1.6.6\Unity.Burst.CodeGen\Unity.Burst.Cecil.Mdb.dll</HintPath>
     </Reference>
     <Reference Include="Google.Protobuf">
-        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\PackageCache\com.unity.barracuda@2.0.0\Barracuda\Runtime\Plugins\ProtoBuffer\Google.Protobuf.dll</HintPath>
+        <HintPath>C:\Users\xi liu\Desktop\0\water\Library\PackageCache\com.unity.barracuda@3.0.0\Barracuda\Runtime\Plugins\ProtoBuffer\Google.Protobuf.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Burst.Cecil.Pdb">
         <HintPath>C:\Users\xi liu\Desktop\0\water\Library\PackageCache\com.unity.burst@1.6.6\Unity.Burst.CodeGen\Unity.Burst.Cecil.Pdb.dll</HintPath>

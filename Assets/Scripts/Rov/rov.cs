@@ -14,6 +14,7 @@ public class rov : Agent
     public float speed = 1f,
     sensitivity = 1f,
     force_multiplier = 10f;
+    
     void Start()
     {
         rigid_body = GetComponent<Rigidbody>();
