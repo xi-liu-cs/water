@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using System.Collections;
 
 namespace UnityMovementAI
 {
@@ -9,6 +10,7 @@ namespace UnityMovementAI
         public Vector2 objectSizeRange = new Vector2(1, 2);
 
         public int numberOfObjects = 10;
+        private int spawnedNum = 0;
         public bool randomizeOrientation = false;
 
         public float boundaryPadding = 1f;
@@ -38,10 +40,13 @@ namespace UnityMovementAI
             Vector3 topRight = Camera.main.ViewportToWorldPoint(new Vector3(1, 1, distAway));
             widthHeight = topRight - bottomLeft;
 
+            StartCoroutine(CreateCoroutine());
+
             /* Create the objects */
+            /*
             for (int i = 0; i < numberOfObjects; i++)
             {
-                /* Try to place the objects multiple times before giving up */
+                // Try to place the objects multiple times before giving up 
                 for (int j = 0; j < 10; j++)
                 {
                     if (TryToCreateObject())
@@ -49,6 +54,16 @@ namespace UnityMovementAI
                         break;
                     }
                 }
+            }
+            */
+        }
+
+        private IEnumerator CreateCoroutine() {
+            while(spawnedNum < numberOfObjects) {
+                if (TryToCreateObject()) {
+                    spawnedNum += 1;
+                }
+                yield return new WaitForSeconds(0.1f);
             }
         }
 
