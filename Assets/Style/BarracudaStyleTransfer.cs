@@ -12,7 +12,6 @@ using UnityEditor.Callbacks;
 using UnityEngine.Profiling;
 using UnityEngine.UI;
 
-
 public class BarracudaStyleTransfer : MonoBehaviour
 {
     public enum UsedModel
@@ -182,11 +181,15 @@ public class BarracudaStyleTransfer : MonoBehaviour
             fpsUpsampleText = GameObject.Find("Framerate Upsample Display").GetComponent<Text>();
 
         // Load assets from Resources folder
+        /* internalSetup.nnModels = new NNModel[]
+        {
+            Resources.Load<NNModel>("final.onnx")
+        }; */
         internalSetup.nnModels = new NNModel[]
         {
             Resources.Load<NNModel>("adele_2"),
             Resources.Load<NNModel>("model_32channels")
-        };
+        }; 
         bFrameGenerator = Resources.Load<ComputeShader>("BFrameGenerator");
         frameToTilesConverter = Resources.Load<ComputeShader>("FrameToTilesConverter");
         styleDepthMotionCS = Resources.Load<ComputeShader>("StyleDepthMotion");
@@ -217,14 +220,14 @@ public class BarracudaStyleTransfer : MonoBehaviour
         if (modelToUse != setModelToUse)
             modelToUse = setModelToUse;
 
-        // Controls: Enable/Disable style transfer
-        if (Input.GetMouseButtonDown(0))
+        /* enable disable style transfer */
+        if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3))
         {
             shouldApplyStyleTransfer = !shouldApplyStyleTransfer;
         }
 
-        // Controls: Cycle through the given styles
-        if (Input.GetMouseButtonDown(1))
+        /* cycle through the given styles */
+        if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4))
         {
             if (shouldApplyStyleTransfer)
             {

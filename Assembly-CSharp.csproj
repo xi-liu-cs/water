@@ -58,9 +58,11 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Wander2.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\FollowPathUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Wander1.cs" />
+     <Compile Include="Assets\Style\TextureScaler.cs" />
      <Compile Include="Assets\Scripts\Rov\rov.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Wander1Unit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\InterposeUnit.cs" />
+     <Compile Include="Assets\Style\StyleData.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\MovementAIRigidbody.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\WallAvoidanceUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Evade.cs" />
@@ -80,11 +82,9 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\PursueUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\ScreenBoundary2D.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\FollowPath.cs" />
+     <Compile Include="Assets\Style\BarracudaStyleTransfer.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\ThirdPersonCamera.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
-     <Compile Include="Assets\Style\BarracudaStyleTransfer.cs" />
-     <Compile Include="Assets\Style\StyleData.cs" />
-     <Compile Include="Assets\Style\TextureScaler.cs" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Terrain\terrain_small.shader" />
      <None Include="Assets\Style\Resources\TextureToSRGBTensor.compute" />

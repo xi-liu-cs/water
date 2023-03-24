@@ -988,8 +988,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 226704146}
-  m_LocalRotation: {x: -0.0012735596, y: 0.9806661, z: 0.19553952, w: 0.00753512}
-  m_LocalPosition: {x: 374.45673, y: -56.272102, z: 21.09517}
+  m_LocalRotation: {x: -0, y: 1, z: -0, w: -0.00000004371139}
+  m_LocalPosition: {x: 351.01562, y: -39.890663, z: 46.06392}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -12360,8 +12360,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 868230841}
-  m_LocalRotation: {x: -0.0012735596, y: 0.9806661, z: 0.19553952, w: 0.00753512}
-  m_LocalPosition: {x: 374.45673, y: -56.272102, z: 21.09517}
+  m_LocalRotation: {x: -0, y: 1, z: -0, w: -0.00000004371139}
+  m_LocalPosition: {x: 351.01562, y: -39.890663, z: 46.06392}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -18319,7 +18319,8 @@ MonoBehaviour:
   modelToUse: 1
   internalSetup:
     workerType: 257
-    nnModels: []
+    nnModels:
+    - {fileID: 5022602860645237092, guid: 2bd4763d61380e348845f3ca6aec77fa, type: 3}
     postNetworkColorBias: {x: 0, y: 0, z: 0, w: 0}
     forceBilinearUpsample2DInModel: 1
     channelsOrder: 1
