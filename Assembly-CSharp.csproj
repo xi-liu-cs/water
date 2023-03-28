@@ -85,6 +85,8 @@
      <Compile Include="Assets\Style\BarracudaStyleTransfer.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\ThirdPersonCamera.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
+     <Compile Include="Assets\Scripts\Particle\cuda.cs" />
+     <Compile Include="Assets\Scripts\Particle\fluid.cs" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Terrain\terrain_small.shader" />
      <None Include="Assets\Style\Resources\TextureToSRGBTensor.compute" />
