@@ -1,0 +1,35 @@
+#pragma kernel malloc_particle
+
+struct particle
+{
+    float3 position;
+    float4 color;
+};
+
+unsigned int n_particle,
+dimension;
+
+RWStructuredBuffer<particle> particles;
+RWStructuredBuffer<float> density,
+pressure;
+RWStructuredBuffer<float3> force,
+velocity;
+
+[numthreads(1, 1, 1)]
+void malloc_particle()
+{
+    int particle_per_dimension = pow(n_particle, 1.0 / 3.0);
+    unsigned int i = 0;
+    while(i < n_particle)
+    {
+        for(int x = 0; x < particle_per_dimension; ++x)
+            for(int y = 0; y < particle_per_dimension; ++y)
+                for(int z = 0; z < particle_per_dimension; ++z)
+                {
+                    float3 pos = float3(dimension - 1, dimension - 1, dimension - 1);
+                    particles[i].position = pos;
+                    particles[i].color = float4(50, 100, 255, 255);
+                    if(++i == n_particle) return;
+                }
+    }
+}

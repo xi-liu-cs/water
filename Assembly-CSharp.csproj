@@ -26,7 +26,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <NoWarn>0169</NoWarn>
-    <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup>
     <NoConfig>true</NoConfig>
@@ -37,6 +37,7 @@
   </PropertyGroup>
   <ItemGroup>
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\FirstPersonCamera.cs" />
+     <Compile Include="Assets\Scripts\Particle\cuda.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\FleeUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Flee.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Wander2Unit.cs" />
@@ -60,6 +61,7 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Wander1.cs" />
      <Compile Include="Assets\Style\TextureScaler.cs" />
      <Compile Include="Assets\Scripts\Rov\rov.cs" />
+     <Compile Include="Assets\Scripts\Particle\fluid.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Wander1Unit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\InterposeUnit.cs" />
      <Compile Include="Assets\Style\StyleData.cs" />
@@ -85,12 +87,11 @@
      <Compile Include="Assets\Style\BarracudaStyleTransfer.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\ThirdPersonCamera.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
-     <Compile Include="Assets\Scripts\Particle\cuda.cs" />
-     <Compile Include="Assets\Scripts\Particle\fluid.cs" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Terrain\terrain_small.shader" />
      <None Include="Assets\Style\Resources\TextureToSRGBTensor.compute" />
      <None Include="Assets\Scripts\Terrain\terrain.shader" />
+     <None Include="Assets\Scripts\Particle\fluid.compute" />
      <None Include="Assets\Style\Resources\FrameToTilesConverter.compute" />
      <None Include="Assets\Scripts\Water\coral.shader" />
      <None Include="Assets\Style\Resources\StyleDepthMotion.compute" />
