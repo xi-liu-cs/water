@@ -41,28 +41,14 @@ namespace UnityMovementAI
             widthHeight = topRight - bottomLeft;
 
             StartCoroutine(CreateCoroutine());
-
-            /* Create the objects */
-            /*
-            for (int i = 0; i < numberOfObjects; i++)
-            {
-                // Try to place the objects multiple times before giving up 
-                for (int j = 0; j < 10; j++)
-                {
-                    if (TryToCreateObject())
-                    {
-                        break;
-                    }
-                }
-            }
-            */
         }
 
-        private IEnumerator CreateCoroutine() {
-            while(spawnedNum < numberOfObjects) {
-                if (TryToCreateObject()) {
-                    spawnedNum += 1;
-                }
+        private IEnumerator CreateCoroutine()
+        {
+            while(spawnedNum < numberOfObjects)
+            {
+                if(TryToCreateObject())
+                    ++spawnedNum;
                 yield return new WaitForSeconds(0.1f);
             }
         }

@@ -10,7 +10,7 @@ public class fluid : MonoBehaviour
     public Material material;
     public float mass = 4f,
     viscosity = 2.5f,
-    particle_size = 4f,
+    particle_size = 1f,
     radius = 1f,
     gas_constant = 2000f,
     dt = 0.0008f,
@@ -51,7 +51,7 @@ public class fluid : MonoBehaviour
     void Update()
     {
         compute_shader.Dispatch(malloc_particle_kernel, 1, 1, 1);
-        Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(100f, 100f, 100f)), arg_buf);
+        Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(100f, 100f, 100f)), arg_buf, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
     }
 
     void find_kernel()
@@ -79,5 +79,15 @@ public class fluid : MonoBehaviour
         arg_buf = new ComputeBuffer(1, arg.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
         arg_buf.SetData(arg);
         compute_shader.SetBuffer(malloc_particle_kernel, "particles", particles);
+    }
+
+    void OnDestroy()
+    {
+        free();
+    }
+
+    void free()
+    {
+        particles.Dispose();
     }
 }

@@ -28,7 +28,7 @@ void malloc_particle()
                 {
                     float3 pos = float3(dimension - 1, dimension - 1, dimension - 1);
                     particles[i].position = pos;
-                    particles[i].color = float4(50, 100, 255, 255);
+                    particles[i].color = float4(255, 100, 50, 255);
                     if(++i == n_particle) return;
                 }
     }
