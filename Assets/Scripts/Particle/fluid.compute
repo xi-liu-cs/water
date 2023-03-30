@@ -6,7 +6,8 @@ struct particle
     float4 color;
 };
 
-unsigned int n_particle,
+float grid_size;
+int n_particle,
 dimension;
 
 RWStructuredBuffer<particle> particles;
@@ -14,12 +15,26 @@ RWStructuredBuffer<float> density,
 pressure;
 RWStructuredBuffer<float3> force,
 velocity;
+RWStructuredBuffer<int> neighbor_list,
+neighbor_per_particle,
+hash_grid,
+particle_per_grid;
+
+int3 grid(float3 position)
+{
+    return int3(position.x / grid_size, position.y / grid_size, position.z / grid_size);
+}
+
+int hash(int3 grid)
+{
+    return grid.x + dimension * (grid.y + dimension * grid.z);
+}
 
 [numthreads(1, 1, 1)]
-void malloc_particle()
+void malloc_particle(uint3 id : SV_DispatchThreadID)
 {
-    int particle_per_dimension = pow(n_particle, 1.0 / 3.0);
-    unsigned int i = 0;
+    int particle_per_dimension = pow(abs(n_particle), 1.0 / 3.0),
+    i = 0;
     while(i < n_particle)
     {
         for(int x = 0; x < particle_per_dimension; ++x)
@@ -28,8 +43,22 @@ void malloc_particle()
                 {
                     float3 pos = float3(dimension - 1, dimension - 1, dimension - 1);
                     particles[i].position = pos;
-                    particles[i].color = float4(255, 100, 50, 255);
+                    particles[i].color = float4(30, 100, 255, 255);
                     if(++i == n_particle) return;
                 }
     }
+}
+
+[numthreads(100, 1, 1)]
+void clear_hash_grid(uint3 id : SV_DispatchThreadID)
+{
+    particle_per_grid[id.x] = 0;
+}
+
+[numthreads(100, 1, 1)]
+void compute_hash_grid(uint3 id : SV_DispatchThreadID)
+{
+    int original_value = 0,
+    hashgrid = hash(grid(particles[id.x].position)); /* 'original_value' is an output variable that will be set to the original value of dest */
+    
 }

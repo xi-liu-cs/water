@@ -95,6 +95,7 @@
      <None Include="Assets\Style\Resources\FrameToTilesConverter.compute" />
      <None Include="Assets\Scripts\Water\coral.shader" />
      <None Include="Assets\Style\Resources\StyleDepthMotion.compute" />
+     <None Include="Assets\Scripts\Particle\particle.shader" />
      <None Include="Assets\Scripts\Fog\fog.shader" />
      <None Include="Assets\Scripts\Seafloor\seafloor.shader" />
      <None Include="Assets\Style\Resources\BFrameGenerator.compute" />
