@@ -6,10 +6,6 @@ struct particle
     float4 color;
 };
 
-float grid_size;
-int n_particle,
-dimension;
-
 RWStructuredBuffer<particle> particles;
 RWStructuredBuffer<float> density,
 pressure;
@@ -19,6 +15,11 @@ RWStructuredBuffer<int> neighbor_list,
 neighbor_per_particle,
 hash_grid,
 particle_per_grid;
+
+float grid_size;
+int n_particle,
+dimension,
+max_particle_per_grid;
 
 int3 grid(float3 position)
 {
@@ -59,6 +60,17 @@ void clear_hash_grid(uint3 id : SV_DispatchThreadID)
 void compute_hash_grid(uint3 id : SV_DispatchThreadID)
 {
     int original_value = 0,
-    hashgrid = hash(grid(particles[id.x].position)); /* 'original_value' is an output variable that will be set to the original value of dest */
+    hash_grid_position = hash(grid(particles[id.x].position));
+    InterlockedAdd(particle_per_grid[hash_grid_position], 1, original_value); /* 'original_value' is an output variable that will be set to the original value of dest */
+    if(original_value >= max_particle_per_grid)
+    {
+        particles[id.x].color = float4(255, 0, 0, 255);
+        return;
+    }
+    hash_grid[hash_grid_position * max_particle_per_grid + original_value] = id.x;
+}
+
+void set_neighbor_key(int3 origin_index, float3 position, int neighbor_key[8])
+{
     
 }
