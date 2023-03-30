@@ -79,7 +79,7 @@ public class fluid : MonoBehaviour
         mass2 = mass * mass;
         dimension3 = dimension * dimension * dimension;
         malloc_particle();
-        // find_kernel();
+        find_kernel();
         // compute_shader_init();
         compute_buffer_init();
     }
