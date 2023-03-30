@@ -14,10 +14,10 @@ public class fluid : MonoBehaviour
     radius = 1f,
     gas_constant = 2000f,
     dt = 0.0008f,
-    rest_density = 1f,
+    rest_density = 9f,
     damping = -0.5f;
     public Vector3 offset;
-    float[] g = {0f, -9.81f, 0f};
+    float[] g = {0f, -9.81f * 2000f, 0f};
     float radius2,
     radius3,
     radius4,
@@ -80,27 +80,31 @@ public class fluid : MonoBehaviour
         dimension3 = dimension * dimension * dimension;
         malloc_particle();
         find_kernel();
-        // compute_shader_init();
+        compute_shader_init();
         compute_buffer_init();
     }
 
     void Update()
     {
-        // compute_shader.Dispatch(clear_hash_grid_kernel, dimension3 / dimension, 1, 1);
-        // compute_shader.Dispatch(compute_hash_grid_kernel, n_particle / dimension, 1, 1);
-        // compute_shader.Dispatch(compute_neighbor_list_kernel, n_particle / dimension, 1, 1);
-        // compute_shader.Dispatch(compute_density_pressure_kernel, n_particle / dimension, 1, 1);
-        // compute_shader.Dispatch(compute_force_kernel, n_particle / dimension, 1, 1);
-        // compute_shader.Dispatch(integrate_kernel, n_particle / dimension, 1, 1);
+        compute_shader.Dispatch(clear_hash_grid_kernel, dimension3 / dimension, 1, 1);
+        compute_shader.Dispatch(compute_hash_grid_kernel, n_particle / dimension, 1, 1);
+        compute_shader.Dispatch(compute_neighbor_list_kernel, n_particle / dimension, 1, 1);
+        compute_shader.Dispatch(compute_density_pressure_kernel, n_particle / dimension, 1, 1);
+        compute_shader.Dispatch(compute_force_kernel, n_particle / dimension, 1, 1);
+        compute_shader.Dispatch(integrate_kernel, n_particle / dimension, 1, 1);
 
         material.SetFloat(size_property, particle_size);
         material.SetBuffer(particle_buffer_property, particle_buffer);
-        Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(100f, 100f, 100f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
+        Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
     }
 
     void malloc_particle()
     {
         particles = new particle[n_particle];
+        density = new float[n_particle];
+        pressure = new float[n_particle];
+        velocity = new Vector3[n_particle];
+        force = new Vector3[n_particle];
         int particle_per_dimension = Mathf.CeilToInt(Mathf.Pow(n_particle, 1f / 3f)),
         i = 0;
         while(i < n_particle)
@@ -151,6 +155,7 @@ public class fluid : MonoBehaviour
         compute_shader.SetFloats("g", g);
         compute_shader.SetFloats("epsilon", Mathf.Epsilon);
         compute_shader.SetFloats("pi", Mathf.PI);
+        compute_shader.SetVector("time", Shader.GetGlobalVector("_Time"));
     }
 
     unsafe void compute_buffer_init()
@@ -167,57 +172,57 @@ public class fluid : MonoBehaviour
         particle_buffer.SetData(particles);
         arg_buffer = new ComputeBuffer(1, arg.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
         arg_buffer.SetData(arg);
-        // neighbor_list = new int[n_particle * max_particle_per_grid * n];
-        // neighbor_per_particle = new int[n_particle];
-        // hash_grid = new int[dimension3 * max_particle_per_grid];
-        // particle_per_grid = new int[dimension3];
+        neighbor_list = new int[n_particle * max_particle_per_grid * n];
+        neighbor_per_particle = new int[n_particle];
+        hash_grid = new int[dimension3 * max_particle_per_grid];
+        particle_per_grid = new int[dimension3];
         
-        // neighbor_list_buffer = new ComputeBuffer(n_particle * max_particle_per_grid * n, sizeof(int));
-        // neighbor_list_buffer.SetData(neighbor_list);
-        // neighbor_per_particle_buffer = new ComputeBuffer(n_particle, sizeof(int));
-        // neighbor_per_particle_buffer.SetData(neighbor_per_particle);
-        // hash_grid_buffer = new ComputeBuffer(dimension3 * max_particle_per_grid, sizeof(int));
-        // hash_grid_buffer.SetData(hash_grid);
-        // particle_per_grid_buffer = new ComputeBuffer(dimension3, sizeof(int));
-        // particle_per_grid_buffer.SetData(particle_per_grid);
-        // density_buffer = new ComputeBuffer(n_particle, sizeof(float));
-        // density_buffer.SetData(density);
-        // pressure_buffer = new ComputeBuffer(n_particle, sizeof(float));
-        // pressure_buffer.SetData(pressure);
-        // velocity_buffer = new ComputeBuffer(n_particle, 3 * sizeof(float));
-        // velocity_buffer.SetData(velocity);
-        // force_buffer = new ComputeBuffer(n_particle, 3 * sizeof(float));
-        // force_buffer.SetData(force);
+        neighbor_list_buffer = new ComputeBuffer(n_particle * max_particle_per_grid * n, sizeof(int));
+        neighbor_list_buffer.SetData(neighbor_list);
+        neighbor_per_particle_buffer = new ComputeBuffer(n_particle, sizeof(int));
+        neighbor_per_particle_buffer.SetData(neighbor_per_particle);
+        hash_grid_buffer = new ComputeBuffer(dimension3 * max_particle_per_grid, sizeof(int));
+        hash_grid_buffer.SetData(hash_grid);
+        particle_per_grid_buffer = new ComputeBuffer(dimension3, sizeof(int));
+        particle_per_grid_buffer.SetData(particle_per_grid);
+        density_buffer = new ComputeBuffer(n_particle, sizeof(float));
+        density_buffer.SetData(density);
+        pressure_buffer = new ComputeBuffer(n_particle, sizeof(float));
+        pressure_buffer.SetData(pressure);
+        velocity_buffer = new ComputeBuffer(n_particle, 3 * sizeof(float));
+        velocity_buffer.SetData(velocity);
+        force_buffer = new ComputeBuffer(n_particle, 3 * sizeof(float));
+        force_buffer.SetData(force);
 
-        // compute_shader.SetBuffer(clear_hash_grid_kernel, "particle_per_grid", particle_per_grid_buffer);
+        compute_shader.SetBuffer(clear_hash_grid_kernel, "particle_per_grid", particle_per_grid_buffer);
 
-        // compute_shader.SetBuffer(compute_hash_grid_kernel, "particles", particle_buffer);
-        // compute_shader.SetBuffer(compute_hash_grid_kernel, "hash_grid", hash_grid_buffer);
-        // compute_shader.SetBuffer(compute_hash_grid_kernel, "particle_per_grid", particle_per_grid_buffer);
+        compute_shader.SetBuffer(compute_hash_grid_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(compute_hash_grid_kernel, "hash_grid", hash_grid_buffer);
+        compute_shader.SetBuffer(compute_hash_grid_kernel, "particle_per_grid", particle_per_grid_buffer);
 
-        // compute_shader.SetBuffer(compute_neighbor_list_kernel, "particles", particle_buffer);
-        // compute_shader.SetBuffer(compute_neighbor_list_kernel, "hash_grid", hash_grid_buffer);
-        // compute_shader.SetBuffer(compute_neighbor_list_kernel, "particle_per_grid", particle_per_grid_buffer);
-        // compute_shader.SetBuffer(compute_neighbor_list_kernel, "neighbor_list", neighbor_list_buffer);
-        // compute_shader.SetBuffer(compute_neighbor_list_kernel, "neighbor_per_particle", neighbor_per_particle_buffer);
+        compute_shader.SetBuffer(compute_neighbor_list_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(compute_neighbor_list_kernel, "hash_grid", hash_grid_buffer);
+        compute_shader.SetBuffer(compute_neighbor_list_kernel, "particle_per_grid", particle_per_grid_buffer);
+        compute_shader.SetBuffer(compute_neighbor_list_kernel, "neighbor_list", neighbor_list_buffer);
+        compute_shader.SetBuffer(compute_neighbor_list_kernel, "neighbor_per_particle", neighbor_per_particle_buffer);
         
-        // compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_list", neighbor_list_buffer);
-        // compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_per_particle", neighbor_per_particle_buffer);
-        // compute_shader.SetBuffer(compute_density_pressure_kernel, "particles", particle_buffer);
-        // compute_shader.SetBuffer(compute_density_pressure_kernel, "density", density_buffer);
-        // compute_shader.SetBuffer(compute_density_pressure_kernel, "pressure", pressure_buffer);
+        compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_list", neighbor_list_buffer);
+        compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_per_particle", neighbor_per_particle_buffer);
+        compute_shader.SetBuffer(compute_density_pressure_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(compute_density_pressure_kernel, "density", density_buffer);
+        compute_shader.SetBuffer(compute_density_pressure_kernel, "pressure", pressure_buffer);
 
-        // compute_shader.SetBuffer(compute_force_kernel, "neighbor_list", neighbor_list_buffer);
-        // compute_shader.SetBuffer(compute_force_kernel, "neighbor_per_particle", neighbor_per_particle_buffer);
-        // compute_shader.SetBuffer(compute_force_kernel, "particles", particle_buffer);
-        // compute_shader.SetBuffer(compute_force_kernel, "density", density_buffer);
-        // compute_shader.SetBuffer(compute_force_kernel, "pressure", pressure_buffer);
-        // compute_shader.SetBuffer(compute_force_kernel, "velocity", velocity_buffer);
-        // compute_shader.SetBuffer(compute_force_kernel, "force", force_buffer);
+        compute_shader.SetBuffer(compute_force_kernel, "neighbor_list", neighbor_list_buffer);
+        compute_shader.SetBuffer(compute_force_kernel, "neighbor_per_particle", neighbor_per_particle_buffer);
+        compute_shader.SetBuffer(compute_force_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(compute_force_kernel, "density", density_buffer);
+        compute_shader.SetBuffer(compute_force_kernel, "pressure", pressure_buffer);
+        compute_shader.SetBuffer(compute_force_kernel, "velocity", velocity_buffer);
+        compute_shader.SetBuffer(compute_force_kernel, "force", force_buffer);
 
-        // compute_shader.SetBuffer(integrate_kernel, "particles", particle_buffer);
-        // compute_shader.SetBuffer(integrate_kernel, "velocity", velocity_buffer);
-        // compute_shader.SetBuffer(integrate_kernel, "force", force_buffer);
+        compute_shader.SetBuffer(integrate_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(integrate_kernel, "velocity", velocity_buffer);
+        compute_shader.SetBuffer(integrate_kernel, "force", force_buffer);
     }
 
     void OnDestroy()
