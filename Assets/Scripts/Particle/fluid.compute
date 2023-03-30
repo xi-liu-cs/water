@@ -225,8 +225,8 @@ void compute_force(uint3 id : SV_DispatchThreadID)
         if(distance > 0)
         {
             float3 direction = (particles[id.x].position - particles[neighbor_index].position) / distance;
-            force[id.x] -= mass2 * (pressure[id.x] / particle_density2 + pressure[neighbor_index] / (density[neighbor_index] * density[neighbor_index])) * spiky_kernel_gradient(distance, direction); /* compute pressure gradient force */
-            force[id.x] += viscosity_coefficient * mass2 * (velocity[neighbor_index] - velocity[id.x]) / density[neighbor_index] * spiky_kernel_second_derivative(distance);
+            force[id.x] -= mass2 * (pressure[id.x] / particle_density2 + pressure[neighbor_index] / (density[neighbor_index] * density[neighbor_index])) * spiky_kernel_gradient(distance, direction) + 1000 * noise(float3(time.x, time.y, time.z)); /* compute pressure gradient force */
+            force[id.x] += viscosity_coefficient * mass2 * (velocity[neighbor_index] - velocity[id.x]) / density[neighbor_index] * spiky_kernel_second_derivative(distance) + 1000 * noise(float3(time.x, time.y, time.z));
         }
     }
     force[id.x] += g;
@@ -240,7 +240,7 @@ void integrate(uint3 id : SV_DispatchThreadID)
     p.position += velocity[id.x] * dt;
     particles[id.x] = p;
     float3 v = velocity[id.x];
-    if(particles[id.x].position.x + epsilon > dimension - 1)
+    /* if(particles[id.x].position.x + epsilon > dimension - 1)
     {
         v.x *= damping;
         p.position.x = dimension - 1 - epsilon + noise(float3(time.x, time.y, time.z));
@@ -254,7 +254,7 @@ void integrate(uint3 id : SV_DispatchThreadID)
     {
         v.z *= damping;
         p.position.z = dimension - 1 - epsilon - noise(float3(time.x, time.y, time.z));
-    }
+    } */
     velocity[id.x] = v;
     particles[id.x] = p;
 }
