@@ -1,4 +1,10 @@
 #pragma kernel malloc_particle
+#pragma kernel clear_hash_grid
+#pragma kernel compute_hash_grid
+#pragma kernel compute_neighbor_list
+#pragma kernel compute_density_pressure
+#pragma kernel compute_force
+#pragma kernel integrate
 
 struct particle
 {
@@ -16,8 +22,24 @@ neighbor_per_particle,
 hash_grid,
 particle_per_grid;
 
-float grid_size;
-int n_particle,
+float grid_size,
+radius,
+radius2,
+radius3,
+radius4,
+radius5,
+mass,
+mass2,
+gas_constant,
+rest_density,
+viscosity_coefficient,
+damping,
+dt,
+g,
+epsilon,
+pi;
+int n = 8,
+n_particle,
 dimension,
 max_particle_per_grid;
 
@@ -70,7 +92,182 @@ void compute_hash_grid(uint3 id : SV_DispatchThreadID)
     hash_grid[hash_grid_position * max_particle_per_grid + original_value] = id.x;
 }
 
-void set_neighbor_key(int3 origin_index, float3 position, int neighbor_key[8])
+void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8])
 {
-    
+    int3 neighbor_index[8];
+    for(int i = 0; i < n; ++i)
+        neighbor_index[i] = origin_index;
+    if((origin_index.x + 0.5f) * grid_size <= position.x)
+    {
+        ++neighbor_index[4].x;
+        ++neighbor_index[5].x;
+        ++neighbor_index[6].x;
+        ++neighbor_index[7].x;
+    }
+    else
+    {
+        --neighbor_index[4].x;
+        --neighbor_index[5].x;
+        --neighbor_index[6].x;
+        --neighbor_index[7].x;
+    }
+    if((origin_index.y + 0.5f) * grid_size <= position.y)
+    {
+        ++neighbor_index[2].y;
+        ++neighbor_index[3].y;
+        ++neighbor_index[6].y;
+        ++neighbor_index[7].y;
+    }
+    else
+    {
+        --neighbor_index[2].y;
+        --neighbor_index[3].y;
+        --neighbor_index[6].y;
+        --neighbor_index[7].y;
+    }
+    if((origin_index.z + 0.5f) * grid_size <= position.z)
+    {
+        ++neighbor_index[1].z;
+        ++neighbor_index[3].z;
+        ++neighbor_index[5].z;
+        ++neighbor_index[7].z;
+    }
+    else
+    {
+        --neighbor_index[1].z;
+        --neighbor_index[3].z;
+        --neighbor_index[5].z;
+        --neighbor_index[7].z;
+    }
+    for(int i = 0; i < n; ++i)
+    {
+        int3 neighbor = neighbor_index[i];
+        if(neighbor.x < 0 || neighbor.x >= dimension || neighbor.y < 0 || neighbor.y >= dimension || neighbor.z < 0 || neighbor.z >= dimension)
+            neighbor_key[i] = -1;
+        else
+            neighbor_key[i] = hash(neighbor_index[i]);
+    }
+}
+
+[numthreads(100, 1, 1)]
+void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
+{
+    neighbor_per_particle[id.x] = 0;
+    int3 g = grid(particles[id.x].position);
+    int grids[8];
+    set_neighbor_key(g, particles[id.x].position, grids);
+    for(int i = 0; i < n; ++i)
+    {
+        if(grids[i] == -1) continue;
+        int particle_in_grid = min(particle_per_grid[grids[i]], max_particle_per_grid);
+        for(int j = 0; j < particle_in_grid; ++j)
+        {
+            int potential_neighbor = hash_grid[grids[i] * max_particle_per_grid + j];
+            if(potential_neighbor == id.x) continue;
+            float3 v = particles[potential_neighbor].position - particles[id.x].position;
+            if(dot(v, v) < radius2)
+                neighbor_list[id.x * max_particle_per_grid * n + neighbor_per_particle[id.x]++] = potential_neighbor;
+        }
+    }
+}
+
+float std_kernel(float distance_square)
+{
+    float x = 1.0 - distance_square / radius2;
+    return 315.0 / (64.0 * pi * radius3) * x * x * x;
+}
+
+float spiky_kernel_first_derivative(float distance)
+{
+    float x = 1.0 - distance / radius;
+    return -45.0 / (pi * radius4) * x * x;
+}
+
+float spiky_kernel_second_derivative(float distance)
+{
+    float x = 1.0 - distance / radius;
+    return 90.0 / (pi * radius5) * x;
+}
+
+float3 spiky_kernel_gradient(float distance, float3 direction_from_center)
+{
+    return spiky_kernel_first_derivative(distance) * direction_from_center;
+}
+
+[numthreads(100, 1, 1)]
+void compute_density_pressure(uint3 id : SV_DispatchThreadID)
+{
+    int n = 8;
+    float3 origin = particles[id.x].position;
+    float sum = 0;
+    for(int i = 0; i < neighbor_per_particle[id.x]; ++i)
+    {
+        int neighbor_index = neighbor_list[id.x * max_particle_per_grid * n + i];
+        float3 diff = origin - particles[neighbor_index].position;
+        float distance_square = dot(diff, diff);
+        sum += std_kernel(distance_square);
+    }
+    density[id.x] = sum * mass;
+    pressure[id.x] = gas_constant * (density[id.x] - rest_density);
+}
+
+[numthreads(100, 1, 1)]
+void compute_force(uint3 id : SV_DispatchThreadID)
+{
+    force[id.x] = float3(0, 0, 0);
+    float particle_density2 = density[id.x] * density[id.x];
+    for(int i = 0; i < neighbor_per_particle[id.x]; ++i)
+    {
+        int neighbor_index = neighbor_list[id.x * max_particle_per_grid * n + i];
+        float distance = length(particles[id.x].position - particles[neighbor_index].position) / distance;
+        if(distance > 0)
+        {
+            float3 direction = (particles[id.x].position - particles[neighbor_index].position) / distance;
+            force[id.x] -= mass2 * (pressure[id.x] / particle_density2 + pressure[neighbor_index] / (density[neighbor_index] * density[neighbor_index])) * spiky_kernel_gradient(distance, direction); /* compute pressure gradient force */
+            force[id.x] += viscosity_coefficient * mass2 * (velocity[neighbor_index] - velocity[id.x]) / density[neighbor_index] * spiky_kernel_second_derivative(distance);
+        }
+    }
+    force[id.x] += g;
+}
+
+[numthreads(100, 1, 1)]
+void integrate(uint3 id : SV_DispatchThreadID)
+{
+    particle p = particles[id.x]; 
+    velocity[id.x] += force[id.x] / mass * dt;
+    p.position += velocity[id.x] * dt;
+    particles[id.x] = p;
+    float3 v = velocity[id.x];
+    if(particles[id.x].position.x - epsilon < 0)
+    {
+        v.x *= damping;
+        p.position.x = epsilon;
+    }
+    else if(particles[id.x].position.x + epsilon > dimension - 1)
+    {
+        v.x *= damping;
+        p.position.x = dimension - 1 - epsilon;
+    }
+    if(particles[id.x].position.y - epsilon < 0)
+    {
+        v.x *= damping;
+        p.position.y = epsilon;
+    }
+    else if(particles[id.x].position.y + epsilon > dimension - 1)
+    {
+        v.y *= damping;
+        p.position.y = dimension - 1 - epsilon;
+    }
+    if(particles[id.x].position.z - epsilon < 0)
+    {
+        v.z *= damping;
+        p.position.z = epsilon;
+    }
+    else if(particles[id.x].position.z + epsilon > dimension - 1)
+    {
+        v.z *= damping;
+        p.position.z = dimension - 1 - epsilon;
+    }
+    velocity[id.x] = v;
+    particles[id.x] = p;
 }
