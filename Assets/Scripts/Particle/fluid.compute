@@ -15,7 +15,8 @@ struct particle
 
 RWStructuredBuffer<particle> particles;
 RWStructuredBuffer<float> density,
-pressure;
+pressure,
+bound;
 RWStructuredBuffer<float3> force,
 velocity;
 RWStructuredBuffer<int> neighbor_list,
@@ -255,6 +256,8 @@ void integrate(uint3 id : SV_DispatchThreadID)
         v.z *= damping;
         p.position.z = dimension - 1 - epsilon - noise(float3(time.x, time.y, time.z));
     } */
+    if(p.position.y < bound[3])
+        v.y = -v.y;
     velocity[id.x] = v;
     particles[id.x] = p;
 }

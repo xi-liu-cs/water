@@ -17,7 +17,8 @@ public class fluid : MonoBehaviour
     rest_density = 9f,
     damping = -0.5f;
     public Vector3 offset;
-    float[] g = {0f, -9.81f * 2000f, 0f};
+    public float[] g = {0f, -9.81f * 2000f, 0f},
+    bound = {0, 0, 0, -300, 0, 0};
     float radius2,
     radius3,
     radius4,
@@ -40,7 +41,8 @@ public class fluid : MonoBehaviour
     int size_property = Shader.PropertyToID("size"),
     particle_buffer_property = Shader.PropertyToID("particle_buffer");
 
-    int n = 8; /* 8 grids */
+    int n = 8, /* 8 grids */
+    n_bound = 6;
     particle[] particles;
     int[] neighbor_list,
     neighbor_per_particle,
@@ -60,7 +62,8 @@ public class fluid : MonoBehaviour
     density_buffer,
     pressure_buffer,
     velocity_buffer,
-    force_buffer;
+    force_buffer,
+    bound_buffer;
 
     public ComputeShader compute_shader;
     int clear_hash_grid_kernel,
@@ -77,10 +80,7 @@ public class fluid : MonoBehaviour
         radius4 = radius3 * radius;
         radius5 = radius4 * radius;
         mass2 = mass * mass;
-        
-        /* BEGIN DIFFERENCE */
         dimension3 = dimension * dimension * dimension;
-        /* END DIFFERENCE */
 
         malloc_particle();
         find_kernel();
@@ -102,15 +102,14 @@ public class fluid : MonoBehaviour
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
     }
 
-    // This method randomly generates particles within a 3D grid defined by `n_particle`. For example, if we expect 27 particles, we will generate a 3x3x3 grid and randomly generate points within that grid.
     void malloc_particle()
     {
-        particles = new particle[n_particle];   // Generate new array of `particle` structs that represent each particle
-        density = new float[n_particle];        // Generate a new array of floats that represent density
-        pressure = new float[n_particle];       // Generate a new array of floats that represent pressure
-        velocity = new Vector3[n_particle];     // Generate a new array of Vector3's that represent velocity
-        force = new Vector3[n_particle];        // Generate a new array of Vector3's that represent force
-        int particle_per_dimension = Mathf.CeilToInt(Mathf.Pow(n_particle, 1f / 3f)),       // Calculate how many particles are in each dimension. Ex. if we have 27 particles, we expect `particle_per_dimension to == 3
+        particles = new particle[n_particle];
+        density = new float[n_particle];
+        pressure = new float[n_particle];
+        velocity = new Vector3[n_particle];
+        force = new Vector3[n_particle]; 
+        int particle_per_dimension = Mathf.CeilToInt(Mathf.Pow(n_particle, 1f / 3f)),
         i = 0;
         while(i < n_particle)
         {
@@ -125,16 +124,15 @@ public class fluid : MonoBehaviour
                             position = pos,
                             color = new Vector4(0.3f, 0.5f, 1f, 0.5f)
                         };
-                        density[i] = -1f;
-                        pressure[i] = 0.0f;
+                        density[i] = -1;
+                        pressure[i] = 0;
                         force[i] = Vector3.zero;
-                        velocity[i] = Vector3.up * 10f;
+                        velocity[i] = Vector3.down * 500;
                         if(++i == n_particle) return;
                     }
         }
     }
 
-    // This method interacts with the `compute_shader`, getting the indexes of each property of the shader and storing them for later.
     void find_kernel()
     {
         clear_hash_grid_kernel = compute_shader.FindKernel("clear_hash_grid");
@@ -145,7 +143,6 @@ public class fluid : MonoBehaviour
         integrate_kernel = compute_shader.FindKernel("integrate");
     }
 
-    // This method initializes the compute_shader with values we generated here in this script.
     void compute_shader_init()
     {
         compute_shader.SetFloat("grid_size", 4 * radius);
@@ -169,10 +166,8 @@ public class fluid : MonoBehaviour
         compute_shader.SetVector("time", Shader.GetGlobalVector("_Time"));
     }
 
-    // This method...
     unsafe void compute_buffer_init()
     {
-        // Generate an array of `uint` values. It interacts with a `particle-mesh` that I presume visualizes the particles.
         uint[] arg =
         {
             particle_mesh.GetIndexCount(0),
@@ -181,56 +176,33 @@ public class fluid : MonoBehaviour
             particle_mesh.GetBaseVertex(0),
             0
         };
-        arg_buffer = new ComputeBuffer(
-            1, 
-            arg.Length * sizeof(uint), 
-            ComputeBufferType.IndirectArguments
-        );
-        arg_buffer.SetData(arg);
-
-        particle_buffer = new ComputeBuffer(
-            n_particle, 
-            sizeof(particle)
-        );
+        particle_buffer = new ComputeBuffer(n_particle, sizeof(particle));
         particle_buffer.SetData(particles);
-        
+        arg_buffer = new ComputeBuffer(1, arg.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
+        arg_buffer.SetData(arg);
         neighbor_list = new int[n_particle * max_particle_per_grid * n];
         neighbor_per_particle = new int[n_particle];
-        
         hash_grid = new int[dimension3 * max_particle_per_grid];
         particle_per_grid = new int[dimension3];
         
-        neighbor_list_buffer = new ComputeBuffer(
-            n_particle * max_particle_per_grid * n, 
-            sizeof(int)
-        );
+        neighbor_list_buffer = new ComputeBuffer(n_particle * max_particle_per_grid * n, sizeof(int));
         neighbor_list_buffer.SetData(neighbor_list);
-        neighbor_per_particle_buffer = new ComputeBuffer(
-            n_particle, 
-            sizeof(int)
-        );
+        neighbor_per_particle_buffer = new ComputeBuffer(n_particle, sizeof(int));
         neighbor_per_particle_buffer.SetData(neighbor_per_particle);
-        
-        hash_grid_buffer = new ComputeBuffer(
-            dimension3 * max_particle_per_grid, 
-            sizeof(int)
-        );
+        hash_grid_buffer = new ComputeBuffer(dimension3 * max_particle_per_grid, sizeof(int));
         hash_grid_buffer.SetData(hash_grid);
-        particle_per_grid_buffer = new ComputeBuffer(
-            dimension3, 
-            sizeof(int)
-        );
+        particle_per_grid_buffer = new ComputeBuffer(dimension3, sizeof(int));
         particle_per_grid_buffer.SetData(particle_per_grid);
-        
         density_buffer = new ComputeBuffer(n_particle, sizeof(float));
         density_buffer.SetData(density);
         pressure_buffer = new ComputeBuffer(n_particle, sizeof(float));
         pressure_buffer.SetData(pressure);
-        
         velocity_buffer = new ComputeBuffer(n_particle, 3 * sizeof(float));
         velocity_buffer.SetData(velocity);
         force_buffer = new ComputeBuffer(n_particle, 3 * sizeof(float));
         force_buffer.SetData(force);
+        bound_buffer = new ComputeBuffer(n_bound, sizeof(float));
+        bound_buffer.SetData(bound);
 
         compute_shader.SetBuffer(clear_hash_grid_kernel, "particle_per_grid", particle_per_grid_buffer);
 
@@ -261,6 +233,7 @@ public class fluid : MonoBehaviour
         compute_shader.SetBuffer(integrate_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(integrate_kernel, "velocity", velocity_buffer);
         compute_shader.SetBuffer(integrate_kernel, "force", force_buffer);
+        compute_shader.SetBuffer(integrate_kernel, "bound", bound_buffer);
     }
 
     void OnDestroy()
