@@ -1004,8 +1004,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 226704146}
-  m_LocalRotation: {x: -0, y: 1, z: -0, w: -0.00000004371139}
-  m_LocalPosition: {x: 400.71564, y: -38.59066, z: 57.96393}
+  m_LocalRotation: {x: 0.0044044773, y: 0.99267524, z: 0.115469866, w: -0.035260145}
+  m_LocalPosition: {x: 309.21375, y: -83.94124, z: 86.56464}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -31227,17 +31227,18 @@ MonoBehaviour:
   rest_density: 1
   damping: -0.5
   offset: {x: -140, y: -230, z: -60}
+  velocity_initial: {x: 0, y: 500, z: 0}
   g:
   - 0
   - -19620
   - 0
   bound:
-  - 0
-  - 0
-  - 0
-  - -300
-  - 0
-  - 0
+  - -200
+  - 200
+  - -308
+  - -12.7
+  - -200
+  - 200
   n_particle: 130000
   dimension: 100
   max_particle_per_grid: 500

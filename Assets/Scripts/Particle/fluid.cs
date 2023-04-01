@@ -16,7 +16,8 @@ public class fluid : MonoBehaviour
     dt = 0.0008f,
     rest_density = 9f,
     damping = -0.5f;
-    public Vector3 offset;
+    public Vector3 offset,
+    velocity_initial = new Vector3(0, 500, 0);
     public float[] g = {0f, -9.81f * 2000f, 0f},
     bound = {0, 0, 0, -300, 0, 0};
     float radius2,
@@ -127,7 +128,7 @@ public class fluid : MonoBehaviour
                         density[i] = -1;
                         pressure[i] = 0;
                         force[i] = Vector3.zero;
-                        velocity[i] = Vector3.down * 500;
+                        velocity[i] = velocity_initial;
                         if(++i == n_particle) return;
                     }
         }
@@ -168,14 +169,7 @@ public class fluid : MonoBehaviour
 
     unsafe void compute_buffer_init()
     {
-        uint[] arg =
-        {
-            particle_mesh.GetIndexCount(0),
-            (uint)n_particle,
-            particle_mesh.GetIndexStart(0),
-            particle_mesh.GetBaseVertex(0),
-            0
-        };
+        uint[] arg = {particle_mesh.GetIndexCount(0), (uint)n_particle, particle_mesh.GetIndexStart(0), particle_mesh.GetBaseVertex(0), 0};
         particle_buffer = new ComputeBuffer(n_particle, sizeof(particle));
         particle_buffer.SetData(particles);
         arg_buffer = new ComputeBuffer(1, arg.Length * sizeof(uint), ComputeBufferType.IndirectArguments);

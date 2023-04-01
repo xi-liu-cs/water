@@ -210,7 +210,7 @@ void compute_density_pressure(uint3 id : SV_DispatchThreadID)
         float distance_square = dot(diff, diff);
         sum += std_kernel(distance_square);
     }
-    density[id.x] = sum * mass + 0.000001f;
+    density[id.x] = sum * mass;
     pressure[id.x] = gas_constant * (density[id.x] - rest_density);
 }
 
@@ -240,24 +240,14 @@ void integrate(uint3 id : SV_DispatchThreadID)
     velocity[id.x] += force[id.x] / mass * dt;
     p.position += velocity[id.x] * dt;
     particles[id.x] = p;
-    float3 v = velocity[id.x];
-    /* if(particles[id.x].position.x + epsilon > dimension - 1)
-    {
-        v.x *= damping;
-        p.position.x = dimension - 1 - epsilon + noise(float3(time.x, time.y, time.z));
-    }
-    if(particles[id.x].position.y + epsilon > dimension - 1)
-    {
-        v.y *= damping;
-        p.position.y = dimension - 1 - epsilon + noise(float3(time.x, time.y, time.z));
-    }
-    if(particles[id.x].position.z + epsilon > dimension - 1)
-    {
-        v.z *= damping;
-        p.position.z = dimension - 1 - epsilon - noise(float3(time.x, time.y, time.z));
-    } */
-    if(p.position.y < bound[3])
-        v.y = -v.y;
+    float3 pos = p.position,
+    v = velocity[id.x];
+    if(pos.x < bound[0] || pos.x > bound[1])
+        v.x = damping * v.x + noise(pos);
+    if(pos.y < bound[2] || pos.y > bound[3])
+        v.y = damping * v.y + noise(pos);
+    if(pos.z < bound[4] || pos.z > bound[5])
+        v.z = damping * v.z + noise(pos);
     velocity[id.x] = v;
     particles[id.x] = p;
 }
