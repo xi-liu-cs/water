@@ -5,7 +5,7 @@ using UnityEngine;
 class density_generator : MonoBehaviour
 {
     public ComputeShader density_shader;
-    int thread_group_size = 8;
+    const int thread_group_size = 8;
     public List<ComputeBuffer> buffer_release;
     public int density_kernel;
 

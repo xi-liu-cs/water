@@ -28,16 +28,16 @@ class chunk : MonoBehaviour
         mesh_filter = GetComponent<MeshFilter>();
         mesh_renderer = GetComponent<MeshRenderer>();
         mesh_collider = GetComponent<MeshCollider>();
-        if(!mesh_filter)
+        if(mesh_filter == null)
             mesh_filter = gameObject.AddComponent<MeshFilter>();
-        if(!mesh_renderer)
+        if(mesh_renderer == null)
             mesh_renderer = gameObject.AddComponent<MeshRenderer>();
-        if(!mesh_collider && generate_collider)
+        if(mesh_collider == null && generate_collider)
             mesh_collider = gameObject.AddComponent<MeshCollider>();
-        if(!mesh_collider && !generate_collider)
+        if(mesh_collider != null && !generate_collider)
             DestroyImmediate(mesh_collider);
         mesh = mesh_filter.sharedMesh;
-        if(!mesh)
+        if(mesh == null)
         {
             mesh = new Mesh();
             mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
@@ -45,7 +45,7 @@ class chunk : MonoBehaviour
         }
         if(generate_collider)
         {
-            if(!mesh_collider.sharedMesh)
+            if(mesh_collider.sharedMesh == null)
                 mesh_collider.sharedMesh = mesh;
             mesh_collider.enabled = false;
             mesh_collider.enabled = true;

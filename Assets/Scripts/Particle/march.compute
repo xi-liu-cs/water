@@ -1,6 +1,6 @@
 #include "march_table.compute"
 #pragma kernel march
-int n_thread = 8;
+static const int n_thread = 8;
 
 struct tri
 {

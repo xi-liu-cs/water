@@ -10,8 +10,8 @@ struct particle
 RWStructuredBuffer<particle> particles;
 RWStructuredBuffer<float4> points;
 StructuredBuffer<float3> offsets;
-int n_thread = 8,
-n_point_per_axis,
+static const int n_thread = 8;
+int n_point_per_axis,
 octave;
 float lacunarity,
 persistence,
@@ -40,7 +40,8 @@ void density(int3 id : SV_DispatchThreadID)
     if(id.x >= n_point_per_axis || id.y >= n_point_per_axis || id.z >= n_point_per_axis)
         return;
     int index = index_from_coordinate(id.x, id.y, id.z);
-    float3 pos = particles[index].position;
+    /* float3 pos = particles[index].position; */
+    float3 pos = center + id * spacing - 0.5 * bound_size;
     float noise = 0,
     offset_noise = 0,
     frequency = noise_scale * 0.01,
@@ -48,7 +49,7 @@ void density(int3 id : SV_DispatchThreadID)
     weight = 1;
     for(int i = 0; i < octave; ++i)
     {
-        float n = snoise((pos + offset_noise) * frequency + offsets[i]),
+        float n = snoise((pos + offset_noise) * frequency + offsets[i] + offset),
         v = 1 - abs(n);
         v *= v * weight;
         weight = max(min(weight_multiplier * v, 1), 0);

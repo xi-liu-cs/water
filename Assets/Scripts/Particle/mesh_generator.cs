@@ -2,9 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-class mesh_generator : fluid
+class mesh_generator : MonoBehaviour /* class mesh_generator : fluid */
 {
-    int thread_group_size = 8;
+    const int thread_group_size = 8;
     public density_generator density_gen;
     public bool fixed_map_size;
     public Vector3Int n_chunk = Vector3Int.one;
@@ -128,7 +128,7 @@ class mesh_generator : fluid
             chunk chunk_i = chunks[i];
             Vector3 center = center_from_coordinate(chunk_i.coordinate),
             viewer_offset = viewer_position - center,
-            o = new Vector3(Mathf.Abs(viewer_offset.x), Mathf.Abs(viewer_offset.y), Mathf.Abs(viewer_offset.z));
+            o = new Vector3(Mathf.Abs(viewer_offset.x), Mathf.Abs(viewer_offset.y), Mathf.Abs(viewer_offset.z)) - Vector3.one * bound_size / 2;
             float distance_square = new Vector3(Mathf.Max(o.x, 0), Mathf.Max(o.y, 0), Mathf.Max(o.z, 0)).sqrMagnitude;
             if(distance_square > view_distance_square)
             {
@@ -147,7 +147,7 @@ class mesh_generator : fluid
                     if(exist_chunk.ContainsKey(coordinate)) continue;
                     Vector3 center = center_from_coordinate(coordinate),
                     viewer_offset = viewer_position - center,
-                    o = new Vector3(Mathf.Abs(viewer_offset.x), Mathf.Abs(viewer_offset.y), Mathf.Abs(viewer_offset.z));
+                    o = new Vector3(Mathf.Abs(viewer_offset.x), Mathf.Abs(viewer_offset.y), Mathf.Abs(viewer_offset.z)) - Vector3.one * bound_size / 2;
                     float distance_square = new Vector3(Mathf.Max(o.x, 0), Mathf.Max(o.y, 0), Mathf.Max(o.z, 0)).sqrMagnitude;
 
                     if(distance_square <= view_distance_square)
@@ -248,7 +248,7 @@ class mesh_generator : fluid
         {
             if(Application.isPlaying)
                 release_buffer();
-            compute_buffer_init();
+            /* compute_buffer_init(); */
             triangle_buffer = new ComputeBuffer(max_triangle_count, sizeof(triangle), ComputeBufferType.Append);
             point_buffer = new ComputeBuffer(n_point, 4 * sizeof(float));
             triangle_count_buffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
@@ -270,7 +270,7 @@ class mesh_generator : fluid
         if(fixed_map_size)
         {
             Vector3 total_bound = (Vector3)n_chunk * bound_size;
-            return -0.25f * total_bound + (Vector3)coordinate * bound_size + Vector3.one * bound_size; /* return -0.5 * total_bound + coordinate * bound_size + Vector3.one * 0.5 * bound_size; */
+            return -total_bound / 2 + (Vector3)coordinate * bound_size + Vector3.one * bound_size / 2;
         }
         return bound_size * new Vector3(coordinate.x, coordinate.y, coordinate.z);
     }
@@ -318,7 +318,9 @@ class mesh_generator : fluid
                     chunks[chunks.Count - 1].setup(mat, generate_collider);
                 }
             }
-        }        
+        }
+        for(int i = 0; i < old_chunk.Count; ++i)
+            old_chunk[i].destroy_or_disable();       
     }
 
     chunk create_chunk(Vector3Int coordinate)
