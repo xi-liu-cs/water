@@ -15,8 +15,8 @@ public class fluid : MonoBehaviour
     gas_constant = 2000f,
     dt = 0.0008f,
     rest_density = 9f,
-    damping = -0.5f;
-    public Vector3 offset,
+    damping = -1f;
+    public Vector3 position_offset,
     velocity_initial = new Vector3(0, 500, 0);
     public float[] g = {0f, -9.81f * 2000f, 0f},
     bound = {0, 0, 0, -300, 0, 0};
@@ -119,7 +119,7 @@ public class fluid : MonoBehaviour
                     for(int z = 0; z < particle_per_dimension; ++z)
                     {
                         float r = Random.Range(0f, 5f);
-                        Vector3 pos = new Vector3(1.5f * r * x, r * y, r * z) + offset;
+                        Vector3 pos = new Vector3(1.5f * r * x, r * y, r * z) + position_offset;
                         particles[i] = new particle
                         {
                             position = pos,
@@ -167,7 +167,7 @@ public class fluid : MonoBehaviour
         compute_shader.SetVector("time", Shader.GetGlobalVector("_Time"));
     }
 
-    unsafe void compute_buffer_init()
+    public unsafe void compute_buffer_init()
     {
         uint[] arg = {particle_mesh.GetIndexCount(0), (uint)n_particle, particle_mesh.GetIndexStart(0), particle_mesh.GetBaseVertex(0), 0};
         particle_buffer = new ComputeBuffer(n_particle, sizeof(particle));
