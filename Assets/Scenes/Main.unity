@@ -1081,8 +1081,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 226704146}
-  m_LocalRotation: {x: -0.0012642179, y: 0.99776286, z: 0.06385343, w: 0.019759715}
-  m_LocalPosition: {x: 408.74786, y: -33.41546, z: 17.629395}
+  m_LocalRotation: {x: 0.0064786994, y: 0.9796302, z: 0.19837962, w: -0.030469088}
+  m_LocalPosition: {x: 394.25443, y: -54.47071, z: 37.64383}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6310,64 +6310,6 @@ GameObject:
     type: 3}
   m_PrefabInstance: {fileID: 1811290831}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &405827798
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 405827799}
-  - component: {fileID: 405827800}
-  m_Layer: 0
-  m_Name: mesh
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!4 &405827799
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 405827798}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1944129685}
-  m_RootOrder: 17
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &405827800
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 405827798}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 029882fa33ccf0844a21b3f13183ca40, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  density_gen: {fileID: 1397464609}
-  fixed_map_size: 0
-  n_chunk: {x: 1, y: 1, z: 1}
-  viewer: {fileID: 963194228}
-  view_distance: 37
-  auto_update_in_editor: 1
-  auto_update_in_game: 1
-  shader: {fileID: 7200000, guid: 0257d3eba1bc0664b82f85a214534f3b, type: 3}
-  mat: {fileID: 2100000, guid: afecfc02dd6cff240b23f0cfa88b7768, type: 2}
-  generate_collider: 0
-  isolevel: 8
-  bound_size: 10
-  offset: {x: -0.5, y: 0, z: 0}
-  n_point_per_axis: 30
 --- !u!1 &451175100
 GameObject:
   m_ObjectHideFlags: 0
@@ -20213,64 +20155,6 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 36545d2c91b370a40a59d29a21cd4bd9, type: 3}
---- !u!1 &1397464607
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1397464608}
-  - component: {fileID: 1397464609}
-  m_Layer: 0
-  m_Name: density
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1397464608
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1397464607}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1944129685}
-  m_RootOrder: 18
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1397464609
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1397464607}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8a109444e141456428f192e4f3b98480, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  density_shader: {fileID: 7200000, guid: 84afecd4c8f4d2749a7172c3a21b3321, type: 3}
-  density_kernel: 0
-  seed: 1
-  n_octave: 8
-  lacunarity: 2
-  persistence: 0.5
-  noise_scale: 2.5
-  noise_weight: 11
-  floor_offset: 1
-  weight_multiplier: 10
-  hard_floor_height: 0
-  hard_floor_weight: 0
-  close_edge: 0
-  shader_param: {x: 5, y: 1, z: 0.5, w: -0.05}
 --- !u!4 &1421538084 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1c08e5ae0955684468b66d6209b11aa3,
@@ -31558,8 +31442,6 @@ Transform:
   - {fileID: 1797180043}
   - {fileID: 108013501}
   - {fileID: 1700188823}
-  - {fileID: 405827799}
-  - {fileID: 1397464608}
   m_Father: {fileID: 0}
   m_RootOrder: 6
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
