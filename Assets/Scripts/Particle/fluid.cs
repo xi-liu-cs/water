@@ -130,7 +130,7 @@ public class fluid : MonoBehaviour
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
 
         compute_shader.Dispatch(noise_density_kernel, thread_group_size, 1, 1);
-        int march_kernel_group_size = (int)(Mathf.Pow(n_particle, 1.0f / 3.0f) / 4.0f); 
+        int march_kernel_group_size = (int)(Mathf.Pow(n_particle, 1.0f / 3.0f) / 4.0f);
         triangle_buffer.SetCounterValue(0);
         compute_shader.Dispatch(march_kernel, march_kernel_group_size, march_kernel_group_size, march_kernel_group_size);
 
