@@ -36,6 +36,7 @@
     <ImplicitlyExpandDesignTimeFacades>false</ImplicitlyExpandDesignTimeFacades>
   </PropertyGroup>
   <ItemGroup>
+     <Compile Include="Assets\Scripts\Particle\march_table.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\FirstPersonCamera.cs" />
      <Compile Include="Assets\Scripts\Particle\cuda.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\FleeUnit.cs" />

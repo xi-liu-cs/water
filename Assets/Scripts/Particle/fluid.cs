@@ -28,6 +28,7 @@ public class fluid : MonoBehaviour
     int dimension2,
     dimension3;
     Vector4[] points;
+    List<triangle> triangles;
 
     [Header("fluid")]
     public int n_particle = 50000,
@@ -35,7 +36,7 @@ public class fluid : MonoBehaviour
     max_particle_per_grid = 500;
 
     [Header("voxel")]
-    public int n_point_per_axis = 50;
+    public int n_point_per_axis = 10;
     public float isolevel = 8;
 
     public struct particle
@@ -49,6 +50,17 @@ public class fluid : MonoBehaviour
         public Vector3 vertex_a,
         vertex_b,
         vertex_c;
+    }
+
+    public struct grid_cell
+    {
+        public Vector3[] vertex;
+        public float[] value;
+        public grid_cell(Vector3[] vert, float[] val)
+        {
+            vertex = vert;
+            value = val;
+        }
     }
 
     int size_property = Shader.PropertyToID("size"),
@@ -91,8 +103,11 @@ public class fluid : MonoBehaviour
     noise_density_kernel,
     march_kernel;
 
+    public march_table table;
+
     void Awake()
     {
+        table = new march_table();
         radius2 = radius * radius;
         radius3 = radius2 * radius;
         radius4 = radius3 * radius;
@@ -114,6 +129,12 @@ public class fluid : MonoBehaviour
         Debug.Log("cpu");
         for(int i = 0; i < cpu.Length; ++i)
             Debug.Log(cpu[i]); */
+        
+        // gameObject.AddComponent<MeshFilter>();
+        // gameObject.AddComponent<MeshRenderer>();
+        // Mesh fluid_mesh = GetComponent<MeshFilter>().mesh;
+        // fluid_mesh.vertices = points;
+        // fluid_mesh.triangles = triangles;
     }
 
     void Update()
@@ -151,11 +172,125 @@ public class fluid : MonoBehaviour
         {
             Debug.Log(cpu[i]);
         } */
+
+        points = new Vector4[n_particle];
+        point_buffer.GetData(points);
+        Debug.Log(points[0]);
+        triangles = triangulate_field(points);
+        print_triangles(triangles);
     }
 
-    void march()
+    int calculate_cube_index(grid_cell cell)
     {
+        int cube_index = 0;
+        for(int i = 0; i < 8; ++i)
+            if(cell.value[i] < isolevel)
+                cube_index |= 1 << i;
+        return cube_index;
+    }
 
+    Vector3 interpolate(Vector3 v1, float val1, Vector3 v2, float val2)
+    {
+        Vector3 interpolated;
+        float mu = (isolevel - val1) / (val2 - val1);
+        interpolated.x = mu * (v2.x - v1.x) + v1.x;
+        interpolated.y = mu * (v2.y - v1.y) + v1.y;
+        interpolated.z = mu * (v2.z - v1.z) + v1.z;
+        return interpolated;
+    }
+
+    Vector3[] get_intersection_coordinates(grid_cell cell)
+    {
+        Vector3[] intersections = new Vector3[12];
+        int cube_index = calculate_cube_index(cell);
+        int intersection_key = table.edge_table[cube_index];
+        int i = 0;
+        while(intersection_key != 0)
+        {
+            if((intersection_key & 1) != 0)
+            {
+                int v1 = table.edge_to_vertex[i, 0], v2 = table.edge_to_vertex[i, 1];
+                Vector3 intersection_point = interpolate(cell.vertex[v1], cell.value[v1], cell.vertex[v2], cell.value[v2]);
+                intersections[i] = intersection_point;
+            }
+            ++i;
+            intersection_key >>= 1;
+        }
+        return intersections;
+    }
+
+    List<triangle> get_triangles(Vector3[] intersections, int cube_index)
+    {
+        List<triangle> a = new List<triangle>();
+        for(int i = 0; table.triangle_table[cube_index, i] != -1; i += 3)
+        {
+            triangle t;
+            t.vertex_a = intersections[table.triangle_table[cube_index, i]];
+            t.vertex_b = intersections[table.triangle_table[cube_index, i + 1]];
+            t.vertex_c = intersections[table.triangle_table[cube_index, i + 2]];
+            a.Add(t);
+        }
+        return a;
+    }
+
+    void print_triangles(List<triangle> a)
+    {
+        for(int i = 0; i < a.Count; ++i)
+        {
+            Debug.Log(a[i].vertex_a);
+            Debug.Log(a[i].vertex_b);
+            Debug.Log(a[i].vertex_c);
+        }
+    }
+
+    List<triangle> triangulate_cell(grid_cell cell)
+    {
+        int cube_index = calculate_cube_index(cell);
+        Vector3[] intersections = get_intersection_coordinates(cell);
+        List<triangle> a = get_triangles(intersections, cube_index);
+        return a;
+    }
+
+    int index_from_coordinate(int x, int y, int z)
+    {
+        return z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x;
+    }
+
+    List<triangle> triangulate_field(Vector4[] points)
+    {
+        List<triangle> a = new List<triangle>();
+        for(int i = 0; i + 1 < n_point_per_axis; ++i)
+        {
+            for(int j = 0; j + 1 < n_point_per_axis; ++j)
+            {
+                for(int k = 0; k + 1 < n_point_per_axis; ++k)
+                {
+                    float x = i, y = j, z = k;
+                    Debug.Log("index coord " + index_from_coordinate(i, j, k));
+                    grid_cell cell = new grid_cell
+                    (
+                        new Vector3[]
+                        {
+                            new Vector3(x, y, z), new Vector3(x + 1f, y, z),
+                            new Vector3(x + 1f, y, z + 1f), new Vector3(x, y, z + 1f),
+                            new Vector3(x, y + 1f, z), new Vector3(x + 1f, y + 1f, z),
+                            new Vector3(x + 1f, y + 1f, z + 1f), new Vector3(x, y + 1f, z + 1f)
+                        },
+                        new float[]
+                        {
+                            points[index_from_coordinate(i, j, k)][3], points[index_from_coordinate(i + 1, j, k)][3],
+                            points[index_from_coordinate(i + 1, j, k + 1)][3], points[index_from_coordinate(i, j, k + 1)][3],
+                            points[index_from_coordinate(i, j + 1, k)][3], points[index_from_coordinate(i + 1, j + 1, k)][3],
+                            points[index_from_coordinate(i + 1, j + 1, k + 1)][3], points[index_from_coordinate(i, j + 1, k + 1)][3]
+                        }
+                    );
+                    List<triangle> cell_triangles = triangulate_cell(cell);
+                    for(int l = 0; l < cell_triangles.Count; ++l)
+                        a.Add(cell_triangles[l]);
+                }
+            }
+        }
+        return a;
     }
 
     void malloc_particle()
