@@ -254,8 +254,9 @@ void integrate(uint3 id : SV_DispatchThreadID)
 
 #include "../Noise/noise.cginc"
 #pragma kernel noise_density
-static const int n_thread = 100;
-RWStructuredBuffer<float4> points;
+static const int n_thread = 50;
+RWStructuredBuffer<float3> points;
+RWStructuredBuffer<float> noise_densities;
 
 [numthreads(n_thread, 1, 1)]
 void noise_density(int3 id : SV_DispatchThreadID)
@@ -263,7 +264,8 @@ void noise_density(int3 id : SV_DispatchThreadID)
     float3 pos = particles[id.x].position;
     float noise = snoise(pos),
     density_value = -pos.y + noise;
-    points[id.x] = float4(pos, density_value);
+    points[id.x] = pos;
+    noise_densities[id.x] = density_value;
 }
 
 #include "march_table.compute"
@@ -278,12 +280,12 @@ struct tri
 
 AppendStructuredBuffer<tri> triangles;
 float isolevel;
-static const int num_thread = 4,
-n_point_per_axis;
+static const int num_thread = 4;
+int n_point_per_axis;
 
-int index_from_coordinate(int x, int y, int z)
+int hash(int x, int y, int z)
 {
-    return z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x;
+    return x + n_point_per_axis * (y + n_point_per_axis * z);
 }
 
 float3 interpolate_vertex(float4 v1, float4 v2)
@@ -297,21 +299,21 @@ void march(int3 id : SV_DispatchThreadID)
 {
     if(id.x >= n_point_per_axis - 1 || id.y >= n_point_per_axis - 1 || id.z >= n_point_per_axis - 1) /* voxel includes neighbor points */
         return;
-    float4 cube_corner[] =
+    float cube_corner[] =
     {
-        points[index_from_coordinate(id.x, id.y, id.z)],
-        points[index_from_coordinate(id.x + 1, id.y, id.z)],
-        points[index_from_coordinate(id.x + 1, id.y, id.z + 1)],
-        points[index_from_coordinate(id.x, id.y, id.z + 1)],
-        points[index_from_coordinate(id.x, id.y + 1, id.z)],
-        points[index_from_coordinate(id.x + 1, id.y + 1, id.z)],
-        points[index_from_coordinate(id.x + 1, id.y + 1, id.z + 1)],
-        points[index_from_coordinate(id.x, id.y + 1, id.z + 1)]
+        noise_densities[hash(id.x, id.y, id.z)],
+        noise_densities[hash(id.x + 1, id.y, id.z)],
+        noise_densities[hash(id.x + 1, id.y, id.z + 1)],
+        noise_densities[hash(id.x, id.y, id.z + 1)],
+        noise_densities[hash(id.x, id.y + 1, id.z)],
+        noise_densities[hash(id.x + 1, id.y + 1, id.z)],
+        noise_densities[hash(id.x + 1, id.y + 1, id.z + 1)],
+        noise_densities[hash(id.x, id.y + 1, id.z + 1)]
     };
     int n_corner = 8,
     cube_index = 0;
     for(int i = 0; i < n_corner; ++i)
-        if(cube_corner[i].w < isolevel) /* if the input data is not binary, need an additional parameter (threshold value or isovalue) to classify samples as inside or outside the surface */
+        if(cube_corner[i] < isolevel) /* if the input data is not binary, need an additional parameter (threshold value or isovalue) to classify samples as inside or outside the surface */
             cube_index |= 1 << i;
     for(int i = 0; triangle_table[cube_index][i] != -1; i += 3)
     {
