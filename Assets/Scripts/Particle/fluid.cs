@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -6,7 +7,8 @@ using UnityEngine;
 public class fluid : MonoBehaviour
 {
     [Header("particle")]
-    public Mesh particle_mesh;
+    public Mesh particle_mesh,
+    fluid_mesh;
     public Material material;
     public float mass = 4f,
     viscosity_coefficient = 2.5f,
@@ -38,7 +40,7 @@ public class fluid : MonoBehaviour
     max_particle_per_grid = 500;
 
     [Header("voxel")]
-    public int n_point_per_axis = 30; /* z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x, x ^ 3 + x ^ 2 + x = n_particle, (x = 50, n_particle = 130000) */
+    public int n_point_per_axis = 50; /* z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x, x ^ 3 + x ^ 2 + x = n_particle, (x = 50, n_particle = 130000) */
     public float isolevel = 8;
 
     public struct particle
@@ -68,20 +70,23 @@ public class fluid : MonoBehaviour
     int size_property = Shader.PropertyToID("size"),
     particle_buffer_property = Shader.PropertyToID("particle_buffer");
 
-    int n = 8, /* 8 grids */
+    int n = 8,
     n_bound = 6,
-    thread_group_size;
+    thread_group_size,
+    n_debug = 64;
     particle[] particles;
     int[] neighbor_list,
     neighbor_per_particle,
     hash_grid,
-    particle_per_grid;
+    particle_per_grid,
+    int_debug;
     float[] density,
-    pressure;
+    pressure,
+    float_debug;
     Vector3[] velocity,
     force;
 
-    ComputeBuffer particle_buffer,
+    public ComputeBuffer particle_buffer,
     arg_buffer,
     neighbor_list_buffer,
     neighbor_per_particle_buffer,
@@ -95,7 +100,9 @@ public class fluid : MonoBehaviour
     point_buffer,
     noise_density_buffer,
     triangle_buffer,
-    triangle_count_buffer;
+    triangle_count_buffer,
+    int_debug_buffer,
+    float_debug_buffer;
 
     public ComputeShader compute_shader;
     int clear_hash_grid_kernel,
@@ -109,7 +116,7 @@ public class fluid : MonoBehaviour
 
     public march_table table;
 
-    void Awake()
+    public void Awake()
     {
         table = new march_table();
         radius2 = radius * radius;
@@ -120,6 +127,9 @@ public class fluid : MonoBehaviour
         dimension2 = dimension * dimension;
         dimension3 = dimension * dimension2;
         thread_group_size = n_particle / dimension;
+
+        /* gameObject.AddComponent<MeshFilter>();
+        gameObject.AddComponent<MeshRenderer>(); */
 
         malloc_particle();
         find_kernel();
@@ -133,15 +143,9 @@ public class fluid : MonoBehaviour
         Debug.Log("cpu");
         for(int i = 0; i < cpu.Length; ++i)
             Debug.Log(cpu[i]); */
-        
-        /* gameObject.AddComponent<MeshFilter>();
-        gameObject.AddComponent<MeshRenderer>();
-        Mesh fluid_mesh = GetComponent<MeshFilter>().mesh;
-        fluid_mesh.vertices = points;
-        fluid_mesh.triangles = triangles; */
     }
 
-    void Update()
+    public void Update()
     {
         compute_shader.Dispatch(clear_hash_grid_kernel, dimension2, 1, 1);
         compute_shader.Dispatch(compute_hash_grid_kernel, thread_group_size, 1, 1);
@@ -155,7 +159,8 @@ public class fluid : MonoBehaviour
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
 
         compute_shader.Dispatch(noise_density_kernel, thread_group_size, 1, 1);
-        int march_kernel_group_size = (int)(Mathf.Pow(n_particle, 1.0f / 3.0f) / 4.0f);
+        /* int march_kernel_n_thread = 4,
+        march_kernel_group_size = (int)(Mathf.Pow(n_particle, 1.0f / 3.0f) / march_kernel_n_thread);
         triangle_buffer.SetCounterValue(0);
         compute_shader.Dispatch(march_kernel, march_kernel_group_size, march_kernel_group_size, march_kernel_group_size);
         
@@ -166,15 +171,30 @@ public class fluid : MonoBehaviour
 
         march_triangles = new triangle[n_triangle];
         triangle_buffer.GetData(march_triangles, 0, 0, n_triangle);
-        Debug.Log("triangle");
+        Debug.Log("n_triangle " + n_triangle);
         for(int i = 0; i < n_triangle; ++i)
         {
             Debug.Log(march_triangles[i].vertex_a);
             Debug.Log(march_triangles[i].vertex_b);
             Debug.Log(march_triangles[i].vertex_c);
         }
+
+        int_debug = new int[n_debug];
+        int_debug_buffer.GetData(int_debug);
+        for(int i = 0; i < n_debug; ++i)
+            Debug.Log(String.Format("debug[{0}] = {1}", i, int_debug[i])); */
         
-        /* points = new Vector3[n_particle];
+        /* debug_function(); */
+        
+        /* fluid_mesh = GetComponent<MeshFilter>().mesh;
+        fluid_mesh.vertices = points;
+        fluid_mesh.triangles = triangles;
+        Graphics.DrawMesh(fluid_mesh, Vector3.zero, Quaternion.identity, material, 0); */
+    }
+
+    void debug_function()
+    {
+        points = new Vector3[n_particle];
         point_buffer.GetData(points);
         Debug.Log("point");
         Debug.Log(points[0]);
@@ -187,7 +207,7 @@ public class fluid : MonoBehaviour
         triangles = triangulate_field(points);
         Debug.Log("triangles");
         for(int i = 0; i < 10; ++i)
-            Debug.Log(triangles[i]); */
+            Debug.Log(triangles[i]);
     }
 
     int calculate_cube_index(grid_cell cell)
@@ -331,7 +351,7 @@ public class fluid : MonoBehaviour
                 for(int y = 0; y < particle_per_dimension; ++y)
                     for(int z = 0; z < particle_per_dimension; ++z)
                     {
-                        float r = Random.Range(0f, 5f);
+                        float r = UnityEngine.Random.Range(0f, 5f);
                         Vector3 pos = new Vector3(1.5f * r * x, r * y, r * z) + position_offset;
                         particles[i] = new particle
                         {
@@ -419,6 +439,8 @@ public class fluid : MonoBehaviour
         noise_density_buffer = new ComputeBuffer(n_particle, sizeof(float));
         triangle_buffer = new ComputeBuffer(n_particle, sizeof(triangle), ComputeBufferType.Append);
         triangle_count_buffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
+        int_debug_buffer = new ComputeBuffer(n_debug, sizeof(int));
+        float_debug_buffer = new ComputeBuffer(n_debug, sizeof(float));
 
         compute_shader.SetBuffer(clear_hash_grid_kernel, "particle_per_grid", particle_per_grid_buffer);
 
@@ -458,6 +480,8 @@ public class fluid : MonoBehaviour
         compute_shader.SetBuffer(march_kernel, "points", point_buffer);
         compute_shader.SetBuffer(march_kernel, "noise_densities", noise_density_buffer);
         compute_shader.SetBuffer(march_kernel, "triangles", triangle_buffer);
+        compute_shader.SetBuffer(march_kernel, "int_debug", int_debug_buffer);
+        compute_shader.SetBuffer(march_kernel, "float_debug", float_debug_buffer);
     }
 
     void OnDestroy()

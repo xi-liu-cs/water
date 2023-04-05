@@ -254,7 +254,7 @@ void integrate(uint3 id : SV_DispatchThreadID)
 
 #include "../Noise/noise.cginc"
 #pragma kernel noise_density
-static const int n_thread = 50;
+static const int n_thread = 100;
 RWStructuredBuffer<float3> points;
 RWStructuredBuffer<float> noise_densities;
 
@@ -280,18 +280,25 @@ struct tri
 
 AppendStructuredBuffer<tri> triangles;
 float isolevel;
-static const int num_thread = 4;
-int n_point_per_axis;
+static const int num_thread = 4,
+n_point_per_axis;
+RWStructuredBuffer<int> int_debug;
+RWStructuredBuffer<float> float_debug;
 
 int hash(int x, int y, int z)
 {
     return x + n_point_per_axis * (y + n_point_per_axis * z);
 }
 
-float3 interpolate_vertex(float4 v1, float4 v2)
+int map(int x, int y, int z)
 {
-    float t = (isolevel - v1.w) / (v2.w - v1.w);
-    return v1.xyz + t * (v2.xyz - v1.xyz);
+    return (x * n_thread + y) * n_thread + z; /* x * n_thread * n_thread + y * n_thread + z */
+}
+
+float3 interpolate_vertex(float3 vertex1, float density1, float3 vertex2, float density2)
+{
+    float t = (isolevel - density1) / (density2 - density1);
+    return vertex1 + t * (vertex2 - vertex1);
 }
 
 [numthreads(num_thread, num_thread, num_thread)]
@@ -299,7 +306,18 @@ void march(int3 id : SV_DispatchThreadID)
 {
     if(id.x >= n_point_per_axis - 1 || id.y >= n_point_per_axis - 1 || id.z >= n_point_per_axis - 1) /* voxel includes neighbor points */
         return;
-    float cube_corner[] =
+    float3 cube_corner_vertices[] =
+    {
+        points[hash(id.x, id.y, id.z)],
+        points[hash(id.x + 1, id.y, id.z)],
+        points[hash(id.x + 1, id.y, id.z + 1)],
+        points[hash(id.x, id.y, id.z + 1)],
+        points[hash(id.x, id.y + 1, id.z)],
+        points[hash(id.x + 1, id.y + 1, id.z)],
+        points[hash(id.x + 1, id.y + 1, id.z + 1)],
+        points[hash(id.x, id.y + 1, id.z + 1)]
+    };
+    float cube_corner_densities[] =
     {
         noise_densities[hash(id.x, id.y, id.z)],
         noise_densities[hash(id.x + 1, id.y, id.z)],
@@ -312,10 +330,11 @@ void march(int3 id : SV_DispatchThreadID)
     };
     int n_corner = 8,
     cube_index = 0;
-    for(int i = 0; i < n_corner; ++i)
-        if(cube_corner[i] < isolevel) /* if the input data is not binary, need an additional parameter (threshold value or isovalue) to classify samples as inside or outside the surface */
-            cube_index |= 1 << i;
-    for(int i = 0; triangle_table[cube_index][i] != -1; i += 3)
+    for(uint c = 0; c < n_corner; ++c)
+        if(cube_corner_densities[c] < isolevel) /* if the input data is not binary, need an additional parameter (threshold value or isovalue) to classify samples as inside or outside the surface */
+            cube_index |= 1 << c;
+    int_debug[map(id.x, id.y, id.z)] = id.x;
+    for(uint i = 0; triangle_table[cube_index][i] != -1; i += 3)
     {
         int a1 = corner_index_a_from_edge[triangle_table[cube_index][i]],
         b1 = corner_index_b_from_edge[triangle_table[cube_index][i]],
@@ -324,9 +343,25 @@ void march(int3 id : SV_DispatchThreadID)
         a3 = corner_index_a_from_edge[triangle_table[cube_index][i + 2]],
         b3 = corner_index_b_from_edge[triangle_table[cube_index][i + 2]];
         tri a;
-        a.vertex_a = interpolate_vertex(cube_corner[a1], cube_corner[b1]);
-        a.vertex_b = interpolate_vertex(cube_corner[a2], cube_corner[b2]);
-        a.vertex_c = interpolate_vertex(cube_corner[a3], cube_corner[b3]);
+        a.vertex_a = interpolate_vertex(cube_corner_vertices[a1], cube_corner_densities[a1], cube_corner_vertices[b1], cube_corner_densities[b1]);
+        a.vertex_b = interpolate_vertex(cube_corner_vertices[a2], cube_corner_densities[a2], cube_corner_vertices[b2], cube_corner_densities[b2]);
+        a.vertex_c = interpolate_vertex(cube_corner_vertices[a3], cube_corner_densities[a3], cube_corner_vertices[b3], cube_corner_densities[b3]);
         triangles.Append(a);
     }
+}
+
+#pragma kernel NoiseFieldGenerator
+uint3 Dims;
+float Scale;
+float Time;
+RWStructuredBuffer<float> Voxels;
+
+[numthreads(8, 8, 8)]
+void NoiseFieldGenerator(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x + Dims.x * (id.y + Dims.y * id.z);
+    float3 pos = particles[i].position;
+    float noise = snoise(pos),
+    density_value = -pos.y + noise;
+    Voxels[i] = density_value;
 }

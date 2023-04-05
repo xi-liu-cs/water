@@ -5,7 +5,7 @@
 float noise(float3 a)
 {
     float r = 0.;
-    for(int i = 0; i < 16; ++i)
+    for(uint i = 0; i < 16; ++i)
     {
         float3 D, p = a + fmod(float3(i, i / 4, i / 8), float3(4.0, 2.0, 2.0)) +
             1.7 * sin(float3(i, 5 * i, 8 * i)), C = floor(p), P = p - C - .5, A = abs(P);
