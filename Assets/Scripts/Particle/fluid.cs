@@ -14,6 +14,7 @@ public class fluid : MonoBehaviour
     viscosity_coefficient = 2.5f,
     particle_size = 2f,
     radius = 1f,
+    grid_size = 4f,
     gas_constant = 2000f,
     dt = 0.0008f,
     rest_density = 9f,
@@ -381,7 +382,7 @@ public class fluid : MonoBehaviour
 
     void compute_shader_init()
     {
-        compute_shader.SetFloat("grid_size", 4 * radius);
+        compute_shader.SetFloat("grid_size", grid_size);
         compute_shader.SetInt("dimension", dimension);
         compute_shader.SetInt("max_particle_per_grid", max_particle_per_grid);
         compute_shader.SetFloat("radius", radius);
