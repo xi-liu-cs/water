@@ -168,7 +168,7 @@ void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
             const uint potential_neighbor = hash_grid[grids[i] * max_particles_per_grid + j];
             if(potential_neighbor == id.x) continue;
             const float3 v = particles[potential_neighbor].position - particles[id.x].position;
-            if(dot(v, v) < 10 * radius2)
+            if(dot(v, v) < radius2)
                 neighbor_list[id.x * max_particles_per_grid * n + neighbor_tracker[id.x]++] = potential_neighbor;
         }
     }

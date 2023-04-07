@@ -166,6 +166,7 @@ public class fluid : MonoBehaviour
         // hash_grid_tracker_buffer.GetData(int_array_in_update_function); // 1
         neighbor_list_buffer.GetData(int_array_in_update_function); // 0
         // neighbor_tracker_buffer.GetData(nei); // 0
+        // density_buffer.GetData(int_array_in_update_function);
         for(int i = 0; i < 200; ++i) Debug.Log(int_array_in_update_function[i]);
         /* int march_kernel_n_thread = 4,
         march_kernel_group_size = (int)(Mathf.Pow(n_particle, 1.0f / 3.0f) / march_kernel_n_thread);
