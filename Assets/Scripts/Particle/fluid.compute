@@ -14,36 +14,36 @@ struct particle
 };
 
 RWStructuredBuffer<particle> particles;
-RWStructuredBuffer<float> density,
-pressure,
-bound;
-RWStructuredBuffer<float3> force,
-velocity;
-RWStructuredBuffer<int> neighbor_list, /* neighbors of a particle at particle_index * max_particles_per_grid * 8 */
-neighbor_tracker; /* number of neighors does each particle have */
-RWStructuredBuffer<uint> hash_grid, /* aligned at particle_index * max_particles_per_grid * 8' + hash_grid_tracker[particle_index] */
-hash_grid_tracker; /* number of particles at each grid */
+RWStructuredBuffer<float> density;
+RWStructuredBuffer<float> pressure;
+RWStructuredBuffer<float> bound;
+RWStructuredBuffer<float3> force;
+RWStructuredBuffer<float3> velocity;
+RWStructuredBuffer<int> neighbor_list; /* neighbors of a particle at particle_index * max_particles_per_grid * 8 */
+RWStructuredBuffer<int> neighbor_tracker; /* number of neighors does each particle have */
+RWStructuredBuffer<uint> hash_grid; /* aligned at particle_index * max_particles_per_grid * 8' + hash_grid_tracker[particle_index] */
+RWStructuredBuffer<uint> hash_grid_tracker; /* number of particles at each grid */
 
-float grid_size,
-radius,
-radius2,
-radius3,
-radius4,
-radius5,
-mass,
-mass2,
-gas_constant,
-rest_density,
-viscosity_coefficient,
-damping,
-dt,
-g,
-epsilon,
-pi;
-uint n = 8,
-n_particle,
-dimension,
-max_particles_per_grid;
+float grid_size;
+float radius;
+float radius2;
+float radius3;
+float radius4;
+float radius5;
+float mass;
+float mass2;
+float gas_constant;
+float rest_density;
+float viscosity_coefficient;
+float damping;
+float dt;
+float3 g;
+float epsilon;
+float pi;
+uint n = 8;
+uint n_particle;
+int dimension;
+int max_particles_per_grid;
 float4 time;
 
 int3 get_cell(float3 position)
@@ -98,57 +98,60 @@ void compute_hash_grid(uint3 id : SV_DispatchThreadID)
 void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8])
 {
     int3 neighbor_index[8];
-    for(uint i = 0; i < n; ++i)
+    for(int i = 0; i < 8; i++) {
         neighbor_index[i] = origin_index;
+    }
     if((origin_index.x + 0.5f) * grid_size <= position.x)
     {
-        ++neighbor_index[4].x;
-        ++neighbor_index[5].x;
-        ++neighbor_index[6].x;
-        ++neighbor_index[7].x;
+        neighbor_index[4].x += 1;
+        neighbor_index[5].x += 1;
+        neighbor_index[6].x += 1;
+        neighbor_index[7].x += 1;
     }
     else
     {
-        --neighbor_index[4].x;
-        --neighbor_index[5].x;
-        --neighbor_index[6].x;
-        --neighbor_index[7].x;
+        neighbor_index[4].x -= 1;
+        neighbor_index[5].x -= 1;
+        neighbor_index[6].x -= 1;
+        neighbor_index[7].x -= 1;
     }
     if((origin_index.y + 0.5f) * grid_size <= position.y)
     {
-        ++neighbor_index[2].y;
-        ++neighbor_index[3].y;
-        ++neighbor_index[6].y;
-        ++neighbor_index[7].y;
+        neighbor_index[2].y += 1;
+        neighbor_index[3].y += 1;
+        neighbor_index[6].y += 1;
+        neighbor_index[7].y += 1;
     }
     else
     {
-        --neighbor_index[2].y;
-        --neighbor_index[3].y;
-        --neighbor_index[6].y;
-        --neighbor_index[7].y;
+        neighbor_index[2].y -= 1;
+        neighbor_index[3].y -= 1;
+        neighbor_index[6].y -= 1;
+        neighbor_index[7].y -= 1;
     }
     if((origin_index.z + 0.5f) * grid_size <= position.z)
     {
-        ++neighbor_index[1].z;
-        ++neighbor_index[3].z;
-        ++neighbor_index[5].z;
-        ++neighbor_index[7].z;
+        neighbor_index[1].z += 1;
+        neighbor_index[3].z += 1;
+        neighbor_index[5].z += 1;
+        neighbor_index[7].z += 1;
     }
     else
     {
-        --neighbor_index[1].z;
-        --neighbor_index[3].z;
-        --neighbor_index[5].z;
-        --neighbor_index[7].z;
+        neighbor_index[1].z -= 1;
+        neighbor_index[3].z -= 1;
+        neighbor_index[5].z -= 1;
+        neighbor_index[7].z -= 1;
     }
-    for(uint i = 0; i < n; ++i)
+    for(int j = 0; j < 8; j++)
     {
-        uint3 neighbor = neighbor_index[i];
-        if(neighbor.x < 0 || neighbor.x >= dimension || neighbor.y < 0 || neighbor.y >= dimension || neighbor.z < 0 || neighbor.z >= dimension)
-            neighbor_key[i] = -1;
-        else
-            neighbor_key[i] = hash(neighbor_index[i]);
+        int3 neighbor = neighbor_index[j];
+        if(neighbor.x < 0 || neighbor.x >= dimension || neighbor.y < 0 || neighbor.y >= dimension || neighbor.z < 0 || neighbor.z >= dimension) {
+            neighbor_key[j] = -1;
+        }
+        else {
+            neighbor_key[j] = hash(neighbor_index[j]);
+        }
     }
 }
 
@@ -156,14 +159,15 @@ void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8
 void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
 {
     neighbor_tracker[id.x] = 0;
-    const int3 g = get_cell(particles[id.x].position);
+    const int3 g2 = get_cell(particles[id.x].position);
     int grids[8];
-    set_neighbor_key(g, particles[id.x].position, grids);
-    for(uint i = 0; i < n; ++i)
+    set_neighbor_key(g2, particles[id.x].position, grids);
+
+    for(uint i = 0; i < n; i++)
     {
         if(grids[i] == -1) continue;
         const uint particle_in_grid = min(hash_grid_tracker[grids[i]], max_particles_per_grid);
-        for(uint j = 0; j < particle_in_grid; ++j)
+        for(uint j = 0; j < particle_in_grid; j++)
         {
             const uint potential_neighbor = hash_grid[grids[i] * max_particles_per_grid + j];
             if(potential_neighbor == id.x) continue;
@@ -226,7 +230,15 @@ void compute_force(uint3 id : SV_DispatchThreadID)
         if(distance > 0)
         {
             float3 direction = (particles[id.x].position - particles[neighbor_index].position) / distance;
-            force[id.x] -= mass2 * (pressure[id.x] / particle_density2 + pressure[neighbor_index] / (density[neighbor_index] * density[neighbor_index])) * spiky_kernel_gradient(distance, direction) + 1000 * noise(float3(time.x, time.y, time.z)); /* compute pressure gradient force */
+            force[id.x] -= mass2 
+                * (
+                    pressure[id.x] 
+                    / particle_density2 
+                    + pressure[neighbor_index] 
+                    / (density[neighbor_index] * density[neighbor_index])
+                ) 
+                * spiky_kernel_gradient(distance, direction) 
+                + 0 * 1000 * noise(float3(time.x, time.y, time.z)); /* compute pressure gradient force */
             force[id.x] += viscosity_coefficient * mass2 * (velocity[neighbor_index] - velocity[id.x]) / density[neighbor_index] * spiky_kernel_second_derivative(distance) + 1000 * noise(float3(time.x, time.y, time.z));
         }
     }
@@ -240,14 +252,54 @@ void integrate(uint3 id : SV_DispatchThreadID)
     velocity[id.x] += force[id.x] / mass * dt;
     p.position += velocity[id.x] * dt;
     particles[id.x] = p;
-    float3 pos = p.position,
-    v = velocity[id.x];
+
+    float3 pos = p.position;
+    float3 v = velocity[id.x];
+    p = particles[id.x];
+    
+    /*
     if(pos.x < bound[0] || pos.x > bound[1])
         v.x = damping * v.x + noise(pos);
     if(pos.y < bound[2] || pos.y > bound[3])
         v.y = damping * v.y + noise(pos);
     if(pos.z < bound[4] || pos.z > bound[5])
         v.z = damping * v.z + noise(pos);
+    */
+
+    // enforce boundary conditions
+    if (p.position.x - epsilon < 0.0f)
+    {
+        v.x *= damping;
+        p.position.x = epsilon;
+    }
+    else if(p.position.x + epsilon > dimension - 1.f) 
+    {
+        v.x *= damping;
+        p.position.x = dimension - 1 - epsilon;
+    }
+            
+    if (p.position.y - epsilon < 0.0f)
+    {
+        v.y *= damping;
+        p.position.y = epsilon;
+    }
+    else if(p.position.y + epsilon > dimension - 1.f) 
+    {
+        v.y *= damping;
+        p.position.y = dimension - 1 - epsilon;
+    }
+            
+    if (p.position.z - epsilon < 0.0f)
+    {
+        v.z *= damping;
+        p.position.z = epsilon;
+    }
+    else if(p.position.z + epsilon > dimension - 1.f) 
+    {
+        v.z *= damping;
+        p.position.z = dimension - 1 - epsilon;
+    }
+
     velocity[id.x] = v;
     particles[id.x] = p;
 }
@@ -285,7 +337,7 @@ n_point_per_axis;
 RWStructuredBuffer<int> int_debug;
 RWStructuredBuffer<float> float_debug;
 
-int hash(int x, int y, int z)
+int hash3(int x, int y, int z)
 {
     return x + n_point_per_axis * (y + n_point_per_axis * z);
 }
@@ -308,25 +360,25 @@ void march(int3 id : SV_DispatchThreadID)
         return;
     float3 cube_corner_vertices[] =
     {
-        points[hash(id.x, id.y, id.z)],
-        points[hash(id.x + 1, id.y, id.z)],
-        points[hash(id.x + 1, id.y, id.z + 1)],
-        points[hash(id.x, id.y, id.z + 1)],
-        points[hash(id.x, id.y + 1, id.z)],
-        points[hash(id.x + 1, id.y + 1, id.z)],
-        points[hash(id.x + 1, id.y + 1, id.z + 1)],
-        points[hash(id.x, id.y + 1, id.z + 1)]
+        points[hash3(id.x, id.y, id.z)],
+        points[hash3(id.x + 1, id.y, id.z)],
+        points[hash3(id.x + 1, id.y, id.z + 1)],
+        points[hash3(id.x, id.y, id.z + 1)],
+        points[hash3(id.x, id.y + 1, id.z)],
+        points[hash3(id.x + 1, id.y + 1, id.z)],
+        points[hash3(id.x + 1, id.y + 1, id.z + 1)],
+        points[hash3(id.x, id.y + 1, id.z + 1)]
     };
     float cube_corner_densities[] =
     {
-        noise_densities[hash(id.x, id.y, id.z)],
-        noise_densities[hash(id.x + 1, id.y, id.z)],
-        noise_densities[hash(id.x + 1, id.y, id.z + 1)],
-        noise_densities[hash(id.x, id.y, id.z + 1)],
-        noise_densities[hash(id.x, id.y + 1, id.z)],
-        noise_densities[hash(id.x + 1, id.y + 1, id.z)],
-        noise_densities[hash(id.x + 1, id.y + 1, id.z + 1)],
-        noise_densities[hash(id.x, id.y + 1, id.z + 1)]
+        noise_densities[hash3(id.x, id.y, id.z)],
+        noise_densities[hash3(id.x + 1, id.y, id.z)],
+        noise_densities[hash3(id.x + 1, id.y, id.z + 1)],
+        noise_densities[hash3(id.x, id.y, id.z + 1)],
+        noise_densities[hash3(id.x, id.y + 1, id.z)],
+        noise_densities[hash3(id.x + 1, id.y + 1, id.z)],
+        noise_densities[hash3(id.x + 1, id.y + 1, id.z + 1)],
+        noise_densities[hash3(id.x, id.y + 1, id.z + 1)]
     };
     uint n_corner = 8,
     cube_index = 0;
