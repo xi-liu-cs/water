@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace MarchingCubes {
@@ -41,7 +42,11 @@ sealed class NoiseFieldVisualizer : MonoBehaviour
         gameObject.AddComponent<MeshRenderer>();
         /* _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float)); */
         noise_field_visualizer_kernel = _volumeCompute.FindKernel("NoiseFieldGenerator");
-        _voxelBuffer = fluid_cs.noise_density_buffer;
+        /* _voxelBuffer = fluid_cs.noise_density_buffer; */
+        _voxelBuffer = fluid_cs.density_buffer;
+        // float[] b = new float[1000];
+        // _voxelBuffer.SetData(b);
+        // for(int i = 0; i < 1000; ++i) Debug.Log(String.Format("b[{0}] = {1}", i, b[i]));
         _builder = new MeshBuilder(_dimensions, _triangleBudget, _builderCompute, material);
     }
 
@@ -54,6 +59,9 @@ sealed class NoiseFieldVisualizer : MonoBehaviour
     void Update()
     {
         fluid_cs.Update();
+        // float[] b = new float[1000];
+        // _voxelBuffer.GetData(b);
+        // for(int i = 0; i < 1000; ++i) Debug.Log(String.Format("b[{0}] = {1}", i, b[i]));
         // Noise field update
         _volumeCompute.SetInts("Dims", _dimensions);
         _volumeCompute.SetFloat("Scale", _gridScale);

@@ -19,10 +19,10 @@ pressure,
 bound;
 RWStructuredBuffer<float3> force,
 velocity;
-RWStructuredBuffer<int> neighbor_list,
-neighbor_per_particle,
-hash_grid,
-particle_per_grid;
+RWStructuredBuffer<int> neighbor_list, /* neighbors of a particle at particle_index * max_particles_per_grid * 8 */
+neighbor_tracker; /* number of neighors does each particle have */
+RWStructuredBuffer<uint> hash_grid, /* aligned at particle_index * max_particles_per_grid * 8' + hash_grid_tracker[particle_index] */
+hash_grid_tracker; /* number of particles at each grid */
 
 float grid_size,
 radius,
@@ -40,32 +40,32 @@ dt,
 g,
 epsilon,
 pi;
-int n = 8,
+uint n = 8,
 n_particle,
 dimension,
-max_particle_per_grid;
+max_particles_per_grid;
 float4 time;
 
-int3 grid(float3 position)
+int3 get_cell(float3 position)
 {
     return int3(position.x / grid_size, position.y / grid_size, position.z / grid_size);
 }
 
-int hash(int3 grid)
+int hash(int3 cell)
 {
-    return grid.x + dimension * (grid.y + dimension * grid.z);
+    return cell.x + dimension * (cell.y + dimension * cell.z);
 }
 
 [numthreads(1, 1, 1)]
 void malloc_particle(uint3 id : SV_DispatchThreadID)
 {
-    int particle_per_dimension = pow(abs(n_particle), 1.0 / 3.0),
+    uint particle_per_dimension = pow(n_particle, 1.0 / 3.0),
     i = 0;
     while(i < n_particle)
     {
-        for(int x = 0; x < particle_per_dimension; ++x)
-            for(int y = 0; y < particle_per_dimension; ++y)
-                for(int z = 0; z < particle_per_dimension; ++z)
+        for(uint x = 0; x < particle_per_dimension; ++x)
+            for(uint y = 0; y < particle_per_dimension; ++y)
+                for(uint z = 0; z < particle_per_dimension; ++z)
                 {
                     float3 pos = float3(dimension - 1, dimension - 1, dimension - 1);
                     particles[i].position = pos;
@@ -78,27 +78,27 @@ void malloc_particle(uint3 id : SV_DispatchThreadID)
 [numthreads(100, 1, 1)]
 void clear_hash_grid(uint3 id : SV_DispatchThreadID)
 {
-    particle_per_grid[id.x] = 0;
+    hash_grid_tracker[id.x] = 0;
 }
 
 [numthreads(100, 1, 1)]
 void compute_hash_grid(uint3 id : SV_DispatchThreadID)
 {
-    int original_value = 0,
-    hash_grid_position = hash(grid(particles[id.x].position));
-    InterlockedAdd(particle_per_grid[hash_grid_position], 1, original_value); /* 'original_value' is an output variable that will be set to the original value of dest */
-    if(original_value >= max_particle_per_grid)
+    int original_value = 0;
+    const int hash_grid_position = hash(get_cell(particles[id.x].position));
+    InterlockedAdd(hash_grid_tracker[hash_grid_position], 1, original_value); /* 'original_value' is an output variable that will be set to the original value of dest */
+    if(original_value >= max_particles_per_grid)
     {
         particles[id.x].color = float4(50, 100, 255, 125);
         return;
     }
-    hash_grid[hash_grid_position * max_particle_per_grid + original_value] = id.x;
+    hash_grid[hash_grid_position * max_particles_per_grid + original_value] = id.x;
 }
 
 void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8])
 {
     int3 neighbor_index[8];
-    for(int i = 0; i < n; ++i)
+    for(uint i = 0; i < n; ++i)
         neighbor_index[i] = origin_index;
     if((origin_index.x + 0.5f) * grid_size <= position.x)
     {
@@ -142,9 +142,9 @@ void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8
         --neighbor_index[5].z;
         --neighbor_index[7].z;
     }
-    for(int i = 0; i < n; ++i)
+    for(uint i = 0; i < n; ++i)
     {
-        int3 neighbor = neighbor_index[i];
+        uint3 neighbor = neighbor_index[i];
         if(neighbor.x < 0 || neighbor.x >= dimension || neighbor.y < 0 || neighbor.y >= dimension || neighbor.z < 0 || neighbor.z >= dimension)
             neighbor_key[i] = -1;
         else
@@ -155,23 +155,24 @@ void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8
 [numthreads(100, 1, 1)]
 void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
 {
-    neighbor_per_particle[id.x] = 0;
-    int3 g = grid(particles[id.x].position);
+    neighbor_tracker[id.x] = 0;
+    const int3 g = get_cell(particles[id.x].position);
     int grids[8];
     set_neighbor_key(g, particles[id.x].position, grids);
-    for(int i = 0; i < n; ++i)
+    for(uint i = 0; i < n; ++i)
     {
         if(grids[i] == -1) continue;
-        int particle_in_grid = min(particle_per_grid[grids[i]], max_particle_per_grid);
-        for(int j = 0; j < particle_in_grid; ++j)
+        const uint particle_in_grid = min(hash_grid_tracker[grids[i]], max_particles_per_grid);
+        for(uint j = 0; j < particle_in_grid; ++j)
         {
-            int potential_neighbor = hash_grid[grids[i] * max_particle_per_grid + j];
+            const uint potential_neighbor = hash_grid[grids[i] * max_particles_per_grid + j];
             if(potential_neighbor == id.x) continue;
-            float3 v = particles[potential_neighbor].position - particles[id.x].position;
-            if(dot(v, v) < radius2)
-                neighbor_list[id.x * max_particle_per_grid * n + neighbor_per_particle[id.x]++] = potential_neighbor;
+            const float3 v = particles[potential_neighbor].position - particles[id.x].position;
+            if(dot(v, v) < 10 * radius2)
+                neighbor_list[id.x * max_particles_per_grid * n + neighbor_tracker[id.x]++] = potential_neighbor;
         }
     }
+    /* neighbor_list[id.x] = id.x; */
 }
 
 float std_kernel(float distance_square)
@@ -200,17 +201,16 @@ float3 spiky_kernel_gradient(float distance, float3 direction_from_center)
 [numthreads(100, 1, 1)]
 void compute_density_pressure(uint3 id : SV_DispatchThreadID)
 {
-    int n = 8;
     float3 origin = particles[id.x].position;
     float sum = 0;
-    for(int i = 0; i < neighbor_per_particle[id.x]; ++i)
+    for(int i = 0; i < neighbor_tracker[id.x]; ++i)
     {
-        int neighbor_index = neighbor_list[id.x * max_particle_per_grid * n + i];
+        int neighbor_index = neighbor_list[id.x * max_particles_per_grid * n + i];
         float3 diff = origin - particles[neighbor_index].position;
         float distance_square = dot(diff, diff);
         sum += std_kernel(distance_square);
     }
-    density[id.x] = sum * mass;
+    density[id.x] = sum * mass + 0.000001f;
     pressure[id.x] = gas_constant * (density[id.x] - rest_density);
 }
 
@@ -219,9 +219,9 @@ void compute_force(uint3 id : SV_DispatchThreadID)
 {
     force[id.x] = float3(0, 0, 0);
     float particle_density2 = density[id.x] * density[id.x];
-    for(int i = 0; i < neighbor_per_particle[id.x]; ++i)
+    for(int i = 0; i < neighbor_tracker[id.x]; ++i)
     {
-        int neighbor_index = neighbor_list[id.x * max_particle_per_grid * n + i];
+        int neighbor_index = neighbor_list[id.x * max_particles_per_grid * n + i];
         float distance = length(particles[id.x].position - particles[neighbor_index].position);
         if(distance > 0)
         {
@@ -328,7 +328,7 @@ void march(int3 id : SV_DispatchThreadID)
         noise_densities[hash(id.x + 1, id.y + 1, id.z + 1)],
         noise_densities[hash(id.x, id.y + 1, id.z + 1)]
     };
-    int n_corner = 8,
+    uint n_corner = 8,
     cube_index = 0;
     for(uint c = 0; c < n_corner; ++c)
         if(cube_corner_densities[c] < isolevel) /* if the input data is not binary, need an additional parameter (threshold value or isovalue) to classify samples as inside or outside the surface */
@@ -356,7 +356,13 @@ float Scale;
 float Time;
 RWStructuredBuffer<float> Voxels;
 
-[numthreads(8, 8, 8)]
+[numthreads(1, 1, 1)]
+void NoiseFieldGenerator(uint3 id : SV_DispatchThreadID)
+{
+    
+}
+
+/* [numthreads(8, 8, 8)]
 void NoiseFieldGenerator(uint3 id : SV_DispatchThreadID)
 {
     uint i = id.x + Dims.x * (id.y + Dims.y * id.z);
@@ -364,4 +370,4 @@ void NoiseFieldGenerator(uint3 id : SV_DispatchThreadID)
     float noise = snoise(pos),
     density_value = -pos.y + noise;
     Voxels[i] = density_value;
-}
+} */

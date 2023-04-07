@@ -12,9 +12,9 @@ public class fluid : MonoBehaviour
     public Material material;
     public float mass = 4f,
     viscosity_coefficient = 2.5f,
-    particle_size = 2f,
+    particle_size = 40f,
     radius = 1f,
-    grid_size = 4f,
+    grid_size = 4f, /* 4 * radius */
     gas_constant = 2000f,
     dt = 0.0008f,
     rest_density = 9f,
@@ -36,9 +36,9 @@ public class fluid : MonoBehaviour
     triangle[] march_triangles;
 
     [Header("fluid")]
-    public int n_particle = 130000,
+    public int n_particle = 50000, /* max = 130000 */
     dimension = 100,
-    max_particle_per_grid = 500;
+    max_particles_per_grid = 500;
 
     [Header("voxel")]
     public int n_point_per_axis = 50; /* z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x, x ^ 3 + x ^ 2 + x = n_particle, (x = 50, n_particle = 130000) */
@@ -77,10 +77,10 @@ public class fluid : MonoBehaviour
     n_debug = 64;
     particle[] particles;
     int[] neighbor_list,
-    neighbor_per_particle,
-    hash_grid,
-    particle_per_grid,
+    neighbor_tracker,
     int_debug;
+    uint[] hash_grid,
+    hash_grid_tracker;
     float[] density,
     pressure,
     float_debug;
@@ -90,9 +90,9 @@ public class fluid : MonoBehaviour
     public ComputeBuffer particle_buffer,
     arg_buffer,
     neighbor_list_buffer,
-    neighbor_per_particle_buffer,
+    neighbor_tracker_buffer,
     hash_grid_buffer,
-    particle_per_grid_buffer,
+    hash_grid_tracker_buffer,
     density_buffer,
     pressure_buffer,
     velocity_buffer,
@@ -136,7 +136,7 @@ public class fluid : MonoBehaviour
         find_kernel();
         compute_shader_init();
         compute_buffer_init();
-
+        
         /* Debug.Log("group_size " + thread_group_size);
         compute_shader.Dispatch(noise_density_kernel, thread_group_size, thread_group_size, thread_group_size);
         Vector4[] cpu = new Vector4[n_particle];
@@ -160,6 +160,13 @@ public class fluid : MonoBehaviour
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
 
         compute_shader.Dispatch(noise_density_kernel, thread_group_size, 1, 1);
+
+        int[] int_array_in_update_function = new int[200];
+        // hash_grid_buffer.GetData(int_array_in_update_function); // 0
+        // hash_grid_tracker_buffer.GetData(int_array_in_update_function); // 1
+        neighbor_list_buffer.GetData(int_array_in_update_function); // 0
+        // neighbor_tracker_buffer.GetData(nei); // 0
+        for(int i = 0; i < 200; ++i) Debug.Log(int_array_in_update_function[i]);
         /* int march_kernel_n_thread = 4,
         march_kernel_group_size = (int)(Mathf.Pow(n_particle, 1.0f / 3.0f) / march_kernel_n_thread);
         triangle_buffer.SetCounterValue(0);
@@ -354,6 +361,7 @@ public class fluid : MonoBehaviour
                     {
                         float r = UnityEngine.Random.Range(0f, 5f);
                         Vector3 pos = new Vector3(1.5f * r * x, r * y, r * z) + position_offset;
+                        /* Vector3 pos = new Vector3(dimension - 1, dimension - 1, dimension - 1) - new Vector3(x / 2f, y / 2f, z / 2f)  - new Vector3(UnityEngine.Random.Range(0f, 0.01f), UnityEngine.Random.Range(0f, 0.01f), UnityEngine.Random.Range(0f, 0.01f)); */
                         particles[i] = new particle
                         {
                             position = pos,
@@ -384,7 +392,7 @@ public class fluid : MonoBehaviour
     {
         compute_shader.SetFloat("grid_size", grid_size);
         compute_shader.SetInt("dimension", dimension);
-        compute_shader.SetInt("max_particle_per_grid", max_particle_per_grid);
+        compute_shader.SetInt("max_particles_per_grid", max_particles_per_grid);
         compute_shader.SetFloat("radius", radius);
         compute_shader.SetFloat("radius2", radius2);
         compute_shader.SetFloat("radius3", radius3);
@@ -412,20 +420,20 @@ public class fluid : MonoBehaviour
         particle_buffer.SetData(particles);
         arg_buffer = new ComputeBuffer(1, arg.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
         arg_buffer.SetData(arg);
-        neighbor_list = new int[n_particle * max_particle_per_grid * n];
-        neighbor_per_particle = new int[n_particle];
-        hash_grid = new int[dimension3 * max_particle_per_grid];
-        particle_per_grid = new int[dimension3];
+        neighbor_list = new int[n_particle * max_particles_per_grid * n];
+        neighbor_tracker = new int[n_particle];
+        hash_grid = new uint[dimension3 * max_particles_per_grid];
+        hash_grid_tracker = new uint[dimension3];
         march_triangles = new triangle[n_particle];
         
-        neighbor_list_buffer = new ComputeBuffer(n_particle * max_particle_per_grid * n, sizeof(int));
+        neighbor_list_buffer = new ComputeBuffer(n_particle * max_particles_per_grid * n, sizeof(int));
         neighbor_list_buffer.SetData(neighbor_list);
-        neighbor_per_particle_buffer = new ComputeBuffer(n_particle, sizeof(int));
-        neighbor_per_particle_buffer.SetData(neighbor_per_particle);
-        hash_grid_buffer = new ComputeBuffer(dimension3 * max_particle_per_grid, sizeof(int));
+        neighbor_tracker_buffer = new ComputeBuffer(n_particle, sizeof(int));
+        neighbor_tracker_buffer.SetData(neighbor_tracker);
+        hash_grid_buffer = new ComputeBuffer(dimension3 * max_particles_per_grid, sizeof(uint));
         hash_grid_buffer.SetData(hash_grid);
-        particle_per_grid_buffer = new ComputeBuffer(dimension3, sizeof(int));
-        particle_per_grid_buffer.SetData(particle_per_grid);
+        hash_grid_tracker_buffer = new ComputeBuffer(dimension3, sizeof(uint));
+        hash_grid_tracker_buffer.SetData(hash_grid_tracker);
         density_buffer = new ComputeBuffer(n_particle, sizeof(float));
         density_buffer.SetData(density);
         pressure_buffer = new ComputeBuffer(n_particle, sizeof(float));
@@ -443,26 +451,27 @@ public class fluid : MonoBehaviour
         int_debug_buffer = new ComputeBuffer(n_debug, sizeof(int));
         float_debug_buffer = new ComputeBuffer(n_debug, sizeof(float));
 
-        compute_shader.SetBuffer(clear_hash_grid_kernel, "particle_per_grid", particle_per_grid_buffer);
+        compute_shader.SetBuffer(clear_hash_grid_kernel, "hash_grid_tracker", hash_grid_tracker_buffer);
 
         compute_shader.SetBuffer(compute_hash_grid_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(compute_hash_grid_kernel, "hash_grid", hash_grid_buffer);
-        compute_shader.SetBuffer(compute_hash_grid_kernel, "particle_per_grid", particle_per_grid_buffer);
+        compute_shader.SetBuffer(compute_hash_grid_kernel, "hash_grid_tracker", hash_grid_tracker_buffer);
 
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "hash_grid", hash_grid_buffer);
-        compute_shader.SetBuffer(compute_neighbor_list_kernel, "particle_per_grid", particle_per_grid_buffer);
+        compute_shader.SetBuffer(compute_neighbor_list_kernel, "hash_grid_tracker", hash_grid_tracker_buffer);
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "neighbor_list", neighbor_list_buffer);
-        compute_shader.SetBuffer(compute_neighbor_list_kernel, "neighbor_per_particle", neighbor_per_particle_buffer);
+        compute_shader.SetBuffer(compute_neighbor_list_kernel, "neighbor_tracker", neighbor_tracker_buffer);
+        compute_shader.SetBuffer(compute_neighbor_list_kernel, "int_debug", int_debug_buffer);
         
         compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_list", neighbor_list_buffer);
-        compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_per_particle", neighbor_per_particle_buffer);
+        compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_tracker", neighbor_tracker_buffer);
         compute_shader.SetBuffer(compute_density_pressure_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(compute_density_pressure_kernel, "density", density_buffer);
         compute_shader.SetBuffer(compute_density_pressure_kernel, "pressure", pressure_buffer);
 
         compute_shader.SetBuffer(compute_force_kernel, "neighbor_list", neighbor_list_buffer);
-        compute_shader.SetBuffer(compute_force_kernel, "neighbor_per_particle", neighbor_per_particle_buffer);
+        compute_shader.SetBuffer(compute_force_kernel, "neighbor_tracker", neighbor_tracker_buffer);
         compute_shader.SetBuffer(compute_force_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(compute_force_kernel, "density", density_buffer);
         compute_shader.SetBuffer(compute_force_kernel, "pressure", pressure_buffer);
@@ -495,9 +504,9 @@ public class fluid : MonoBehaviour
         particle_buffer.Dispose();
         arg_buffer.Dispose();
         neighbor_list_buffer.Dispose();
-        neighbor_per_particle_buffer.Dispose();
+        neighbor_tracker_buffer.Dispose();
         hash_grid_buffer.Dispose();
-        particle_per_grid_buffer.Dispose();
+        hash_grid_tracker_buffer.Dispose();
         density_buffer.Dispose();
         pressure_buffer.Dispose();
         velocity_buffer.Dispose();

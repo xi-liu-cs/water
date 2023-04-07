@@ -34,6 +34,7 @@ sealed class VolumeDataVisualizer : MonoBehaviour
 
     ComputeBuffer _voxelBuffer;
     MeshBuilder _builder;
+    int volume_data_visualizer_kernel;
 
     #endregion
 
@@ -45,7 +46,8 @@ sealed class VolumeDataVisualizer : MonoBehaviour
         gameObject.AddComponent<MeshFilter>();
         gameObject.AddComponent<MeshRenderer>();
         /* _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float)); */
-        _voxelBuffer = fluid_cs.noise_density_buffer;
+        volume_data_visualizer_kernel = _converterCompute.FindKernel("NoiseFieldGenerator");
+        _voxelBuffer = fluid_cs.density_buffer;
         _builder = new MeshBuilder(_dimensions, _triangleBudget, _builderCompute, material);
 
         // Voxel data conversion (ushort -> float)
@@ -54,8 +56,8 @@ sealed class VolumeDataVisualizer : MonoBehaviour
 
         _converterCompute.SetInts("Dims", _dimensions);
         /* _converterCompute.SetBuffer(0, "Source", readBuffer); */
-        _converterCompute.SetBuffer(0, "Voxels", _voxelBuffer);
-        _converterCompute.DispatchThreads(0, _dimensions);
+        _converterCompute.SetBuffer(volume_data_visualizer_kernel, "Voxels", _voxelBuffer);
+        _converterCompute.DispatchThreads(volume_data_visualizer_kernel, _dimensions);
     }
 
     void OnDestroy()
