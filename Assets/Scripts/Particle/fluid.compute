@@ -235,121 +235,13 @@ void compute_force(uint3 id : SV_DispatchThreadID)
 [numthreads(100, 1, 1)]
 void integrate(uint3 id : SV_DispatchThreadID)
 {
-    /* // density not seen
-    particle p = particles[id.x]; 
-    velocity[id.x] += force[id.x] / mass * dt;
-    p.position += velocity[id.x] * dt;
-    particles[id.x] = p;
-    float3 pos = p.position,
-    v = velocity[id.x];
-    if(pos.x < bound[0] || pos.x > bound[1])
-        v.x = damping * v.x + noise(pos);
-    if(pos.y < bound[2] || pos.y > bound[3])
-        v.y = damping * v.y + noise(pos);
-    if(pos.z < bound[4] || pos.z > bound[5])
-        v.z = damping * v.z + noise(pos);
-    velocity[id.x] = v;
-    particles[id.x] = p; */
-    
-    /* // particles not seen 
     particle particle = particles[id.x];
     velocity[id.x] += dt * force[id.x] / mass;
     particle.position += dt * velocity[id.x];
     particles[id.x] = particle;
-            
     particle = particles[id.x];
     float3 v = velocity[id.x];
-            
-    if (particles[id.x].position.x < bound[2] + epsilon)
-    {
-        v.x *= damping;
-        particle.position.x = bound[2] + epsilon;
-    }
-    else if(particles[id.x].position.x > bound[3] - epsilon) 
-    {
-        v.x *= damping;
-        particle.position.x = bound[3] - epsilon;
-    }
-            
-    if (particles[id.x].position.y < bound[2] + epsilon)
-    {
-        v.y *= damping;
-        particle.position.y = bound[2] + epsilon;
-    }
-    else if(particles[id.x].position.y > bound[3] - epsilon) 
-    {
-        v.y *= damping;
-        particle.position.y = bound[3] - epsilon;
-    }
-            
-    if (particles[id.x].position.z < bound[2] + epsilon)
-    {
-        v.z *= damping;
-        particle.position.z = bound[2] + epsilon;
-    }
-    else if(particles[id.x].position.z > bound[3] - epsilon) 
-    {
-        v.z *= damping;
-        particle.position.z = bound[3] - epsilon;
-    }
-            
-    velocity[id.x] = v;
-    particles[id.x] = particle; */
-
-    /* // location not right
-    particle particle = particles[id.x];
-    velocity[id.x] += dt * force[id.x] / mass;
-    particle.position += dt * velocity[id.x];
-    particles[id.x] = particle;
-            
-    particle = particles[id.x];
-    float3 v = velocity[id.x];
-    
-    if (particles[id.x].position.x < bound[2] + epsilon)
-    {
-        v.x *= damping;
-        particle.position.x = bound[2] + epsilon;
-    }
-    else if(particles[id.x].position.x + epsilon > dimension - 1.f) 
-    {
-        v.x *= damping;
-        particle.position.x = dimension - 1 - epsilon;
-    }
-            
-    if (particles[id.x].position.y < bound[2] + epsilon)
-    {
-        v.y *= damping;
-        particle.position.y = bound[2] + epsilon;
-    }
-    else if(particles[id.x].position.y + epsilon > dimension - 1.f) 
-    {
-        v.y *= damping;
-        particle.position.y = dimension - 1 - epsilon;
-    }
-            
-    if (particles[id.x].position.z < bound[2] + epsilon)
-    {
-        v.z *= damping;
-        particle.position.z = bound[2] + epsilon;
-    }
-    else if(particles[id.x].position.z + epsilon > dimension - 1.f) 
-    {
-        v.z *= damping;
-        particle.position.z = dimension - 1 - epsilon;
-    }
-            
-    velocity[id.x] = v;
-    particles[id.x] = particle; */
-
-    particle particle = particles[id.x];
-    velocity[id.x] += dt * force[id.x] / mass;
-    particle.position += dt * velocity[id.x];
-    particles[id.x] = particle;
-            
-    particle = particles[id.x];
-    float3 v = velocity[id.x];
-            
-    if (particles[id.x].position.x < bound[0] + epsilon)
+    if(particles[id.x].position.x < bound[0] + epsilon)
     {
         v.x *= damping;
         particle.position.x = bound[0] + epsilon;
@@ -359,8 +251,7 @@ void integrate(uint3 id : SV_DispatchThreadID)
         v.x *= damping;
         particle.position.x = bound[1] - epsilon;
     }
-            
-    if (particles[id.x].position.y < bound[2] + epsilon)
+    if(particles[id.x].position.y < bound[2] + epsilon)
     {
         v.y *= damping;
         particle.position.y = bound[2] + epsilon;
@@ -370,8 +261,7 @@ void integrate(uint3 id : SV_DispatchThreadID)
         v.y *= damping;
         particle.position.y = bound[3] - epsilon;
     }
-            
-    if (particles[id.x].position.z < bound[4] + epsilon)
+    if(particles[id.x].position.z < bound[4] + epsilon)
     {
         v.z *= damping;
         particle.position.z = bound[4] + epsilon;
@@ -381,10 +271,8 @@ void integrate(uint3 id : SV_DispatchThreadID)
         v.z *= damping;
         particle.position.z = bound[5] - epsilon;
     }
-            
     velocity[id.x] = v;
     particles[id.x] = particle;
-
 }
 
 #include "../Noise/noise.cginc"
