@@ -172,24 +172,24 @@ public class fluid : MonoBehaviour
             castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
 
         //compute_shader.Dispatch(noise_density_kernel, thread_group_size, 1, 1);
-        int dc = density_buffer.count;
-        float[] density_test = new float[dc];
-        density_buffer.GetData(density_test);
-        float dsum = 0;
-        for (int i = 0; i < dc; i++) {
-            dsum += density_test[i];
-        }
-        Debug.Log($"Density Sum: {dsum}");
+        //int dc = density_buffer.count;
+        //float[] density_test = new float[dc];
+        //density_buffer.GetData(density_test);
+        //float dsum = 0;
+        //for (int i = 0; i < dc; i++) {
+        //    dsum += density_test[i];
+       // }
+        //Debug.Log($"Density Sum: {dsum}");
 
 
-        int nlc = neighbor_list_buffer.count;
-        int[] int_array_in_update_function = new int[nlc];
-        neighbor_list_buffer.GetData(int_array_in_update_function); // 0;
-        for(int i = 0; i < nlc; ++i) {
-            if (int_array_in_update_function[i] > 0) {
-                Debug.Log(int_array_in_update_function[i]);
-            }
-        }
+        //int nlc = neighbor_list_buffer.count;
+        //int[] int_array_in_update_function = new int[nlc];
+        //neighbor_list_buffer.GetData(int_array_in_update_function); // 0;
+        //for(int i = 0; i < nlc; i++) {
+        //    if (int_array_in_update_function[i] > 0) {
+        //        Debug.Log(int_array_in_update_function[i]);
+        //    }
+        //}
         elapsedSimulationSteps += 1;
 
 
@@ -240,14 +240,14 @@ public class fluid : MonoBehaviour
 
         triangles = triangulate_field(points);
         Debug.Log("triangles");
-        for(int i = 0; i < 10; ++i)
+        for(int i = 0; i < 10; i++)
             Debug.Log(triangles[i]);
     }
 
     int calculate_cube_index(grid_cell cell)
     {
         int cube_index = 0;
-        for(int i = 0; i < 8; ++i)
+        for(int i = 0; i < 8; i++)
             if(cell.value[i] < isolevel)
                 cube_index |= 1 << i;
         return cube_index;
@@ -277,7 +277,7 @@ public class fluid : MonoBehaviour
                 Vector3 intersection_point = interpolate(cell.vertex[v1], cell.value[v1], cell.vertex[v2], cell.value[v2]);
                 intersections[i] = intersection_point;
             }
-            ++i;
+            i++;
             intersection_key >>= 1;
         }
         return intersections;
@@ -299,7 +299,7 @@ public class fluid : MonoBehaviour
 
     void print_triangles(List<triangle> a)
     {
-        for(int i = 0; i < a.Count; ++i)
+        for(int i = 0; i < a.Count; i++)
         {
             Debug.Log(a[i].vertex_a);
             Debug.Log(a[i].vertex_b);
@@ -324,11 +324,11 @@ public class fluid : MonoBehaviour
     {
         int[] a = new int[n_particle];
         int idx = 0;
-        for(int i = 0; i + 1 < n_point_per_axis; ++i)
+        for(int i = 0; i + 1 < n_point_per_axis; i++)
         {
-            for(int j = 0; j + 1 < n_point_per_axis; ++j)
+            for(int j = 0; j + 1 < n_point_per_axis; j++)
             {
-                for(int k = 0; k + 1 < n_point_per_axis; ++k)
+                for(int k = 0; k + 1 < n_point_per_axis; k++)
                 {
                     float x = i, y = j, z = k;
                     if(index_from_coordinate(i + 1, j + 1, k + 1) >= n_particle)
@@ -351,7 +351,7 @@ public class fluid : MonoBehaviour
                         }
                     );
                     List<triangle> cell_triangles = triangulate_cell(cell);
-                    for(int l = 0; l < cell_triangles.Count; ++l)
+                    for(int l = 0; l < cell_triangles.Count; l++)
                     {
                         triangle tri = cell_triangles[l];
                         a[idx++] = (int)tri.vertex_a[0];
@@ -382,9 +382,9 @@ public class fluid : MonoBehaviour
         Debug.Log("MALLOC GO!!!");
         while(i < n_particle)
         {
-            for(int x = 0; x < particle_per_dimension; ++x)
-                for(int y = 0; y < particle_per_dimension; ++y)
-                    for(int z = 0; z < particle_per_dimension; ++z)
+            for(int x = 0; x < particle_per_dimension; x++)
+                for(int y = 0; y < particle_per_dimension; y++)
+                    for(int z = 0; z < particle_per_dimension; z++)
                     {
                         float r = UnityEngine.Random.Range(0f, 5f);
                         //Vector3 pos = new Vector3(x,y,z);
@@ -458,10 +458,17 @@ public class fluid : MonoBehaviour
             particle_mesh.GetBaseVertex(0), 
             0
         };
-        arg_buffer = new ComputeBuffer(1, arg.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
+        arg_buffer = new ComputeBuffer(
+            1, 
+            arg.Length * sizeof(uint), 
+            ComputeBufferType.IndirectArguments
+        );
         arg_buffer.SetData(arg);
 
-        particle_buffer = new ComputeBuffer(n_particle, sizeof(float) * ( 3 + 4 ));  // !!!!!
+        particle_buffer = new ComputeBuffer(
+            n_particle, 
+            sizeof(float) * ( 3 + 4 )
+        );  // !!!!!
         particle_buffer.SetData(particles);
         
         neighbor_list = new int[n_particle * max_particles_per_grid * n];
@@ -472,14 +479,26 @@ public class fluid : MonoBehaviour
 
         march_triangles = new triangle[n_particle];
         
-        neighbor_list_buffer = new ComputeBuffer(n_particle * max_particles_per_grid * n, sizeof(int));
+        neighbor_list_buffer = new ComputeBuffer(
+            n_particle * max_particles_per_grid * n, 
+            sizeof(int)
+        );
         neighbor_list_buffer.SetData(neighbor_list);
-        neighbor_tracker_buffer = new ComputeBuffer(n_particle, sizeof(int));
+        neighbor_tracker_buffer = new ComputeBuffer(
+            n_particle, 
+            sizeof(int)
+        );
         neighbor_tracker_buffer.SetData(neighbor_tracker);
         
-        hash_grid_buffer = new ComputeBuffer(dimension3 * max_particles_per_grid, sizeof(uint));
+        hash_grid_buffer = new ComputeBuffer(
+            dimension3 * max_particles_per_grid, 
+            sizeof(uint)
+        );
         hash_grid_buffer.SetData(hash_grid);
-        hash_grid_tracker_buffer = new ComputeBuffer(dimension3, sizeof(uint));
+        hash_grid_tracker_buffer = new ComputeBuffer(
+            dimension3, 
+            sizeof(uint)
+        );
         hash_grid_tracker_buffer.SetData(hash_grid_tracker);
 
         density_buffer = new ComputeBuffer(n_particle, sizeof(float));
@@ -566,7 +585,7 @@ public class fluid : MonoBehaviour
         pressure_buffer.Dispose();
         velocity_buffer.Dispose();
         force_buffer.Dispose();
-        point_buffer.Dispose();
-        triangle_buffer.Dispose();
+        //point_buffer.Dispose();
+        //triangle_buffer.Dispose();
     }
 }

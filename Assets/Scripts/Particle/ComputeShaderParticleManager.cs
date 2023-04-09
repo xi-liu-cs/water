@@ -109,8 +109,8 @@ public class ComputeShaderParticleManager : MonoBehaviour
             for (int z = 0; z < particlesPerDimension; z++)
             {
                 Vector3 startPos = 
-                    //new Vector3(dimensions - 1, dimensions - 1, dimensions - 1) 
-                    Vector3.zero
+                    new Vector3(dimensions - 1, dimensions - 1, dimensions - 1) 
+                    //Vector3.zero
                     - new Vector3(x / 2f, y / 2f, z / 2f) 
                     - new Vector3(Random.Range(0f, 0.01f), Random.Range(0f, 0.01f), Random.Range(0f, 0.01f));
                 _particles[counter] = new Particle
@@ -243,7 +243,7 @@ public class ComputeShaderParticleManager : MonoBehaviour
         computeShader.Dispatch(recalculateHashGridKernel, numberOfParticles / 100, 1, 1);
         computeShader.Dispatch(buildNeighbourListKernel, numberOfParticles / 100, 1, 1);
         computeShader.Dispatch(computeDensityPressureKernel, numberOfParticles / 100, 1, 1);
-        computeShader.Dispatch(computeForcesKernel, numberOfParticles / 100, 1, 1);
+        //computeShader.Dispatch(computeForcesKernel, numberOfParticles / 100, 1, 1);
         computeShader.Dispatch(integrateKernel, numberOfParticles / 100, 1, 1);
         
         material.SetFloat(SizeProperty, particleRenderSize);

@@ -63,14 +63,14 @@ void malloc_particle(uint3 id : SV_DispatchThreadID)
     i = 0;
     while(i < n_particle)
     {
-        for(uint x = 0; x < particle_per_dimension; ++x)
-            for(uint y = 0; y < particle_per_dimension; ++y)
-                for(uint z = 0; z < particle_per_dimension; ++z)
+        for(uint x = 0; x < particle_per_dimension; x++)
+            for(uint y = 0; y < particle_per_dimension; y++)
+                for(uint z = 0; z < particle_per_dimension; z++)
                 {
                     float3 pos = float3(dimension - 1, dimension - 1, dimension - 1);
                     particles[i].position = pos;
                     particles[i].color = float4(30, 100, 255, 255);
-                    if(++i == n_particle) return;
+                    if(i++ == n_particle) return;
                 }
     }
 }
@@ -101,6 +101,7 @@ void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8
     for(int i = 0; i < 8; i++) {
         neighbor_index[i] = origin_index;
     }
+
     if((origin_index.x + 0.5f) * grid_size <= position.x)
     {
         neighbor_index[4].x += 1;
@@ -143,6 +144,7 @@ void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8
         neighbor_index[5].z -= 1;
         neighbor_index[7].z -= 1;
     }
+
     for(int j = 0; j < 8; j++)
     {
         int3 neighbor = neighbor_index[j];
@@ -163,7 +165,7 @@ void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
     int grids[8];
     set_neighbor_key(g2, particles[id.x].position, grids);
 
-    for(uint i = 0; i < n; i++)
+    for(uint i = 0; i < 8; i++)
     {
         if(grids[i] == -1) continue;
         const uint particle_in_grid = min(hash_grid_tracker[grids[i]], max_particles_per_grid);
@@ -173,7 +175,7 @@ void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
             if(potential_neighbor == id.x) continue;
             const float3 v = particles[potential_neighbor].position - particles[id.x].position;
             if(dot(v, v) < radius2)
-                neighbor_list[id.x * max_particles_per_grid * n + neighbor_tracker[id.x]++] = potential_neighbor;
+                neighbor_list[id.x * max_particles_per_grid * 8 + neighbor_tracker[id.x]++] = potential_neighbor;
         }
     }
     /* neighbor_list[id.x] = id.x; */
@@ -181,20 +183,20 @@ void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
 
 float std_kernel(float distance_square)
 {
-    float x = 1.0 - distance_square / radius2;
-    return 315.0 / (64.0 * pi * radius3) * x * x * x;
+    float x = 1.0f - distance_square / radius2;
+    return 315.0f / (64.0f * pi * radius3) * x * x * x;
 }
 
 float spiky_kernel_first_derivative(float distance)
 {
-    float x = 1.0 - distance / radius;
-    return -45.0 / (pi * radius4) * x * x;
+    float x = 1.0f - distance / radius;
+    return -45.0f / (pi * radius4) * x * x;
 }
 
 float spiky_kernel_second_derivative(float distance)
 {
-    float x = 1.0 - distance / radius;
-    return 90.0 / (pi * radius5) * x;
+    float x = 1.0f - distance / radius;
+    return 90.0f / (pi * radius5) * x;
 }
 
 float3 spiky_kernel_gradient(float distance, float3 direction_from_center)
@@ -206,10 +208,10 @@ float3 spiky_kernel_gradient(float distance, float3 direction_from_center)
 void compute_density_pressure(uint3 id : SV_DispatchThreadID)
 {
     float3 origin = particles[id.x].position;
-    float sum = 0;
-    for(int i = 0; i < neighbor_tracker[id.x]; ++i)
+    float sum = 0.0f;
+    for(int i = 0; i < neighbor_tracker[id.x]; i++)
     {
-        int neighbor_index = neighbor_list[id.x * max_particles_per_grid * n + i];
+        int neighbor_index = neighbor_list[id.x * max_particles_per_grid * 8 + i];
         float3 diff = origin - particles[neighbor_index].position;
         float distance_square = dot(diff, diff);
         sum += std_kernel(distance_square);
@@ -223,23 +225,32 @@ void compute_force(uint3 id : SV_DispatchThreadID)
 {
     force[id.x] = float3(0, 0, 0);
     float particle_density2 = density[id.x] * density[id.x];
-    for(int i = 0; i < neighbor_tracker[id.x]; ++i)
+    for(int i = 0; i < neighbor_tracker[id.x]; i++)
     {
-        int neighbor_index = neighbor_list[id.x * max_particles_per_grid * n + i];
+        int neighbor_index = neighbor_list[id.x * max_particles_per_grid * 8 + i];
         float distance = length(particles[id.x].position - particles[neighbor_index].position);
         if(distance > 0)
         {
-            float3 direction = (particles[id.x].position - particles[neighbor_index].position) / distance;
-            force[id.x] -= mass2 
-                * (
-                    pressure[id.x] 
-                    / particle_density2 
-                    + pressure[neighbor_index] 
-                    / (density[neighbor_index] * density[neighbor_index])
+            float3 direction = (
+                particles[id.x].position - particles[neighbor_index].position
+            ) / distance;
+            force[id.x] -= 
+                mass2 * 
+                (
+                    pressure[id.x] / particle_density2 + pressure[neighbor_index] / (
+                        density[neighbor_index] * density[neighbor_index]
+                    )
                 ) 
-                * spiky_kernel_gradient(distance, direction) 
-                + 0 * 1000 * noise(float3(time.x, time.y, time.z)); /* compute pressure gradient force */
-            force[id.x] += viscosity_coefficient * mass2 * (velocity[neighbor_index] - velocity[id.x]) / density[neighbor_index] * spiky_kernel_second_derivative(distance) + 1000 * noise(float3(time.x, time.y, time.z));
+                * spiky_kernel_gradient(distance, direction);
+                //+ 0 * 1000 * noise(float3(time.x, time.y, time.z)); /* compute pressure gradient force */
+            force[id.x] += 
+                viscosity_coefficient * 
+                mass2 * (
+                    velocity[neighbor_index] - velocity[id.x]
+                ) / 
+                density[neighbor_index] * 
+                spiky_kernel_second_derivative(distance);
+                //+ 1000 * noise(float3(time.x, time.y, time.z));
         }
     }
     force[id.x] += g;
@@ -382,7 +393,7 @@ void march(int3 id : SV_DispatchThreadID)
     };
     uint n_corner = 8,
     cube_index = 0;
-    for(uint c = 0; c < n_corner; ++c)
+    for(uint c = 0; c < n_corner; c++)
         if(cube_corner_densities[c] < isolevel) /* if the input data is not binary, need an additional parameter (threshold value or isovalue) to classify samples as inside or outside the surface */
             cube_index |= 1 << c;
     int_debug[map(id.x, id.y, id.z)] = id.x;
