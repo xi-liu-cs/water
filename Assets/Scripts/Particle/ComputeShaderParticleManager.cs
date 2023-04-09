@@ -243,16 +243,23 @@ public class ComputeShaderParticleManager : MonoBehaviour
         computeShader.Dispatch(recalculateHashGridKernel, numberOfParticles / 100, 1, 1);
         computeShader.Dispatch(buildNeighbourListKernel, numberOfParticles / 100, 1, 1);
         computeShader.Dispatch(computeDensityPressureKernel, numberOfParticles / 100, 1, 1);
-        //computeShader.Dispatch(computeForcesKernel, numberOfParticles / 100, 1, 1);
+        computeShader.Dispatch(computeForcesKernel, numberOfParticles / 100, 1, 1);
         computeShader.Dispatch(integrateKernel, numberOfParticles / 100, 1, 1);
         
         material.SetFloat(SizeProperty, particleRenderSize);
         material.SetBuffer(ParticlesBufferProperty, _particlesBuffer);
         Graphics.DrawMeshInstancedIndirect(particleMesh, 0, material, new Bounds(Vector3.zero, new Vector3(100.0f, 100.0f, 100.0f)), _argsBuffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
 
-        int[] nei = new int[1200];
-        _neighbourListBuffer.GetData(nei); // 1
-        for(int i = 0; i < 1000; ++i) Debug.Log(nei[i]);
+        //int[] nei = new int[1200];
+        //_neighbourListBuffer.GetData(nei); // 1
+        //for(int i = 0; i < 1000; ++i) Debug.Log(nei[i]);
+
+        int dc = _densitiesBuffer.count;
+        float[] debugDensity = new float[dc];
+        _densitiesBuffer.GetData(debugDensity);
+        for (int i = 0; i < dc; i++) {
+            Debug.Log(debugDensity[i]);
+        }
 
         elapsedSimulationSteps++;
     }

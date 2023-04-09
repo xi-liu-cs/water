@@ -171,6 +171,13 @@ public class fluid : MonoBehaviour
             arg_buffer, 
             castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
 
+        int dc = density_buffer.count;
+        float[] debugDensity = new float[dc];
+        density_buffer.GetData(debugDensity);
+        for (int i = 0; i < dc; i++) {
+            Debug.Log(debugDensity[i]);
+        }
+
         //compute_shader.Dispatch(noise_density_kernel, thread_group_size, 1, 1);
         //int dc = density_buffer.count;
         //float[] density_test = new float[dc];
