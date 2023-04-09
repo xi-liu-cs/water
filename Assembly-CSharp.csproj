@@ -74,7 +74,6 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Wander1Unit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\InterposeUnit.cs" />
      <Compile Include="Assets\Style\StyleData.cs" />
-     <Compile Include="Assets\Scripts\Particle\ComputeShaderParticleManager.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\MovementAIRigidbody.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\WallAvoidanceUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Evade.cs" />
