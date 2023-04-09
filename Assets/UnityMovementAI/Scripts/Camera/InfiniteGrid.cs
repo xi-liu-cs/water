@@ -10,7 +10,7 @@ namespace UnityMovementAI
     {
         public bool show = true;
 
-        public float cellSize = 1;
+        public float grid_size = 1;
 
         public Vector3 gridLocation;
 
@@ -39,7 +39,7 @@ namespace UnityMovementAI
             upDir = topLeft - bottomLeft;
             upDir.Normalize();
 
-            oneByOneDiagonal = (rightDir + upDir).normalized * Mathf.Sqrt(cellSize * cellSize + cellSize * cellSize);
+            oneByOneDiagonal = (rightDir + upDir).normalized * Mathf.Sqrt(grid_size * grid_size + grid_size * grid_size);
 
             /* Convert the camera bounds to the grid bounds */
             ConvertToGridBounds();
@@ -67,7 +67,7 @@ namespace UnityMovementAI
         {
             Vector3 projection = Vector3.Project(vector, onNormal);
 
-            float newMagnitude = Mathf.Floor(projection.magnitude / cellSize) * cellSize;
+            float newMagnitude = Mathf.Floor(projection.magnitude / grid_size) * grid_size;
 
             projection = projection.normalized * newMagnitude;
 

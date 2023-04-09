@@ -207,13 +207,13 @@ Shader "custom/fog"
 		{
 			float4 Albedo81 = ( _Albedo * i.vertexColor );
 			o.Emission = Albedo81.rgb;
-			float ParticleStableRandom43 = i.uv_texcoord.z;
+			float particleStableRandom43 = i.uv_texcoord.z;
 			float2 uvs_TexCoord3 = i.uv_texcoord;
-			uvs_TexCoord3.xy = i.uv_texcoord.xy + ( ( _SimpleNoiseAnimation * _Time.y ) + ( ParticleStableRandom43 * 10.0 ) );
+			uvs_TexCoord3.xy = i.uv_texcoord.xy + ( ( _SimpleNoiseAnimation * _Time.y ) + ( particleStableRandom43 * 10.0 ) );
 			float simpleNoise1 = SimpleNoise( uvs_TexCoord3.xy*_SimpleNoiseScale );
 			float SimpleNoise18 = saturate( (0.0 + (simpleNoise1 - _SimpleNoiseRemap) * (1.0 - 0.0) / (1.0 - _SimpleNoiseRemap)) );
 			float lerpResult34 = lerp( 1.0 , SimpleNoise18 , _SimpleNoiseAmount);
-			float simplePerlin3D19 = snoise( ( float3( i.uv_texcoord.xy ,  0.0 ) + ( _SimplexNoiseAnimation * _Time.y ) + ( ParticleStableRandom43 * 20.0 ) )*_SimplexNoiseScale );
+			float simplePerlin3D19 = snoise( ( float3( i.uv_texcoord.xy ,  0.0 ) + ( _SimplexNoiseAnimation * _Time.y ) + ( particleStableRandom43 * 20.0 ) )*_SimplexNoiseScale );
 			simplePerlin3D19 = simplePerlin3D19*0.5 + 0.5;
 			float SimplexNoise25 = saturate( (0.0 + (simplePerlin3D19 - _SimplexNoiseRemap) * (1.0 - 0.0) / (1.0 - _SimplexNoiseRemap)) );
 			float lerpResult33 = lerp( 1.0 , SimplexNoise25 , _SimplexNoiseAmount);

@@ -40,7 +40,7 @@ dt,
 g,
 epsilon,
 pi;
-uint n = 8,
+uint n,
 n_particle,
 dimension,
 max_particles_per_grid;
@@ -84,12 +84,12 @@ void clear_hash_grid(uint3 id : SV_DispatchThreadID)
 [numthreads(100, 1, 1)]
 void compute_hash_grid(uint3 id : SV_DispatchThreadID)
 {
-    int original_value = 0;
+    uint original_value = 0;
     const int hash_grid_position = hash(get_cell(particles[id.x].position));
     InterlockedAdd(hash_grid_tracker[hash_grid_position], 1, original_value); /* 'original_value' is an output variable that will be set to the original value of dest */
     if(original_value >= max_particles_per_grid)
     {
-        particles[id.x].color = float4(50, 100, 255, 125);
+        particles[id.x].color = float4(0.25, 0.5, 1, 0.5);
         return;
     }
     hash_grid[hash_grid_position * max_particles_per_grid + original_value] = id.x;
@@ -142,13 +142,13 @@ void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8
         --neighbor_index[5].z;
         --neighbor_index[7].z;
     }
-    for(uint i = 0; i < n; ++i)
+    for(uint a = 0; a < n; ++a)
     {
-        uint3 neighbor = neighbor_index[i];
+        uint3 neighbor = neighbor_index[a];
         if(neighbor.x < 0 || neighbor.x >= dimension || neighbor.y < 0 || neighbor.y >= dimension || neighbor.z < 0 || neighbor.z >= dimension)
-            neighbor_key[i] = -1;
+            neighbor_key[a] = -1;
         else
-            neighbor_key[i] = hash(neighbor_index[i]);
+            neighbor_key[a] = hash(neighbor_index[a]);
     }
 }
 
@@ -172,7 +172,6 @@ void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
                 neighbor_list[id.x * max_particles_per_grid * n + neighbor_tracker[id.x]++] = potential_neighbor;
         }
     }
-    /* neighbor_list[id.x] = id.x; */
 }
 
 float std_kernel(float distance_square)
@@ -236,6 +235,7 @@ void compute_force(uint3 id : SV_DispatchThreadID)
 [numthreads(100, 1, 1)]
 void integrate(uint3 id : SV_DispatchThreadID)
 {
+    /* // density not seen
     particle p = particles[id.x]; 
     velocity[id.x] += force[id.x] / mass * dt;
     p.position += velocity[id.x] * dt;
@@ -249,7 +249,142 @@ void integrate(uint3 id : SV_DispatchThreadID)
     if(pos.z < bound[4] || pos.z > bound[5])
         v.z = damping * v.z + noise(pos);
     velocity[id.x] = v;
-    particles[id.x] = p;
+    particles[id.x] = p; */
+    
+    /* // particles not seen 
+    particle particle = particles[id.x];
+    velocity[id.x] += dt * force[id.x] / mass;
+    particle.position += dt * velocity[id.x];
+    particles[id.x] = particle;
+            
+    particle = particles[id.x];
+    float3 v = velocity[id.x];
+            
+    if (particles[id.x].position.x < bound[2] + epsilon)
+    {
+        v.x *= damping;
+        particle.position.x = bound[2] + epsilon;
+    }
+    else if(particles[id.x].position.x > bound[3] - epsilon) 
+    {
+        v.x *= damping;
+        particle.position.x = bound[3] - epsilon;
+    }
+            
+    if (particles[id.x].position.y < bound[2] + epsilon)
+    {
+        v.y *= damping;
+        particle.position.y = bound[2] + epsilon;
+    }
+    else if(particles[id.x].position.y > bound[3] - epsilon) 
+    {
+        v.y *= damping;
+        particle.position.y = bound[3] - epsilon;
+    }
+            
+    if (particles[id.x].position.z < bound[2] + epsilon)
+    {
+        v.z *= damping;
+        particle.position.z = bound[2] + epsilon;
+    }
+    else if(particles[id.x].position.z > bound[3] - epsilon) 
+    {
+        v.z *= damping;
+        particle.position.z = bound[3] - epsilon;
+    }
+            
+    velocity[id.x] = v;
+    particles[id.x] = particle; */
+
+    /* // location not right
+    particle particle = particles[id.x];
+    velocity[id.x] += dt * force[id.x] / mass;
+    particle.position += dt * velocity[id.x];
+    particles[id.x] = particle;
+            
+    particle = particles[id.x];
+    float3 v = velocity[id.x];
+    
+    if (particles[id.x].position.x < bound[2] + epsilon)
+    {
+        v.x *= damping;
+        particle.position.x = bound[2] + epsilon;
+    }
+    else if(particles[id.x].position.x + epsilon > dimension - 1.f) 
+    {
+        v.x *= damping;
+        particle.position.x = dimension - 1 - epsilon;
+    }
+            
+    if (particles[id.x].position.y < bound[2] + epsilon)
+    {
+        v.y *= damping;
+        particle.position.y = bound[2] + epsilon;
+    }
+    else if(particles[id.x].position.y + epsilon > dimension - 1.f) 
+    {
+        v.y *= damping;
+        particle.position.y = dimension - 1 - epsilon;
+    }
+            
+    if (particles[id.x].position.z < bound[2] + epsilon)
+    {
+        v.z *= damping;
+        particle.position.z = bound[2] + epsilon;
+    }
+    else if(particles[id.x].position.z + epsilon > dimension - 1.f) 
+    {
+        v.z *= damping;
+        particle.position.z = dimension - 1 - epsilon;
+    }
+            
+    velocity[id.x] = v;
+    particles[id.x] = particle; */
+
+    particle particle = particles[id.x];
+    velocity[id.x] += dt * force[id.x] / mass;
+    particle.position += dt * velocity[id.x];
+    particles[id.x] = particle;
+            
+    particle = particles[id.x];
+    float3 v = velocity[id.x];
+            
+    if (particles[id.x].position.x < bound[0] + epsilon)
+    {
+        v.x *= damping;
+        particle.position.x = bound[0] + epsilon;
+    }
+    else if(particles[id.x].position.x > bound[1] - epsilon) 
+    {
+        v.x *= damping;
+        particle.position.x = bound[1] - epsilon;
+    }
+            
+    if (particles[id.x].position.y < bound[2] + epsilon)
+    {
+        v.y *= damping;
+        particle.position.y = bound[2] + epsilon;
+    }
+    else if(particles[id.x].position.y > bound[3] - epsilon) 
+    {
+        v.y *= damping;
+        particle.position.y = bound[3] - epsilon;
+    }
+            
+    if (particles[id.x].position.z < bound[4] + epsilon)
+    {
+        v.z *= damping;
+        particle.position.z = bound[4] + epsilon;
+    }
+    else if(particles[id.x].position.z > bound[5] - epsilon) 
+    {
+        v.z *= damping;
+        particle.position.z = bound[5] - epsilon;
+    }
+            
+    velocity[id.x] = v;
+    particles[id.x] = particle;
+
 }
 
 #include "../Noise/noise.cginc"

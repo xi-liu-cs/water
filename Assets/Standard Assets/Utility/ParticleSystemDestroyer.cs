@@ -5,7 +5,7 @@ using Random = UnityEngine.Random;
 
 namespace UnityStandardAssets.Utility
 {
-    public class ParticleSystemDestroyer : MonoBehaviour
+    public class particleSystemDestroyer : MonoBehaviour
     {
         // allows a particle system to exist for a specified duration,
         // then shuts off emission, and waits for all particles to expire

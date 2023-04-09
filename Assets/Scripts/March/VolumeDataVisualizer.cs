@@ -7,7 +7,7 @@ sealed class VolumeDataVisualizer : MonoBehaviour
     #region Editable attributes
 
     [SerializeField] TextAsset _volumeData = null;
-    [SerializeField] Vector3Int _dimensions = new Vector3Int(256, 256, 113);
+    [SerializeField] Vector3Int _dimension = new Vector3Int(256, 256, 113);
     [SerializeField] float _gridScale = 4.0f / 256;
     [SerializeField] int _triangleBudget = 65536 * 16;
 
@@ -30,7 +30,7 @@ sealed class VolumeDataVisualizer : MonoBehaviour
 
     #region Private members
 
-    int VoxelCount => _dimensions.x * _dimensions.y * _dimensions.z;
+    int VoxelCount => _dimension.x * _dimension.y * _dimension.z;
 
     ComputeBuffer _voxelBuffer;
     MeshBuilder _builder;
@@ -48,16 +48,16 @@ sealed class VolumeDataVisualizer : MonoBehaviour
         /* _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float)); */
         volume_data_visualizer_kernel = _converterCompute.FindKernel("NoiseFieldGenerator");
         _voxelBuffer = fluid_cs.density_buffer;
-        _builder = new MeshBuilder(_dimensions, _triangleBudget, _builderCompute, material);
+        _builder = new MeshBuilder(_dimension, _triangleBudget, _builderCompute, material);
 
         // Voxel data conversion (ushort -> float)
         /* using var readBuffer = new ComputeBuffer(VoxelCount / 2, sizeof(uint));
         readBuffer.SetData(_volumeData.bytes); */
 
-        _converterCompute.SetInts("Dims", _dimensions);
+        _converterCompute.SetInts("Dims", _dimension);
         /* _converterCompute.SetBuffer(0, "Source", readBuffer); */
         _converterCompute.SetBuffer(volume_data_visualizer_kernel, "Voxels", _voxelBuffer);
-        _converterCompute.DispatchThreads(volume_data_visualizer_kernel, _dimensions);
+        _converterCompute.DispatchThreads(volume_data_visualizer_kernel, _dimension);
     }
 
     void OnDestroy()
