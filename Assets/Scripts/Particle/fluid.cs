@@ -10,15 +10,15 @@ public class fluid : MonoBehaviour
     public Mesh particle_mesh,
     fluid_mesh;
     public Material material;
-    public float mass = 4f,
-    viscosity_coefficient = 2.5f,
-    particle_size = 40f,
-    radius = 4f,
-    grid_size = 16f, /* 4 * radius */
+    public float mass = 1f,
+    viscosity_coefficient = 0.01f,
+    particle_size = 8f,
+    radius = 2f,
+    grid_size = 8f, /* 4 * radius */
     gas_constant = 2000f,
     dt = 0.0008f,
     rest_density = 9f,
-    damping = -1f;
+    damping = -0.9f;
     public Vector3 position_offset,
     velocity_initial = new Vector3(0, 500, 0);
     public float[] g = {0f, -9.81f * 2000f, 0f},
@@ -159,15 +159,23 @@ public class fluid : MonoBehaviour
         material.SetBuffer(particle_buffer_property, particle_buffer);
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
 
-        compute_shader.Dispatch(noise_density_kernel, thread_group_size, 1, 1);
+        /* compute_shader.Dispatch(noise_density_kernel, thread_group_size, 1, 1); */
 
-        int[] int_array_in_update_function = new int[200];
-        // hash_grid_buffer.GetData(int_array_in_update_function); // 0
-        // hash_grid_tracker_buffer.GetData(int_array_in_update_function); // 1
-        neighbor_list_buffer.GetData(int_array_in_update_function); // 0
-        // neighbor_tracker_buffer.GetData(nei); // 0
-        // density_buffer.GetData(int_array_in_update_function);
-        for(int i = 0; i < 200; ++i) Debug.Log(int_array_in_update_function[i]);
+        int[] int_array_in_update_function = new int[n_debug];
+        // hash_grid_buffer.GetData(int_array_in_update_function);
+        // hash_grid_tracker_buffer.GetData(int_array_in_update_function);
+        // neighbor_list_buffer.GetData(int_array_in_update_function);
+        // neighbor_tracker_buffer.GetData(int_array_in_update_function);
+        density_buffer.GetData(int_array_in_update_function);
+        for(int i = 0; i < n_debug; ++i) Debug.Log(int_array_in_update_function[i]);
+        /* int[] int_array_in_update_function = new int[n_debug];
+        hash_grid_buffer.GetData(int_array_in_update_function);
+        hash_grid_tracker_buffer.GetData(int_array_in_update_function);
+        neighbor_list_buffer.GetData(int_array_in_update_function);
+        neighbor_tracker_buffer.GetData(int_array_in_update_function);
+        density_buffer.GetData(int_array_in_update_function);
+        for(int i = 0; i < n_debug; ++i) Debug.Log(int_array_in_update_function[i]); */
+
         /* int march_kernel_n_thread = 4,
         march_kernel_group_size = (int)(Mathf.Pow(n_particle, 1.0f / 3.0f) / march_kernel_n_thread);
         triangle_buffer.SetCounterValue(0);
@@ -425,7 +433,7 @@ public class fluid : MonoBehaviour
         neighbor_tracker = new int[n_particle];
         hash_grid = new uint[dimension3 * max_particles_per_grid];
         hash_grid_tracker = new uint[dimension3];
-        march_triangles = new triangle[n_particle];
+        /* march_triangles = new triangle[n_particle]; */
         
         neighbor_list_buffer = new ComputeBuffer(n_particle * max_particles_per_grid * n, sizeof(int));
         neighbor_list_buffer.SetData(neighbor_list);
@@ -445,12 +453,12 @@ public class fluid : MonoBehaviour
         force_buffer.SetData(force);
         bound_buffer = new ComputeBuffer(n_bound, sizeof(float));
         bound_buffer.SetData(bound);
-        point_buffer = new ComputeBuffer(n_particle, 3 * sizeof(float));
+        /* point_buffer = new ComputeBuffer(n_particle, 3 * sizeof(float));
         noise_density_buffer = new ComputeBuffer(n_particle, sizeof(float));
         triangle_buffer = new ComputeBuffer(n_particle, sizeof(triangle), ComputeBufferType.Append);
         triangle_count_buffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
         int_debug_buffer = new ComputeBuffer(n_debug, sizeof(int));
-        float_debug_buffer = new ComputeBuffer(n_debug, sizeof(float));
+        float_debug_buffer = new ComputeBuffer(n_debug, sizeof(float)); */
 
         compute_shader.SetBuffer(clear_hash_grid_kernel, "hash_grid_tracker", hash_grid_tracker_buffer);
 
@@ -463,7 +471,7 @@ public class fluid : MonoBehaviour
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "hash_grid_tracker", hash_grid_tracker_buffer);
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "neighbor_list", neighbor_list_buffer);
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "neighbor_tracker", neighbor_tracker_buffer);
-        compute_shader.SetBuffer(compute_neighbor_list_kernel, "int_debug", int_debug_buffer);
+        /* compute_shader.SetBuffer(compute_neighbor_list_kernel, "int_debug", int_debug_buffer); */
         
         compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_list", neighbor_list_buffer);
         compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_tracker", neighbor_tracker_buffer);
@@ -484,7 +492,7 @@ public class fluid : MonoBehaviour
         compute_shader.SetBuffer(integrate_kernel, "force", force_buffer);
         compute_shader.SetBuffer(integrate_kernel, "bound", bound_buffer);
 
-        compute_shader.SetBuffer(noise_density_kernel, "particles", particle_buffer);
+        /* compute_shader.SetBuffer(noise_density_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(noise_density_kernel, "points", point_buffer);
         compute_shader.SetBuffer(noise_density_kernel, "noise_densities", noise_density_buffer);
 
@@ -492,7 +500,7 @@ public class fluid : MonoBehaviour
         compute_shader.SetBuffer(march_kernel, "noise_densities", noise_density_buffer);
         compute_shader.SetBuffer(march_kernel, "triangles", triangle_buffer);
         compute_shader.SetBuffer(march_kernel, "int_debug", int_debug_buffer);
-        compute_shader.SetBuffer(march_kernel, "float_debug", float_debug_buffer);
+        compute_shader.SetBuffer(march_kernel, "float_debug", float_debug_buffer); */
     }
 
     void OnDestroy()

@@ -69,7 +69,7 @@ void malloc_particle(uint3 id : SV_DispatchThreadID)
                 {
                     float3 pos = float3(dimension - 1, dimension - 1, dimension - 1);
                     particles[i].position = pos;
-                    particles[i].color = float4(30, 100, 255, 255);
+                    particles[i].color = float4(0.25, 0.5, 1, 0.5);
                     if(++i == n_particle) return;
                 }
     }
@@ -244,32 +244,32 @@ void integrate(uint3 id : SV_DispatchThreadID)
     if(particles[id.x].position.x < bound[0] + epsilon)
     {
         v.x *= damping;
-        particle.position.x = bound[0] + epsilon;
+        particle.position.x = bound[0] + epsilon + 0.3 * noise(particle.position);
     }
     else if(particles[id.x].position.x > bound[1] - epsilon) 
     {
         v.x *= damping;
-        particle.position.x = bound[1] - epsilon;
+        particle.position.x = bound[1] - epsilon - 0.3 * noise(particle.position);
     }
     if(particles[id.x].position.y < bound[2] + epsilon)
     {
         v.y *= damping;
-        particle.position.y = bound[2] + epsilon;
+        particle.position.y = bound[2] + epsilon + 0.3 * noise(particle.position);
     }
     else if(particles[id.x].position.y > bound[3] - epsilon) 
     {
         v.y *= damping;
-        particle.position.y = bound[3] - epsilon;
+        particle.position.y = bound[3] - epsilon - 0.3 * noise(particle.position);
     }
     if(particles[id.x].position.z < bound[4] + epsilon)
     {
         v.z *= damping;
-        particle.position.z = bound[4] + epsilon;
+        particle.position.z = bound[4] + epsilon + 0.3 * noise(particle.position);
     }
     else if(particles[id.x].position.z > bound[5] - epsilon) 
     {
         v.z *= damping;
-        particle.position.z = bound[5] - epsilon;
+        particle.position.z = bound[5] - epsilon - 0.3 * noise(particle.position);
     }
     velocity[id.x] = v;
     particles[id.x] = particle;

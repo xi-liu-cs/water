@@ -1082,7 +1082,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 226704146}
   m_LocalRotation: {x: 0.004534796, y: 0.9835144, z: 0.17927954, w: -0.023187494}
-  m_LocalPosition: {x: 383.11206, y: -84.70312, z: 99.13391}
+  m_LocalPosition: {x: 381.89273, y: -74.921234, z: 73.22388}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -31656,15 +31656,15 @@ MonoBehaviour:
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
-  mass: 4
-  viscosity_coefficient: 2.5
-  particle_size: 10
-  radius: 4
-  grid_size: 16
+  mass: 1
+  viscosity_coefficient: 0.01
+  particle_size: 8
+  radius: 2
+  grid_size: 8
   gas_constant: 2000
   dt: 0.0008
   rest_density: 1
-  damping: -1
+  damping: -0.9
   position_offset: {x: -140, y: -230, z: -60}
   velocity_initial: {x: 0, y: 500, z: 0}
   g:
@@ -31674,10 +31674,10 @@ MonoBehaviour:
   bound:
   - -200
   - 200
-  - -308
-  - -12.7
-  - -200
-  - 200
+  - -300
+  - -12
+  - -150
+  - 150
   n_particle: 50000
   dimension: 100
   max_particles_per_grid: 500

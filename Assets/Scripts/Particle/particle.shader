@@ -12,6 +12,7 @@ Shader "Instanced/particle"
 		LOD 200
 
 		CGPROGRAM
+		#include "../Noise/noise.cginc"
 		// Physically based Standard lighting model
 		#pragma surface surf Standard addshadow fullforwardshadows
 		#pragma multi_compile_instancing
@@ -52,15 +53,17 @@ Shader "Instanced/particle"
 	half _Glossiness;
 	half _Metallic;
 
-	void surf(Input IN, inout SurfaceOutputStandard o) {
-		float4 col = float4(0, 0, 1, 1);
+	void surf(Input IN, inout SurfaceOutputStandard o)
+	{
+		float4 c = float4(0, 0, 1, 1);
 		#ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-		col = particle_buffer[unity_InstanceID].color;
+		c = particle_buffer[unity_InstanceID].color;
 		#endif
-		o.Albedo = col.rgb;
+		c *= tex2D(_MainTex, IN.uv_MainTex);
+		o.Albedo = c.rgb + noise(c.rgb) + float3(0, 0, 0.5);
 		o.Metallic = _Metallic;
 		o.Smoothness = _Glossiness;
-		o.Alpha = col.a;
+		o.Alpha = c.a;
 	}
 	ENDCG
 	}
