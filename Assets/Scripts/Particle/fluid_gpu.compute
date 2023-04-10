@@ -124,7 +124,7 @@ void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8
     }
     for(uint a = 0; a < n; ++a)
     {
-        uint3 neighbor = neighbor_index[a];
+        int3 neighbor = neighbor_index[a];
         if(neighbor.x < 0 || neighbor.x >= dimension.x || neighbor.y < 0 || neighbor.y >= dimension.y || neighbor.z < 0 || neighbor.z >= dimension.z)
             neighbor_key[a] = -1;
         else

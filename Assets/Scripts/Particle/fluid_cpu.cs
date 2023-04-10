@@ -18,7 +18,7 @@ public class fluid_cpu : MonoBehaviour
     gas_constant = 2000f,
     dt = 0.0008f,
     rest_density = 9f,
-    damping = -0.9f;
+    damping = -1f;
     public Vector3 position_offset = new Vector3(-140, -230, -60),
     velocity_initial = new Vector3(0, 500, 0),
     g = new Vector3(0f, -9.81f * 2000f, 0f);
