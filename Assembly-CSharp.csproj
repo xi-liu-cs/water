@@ -58,6 +58,7 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\NearSensor.cs" />
      <Compile Include="Assets\Scripts\March\TriangleTable.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\InfiniteGrid.cs" />
+     <Compile Include="Assets\Scripts\Particle\fluid_gpu.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Spawner.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\CameraMovement.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\FlockingUnit.cs" />
@@ -71,10 +72,12 @@
      <Compile Include="Assets\Style\TextureScaler.cs" />
      <Compile Include="Assets\Scripts\Rov\rov.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid.cs" />
+     <Compile Include="Assets\Scripts\Particle\spatial_hash.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Wander1Unit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\InterposeUnit.cs" />
      <Compile Include="Assets\Style\StyleData.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\MovementAIRigidbody.cs" />
+     <Compile Include="Assets\Scripts\Particle\fluid_cpu.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\WallAvoidanceUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Evade.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\EvadeUnit.cs" />
@@ -109,6 +112,7 @@
      <None Include="Assets\Scripts\Particle\fluid.compute" />
      <None Include="Assets\Scripts\Cave\Compute\MarchingCubes.compute" />
      <None Include="Assets\Style\Resources\FrameToTilesConverter.compute" />
+     <None Include="Assets\Scripts\Particle\fluid_gpu.compute" />
      <None Include="Assets\Scripts\March\MarchingCubes.compute" />
      <None Include="Assets\Scripts\Water\coral.shader" />
      <None Include="Assets\Style\Resources\StyleDepthMotion.compute" />

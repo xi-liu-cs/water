@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
-public class fluid : MonoBehaviour
+public class fluid_gpu : MonoBehaviour
 {
     [Header("particle")]
     public Mesh particle_mesh,
@@ -22,7 +22,7 @@ public class fluid : MonoBehaviour
     public Vector3 position_offset,
     velocity_initial = new Vector3(0, 500, 0);
     public float[] g = {0f, -9.81f * 2000f, 0f},
-    bound = {-100, 200, -300, -100, -100, 100}; /* {-200, 200, -300, -12, -150, 150} */
+    bound = {-100, 200, -300, -100, -100, 100};
     float radius2,
     radius3,
     radius4,
@@ -161,6 +161,14 @@ public class fluid : MonoBehaviour
 
         /* compute_shader.Dispatch(noise_density_kernel, thread_group_size, 1, 1); */
 
+        int[] int_array_in_update_function = new int[n_debug];
+        /* hash_grid_buffer.GetData(int_array_in_update_function);
+        hash_grid_tracker_buffer.GetData(int_array_in_update_function);
+        neighbor_list_buffer.GetData(int_array_in_update_function);
+        neighbor_tracker_buffer.GetData(int_array_in_update_function);
+        density_buffer.GetData(int_array_in_update_function); */
+        neighbor_list_buffer.GetData(int_array_in_update_function);
+        for(int i = 0; i < n_debug; ++i) Debug.Log(int_array_in_update_function[i]);
         /* int[] int_array_in_update_function = new int[n_debug];
         hash_grid_buffer.GetData(int_array_in_update_function);
         hash_grid_tracker_buffer.GetData(int_array_in_update_function);
@@ -366,7 +374,7 @@ public class fluid : MonoBehaviour
                         particles[i] = new particle
                         {
                             position = pos,
-                            color = new Vector4(0.3f, 0.5f, 1f, 0.3f)
+                            color = new Vector4(0.3f, 0.5f, 1f, 0.5f)
                         };
                         density[i] = -1;
                         pressure[i] = 0;

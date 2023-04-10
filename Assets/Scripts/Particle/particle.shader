@@ -8,13 +8,13 @@ Shader "Instanced/particle"
 	}
 	SubShader
 	{
-		Tags { "RenderType" = "Opaque" }
+		Tags {"Queue" = "Transparent" "RenderType" = "Transparent" }
 		LOD 200
 
 		CGPROGRAM
 		#include "../Noise/noise.cginc"
 		// Physically based Standard lighting model
-		#pragma surface surf Standard addshadow fullforwardshadows
+		#pragma surface surf Standard addshadow fullforwardshadows alpha:fade
 		#pragma multi_compile_instancing
 		#pragma instancing_options procedural:setup
 
@@ -60,7 +60,7 @@ Shader "Instanced/particle"
 		c = particle_buffer[unity_InstanceID].color;
 		#endif
 		c *= tex2D(_MainTex, IN.uv_MainTex);
-		o.Albedo = c.rgb + noise(c.rgb) + float3(0, 0, 0.5);
+		o.Albedo = c.rgb + noise(c.rgb);
 		o.Metallic = _Metallic;
 		o.Smoothness = _Glossiness;
 		o.Alpha = c.a;
