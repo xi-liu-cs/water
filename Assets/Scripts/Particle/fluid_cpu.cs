@@ -158,9 +158,6 @@ public class fluid_cpu : MonoBehaviour
         material.SetBuffer(particle_buffer_property, particle_buffer);
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(100f, 100f, 100f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.On);
         
-        Debug.Log("density");
-        for(int i = 0; i < 100; ++i)
-            Debug.Log(density[i]); 
         /* print_hash_grid();
         int debug = 100;
         Debug.Log("neighbor list");
@@ -258,6 +255,7 @@ public class fluid_cpu : MonoBehaviour
             int[] cells = get_neighbor_key(cell, particles[particle_i].position);
             for(int cell_i = 0; cell_i < cells.Length; ++cell_i)
             {
+                Debug.Log(String.Format("cells[{0}] = {1}", cell_i, cells[cell_i]));
                 if(!hash_grid.ContainsKey(cells[cell_i])) continue;
                 List<int> neighbor_cell = hash_grid[cells[cell_i]];
                 Debug.Log("neighbor cell count " + neighbor_cell.Count);
@@ -271,10 +269,7 @@ public class fluid_cpu : MonoBehaviour
                     Debug.Log("particles[particle_i].position = " + particles[particle_i].position);
                     Debug.Log("distance " + (particles[potential_neighbor].position - particles[particle_i].position).sqrMagnitude); */
                     if((particles[potential_neighbor].position - particles[particle_i].position).sqrMagnitude < radius2)
-                    {
                         neighbor_list[particle_i * max_particles_per_grid * n + neighbor_tracker[particle_i]++] = potential_neighbor;
-                        // Debug.Log("i = " + particle_i);
-                    }
                 }
             }
         }
