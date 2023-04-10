@@ -61,7 +61,7 @@ public class fluid_cpu : MonoBehaviour
 
     void Awake()
     {
-        dimension = new Vector3Int((int)((bound[1] - bound[0]) / grid_size), (int)((bound[1] - bound[0]) / grid_size), (int)((bound[1] - bound[0]) / grid_size));
+        dimension = new Vector3Int((int)((bound[1] - bound[0]) / grid_size), (int)((bound[3] - bound[2]) / grid_size), (int)((bound[5] - bound[4]) / grid_size));
         hash_grid.Add(0, new List<int>());
         grid_size_over_2 = (int)grid_size / 2;
         ceil_grid_size = (int)Math.Ceiling(grid_size);

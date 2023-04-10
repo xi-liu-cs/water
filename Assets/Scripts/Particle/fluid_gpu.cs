@@ -123,7 +123,7 @@ public class fluid_gpu : MonoBehaviour
 
     public void Awake()
     {
-        dimension = new Vector3Int((int)((bound[1] - bound[0]) / grid_size), (int)((bound[1] - bound[0]) / grid_size), (int)((bound[1] - bound[0]) / grid_size));
+        dimension = new Vector3Int((int)((bound[1] - bound[0]) / grid_size), (int)((bound[3] - bound[2]) / grid_size), (int)((bound[5] - bound[4]) / grid_size));
         dimension_array = new int[]{dimension.x, dimension.y, dimension.z};
         dimension2 = dimension.x * dimension.y;
         dimension3 = dimension2 * dimension.z;
