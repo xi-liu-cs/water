@@ -224,32 +224,32 @@ void integrate(uint3 id : SV_DispatchThreadID)
     if(particles[id.x].position.x < bound[0] + epsilon)
     {
         v.x *= damping;
-        particle.position.x = bound[0] + epsilon + 0.3 * noise(particle.position);
+        particle.position.x = bound[0] + epsilon;
     }
     else if(particles[id.x].position.x > bound[1] - epsilon) 
     {
         v.x *= damping;
-        particle.position.x = bound[1] - epsilon - 0.3 * noise(particle.position);
+        particle.position.x = bound[1] - epsilon;
     }
     if(particles[id.x].position.y < bound[2] + epsilon)
     {
         v.y *= damping;
-        particle.position.y = bound[2] + epsilon + 0.3 * noise(particle.position);
+        particle.position.y = bound[2] + epsilon;
     }
     else if(particles[id.x].position.y > bound[3] - epsilon) 
     {
         v.y *= damping;
-        particle.position.y = bound[3] - epsilon - 0.3 * noise(particle.position);
+        particle.position.y = bound[3] - epsilon;
     }
     if(particles[id.x].position.z < bound[4] + epsilon)
     {
         v.z *= damping;
-        particle.position.z = bound[4] + epsilon + 0.3 * noise(particle.position);
+        particle.position.z = bound[4] + epsilon;
     }
     else if(particles[id.x].position.z > bound[5] - epsilon) 
     {
         v.z *= damping;
-        particle.position.z = bound[5] - epsilon - 0.3 * noise(particle.position);
+        particle.position.z = bound[5] - epsilon;
     }
     velocity[id.x] = v;
     particles[id.x] = particle;
