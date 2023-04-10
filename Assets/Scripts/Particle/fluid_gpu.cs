@@ -175,7 +175,7 @@ public class fluid_gpu : MonoBehaviour
         neighbor_list_buffer.GetData(int_array_in_update_function);
         neighbor_tracker_buffer.GetData(int_array_in_update_function);
         density_buffer.GetData(int_array_in_update_function); */
-        neighbor_tracker_buffer.GetData(int_array_in_update_function);
+        density_buffer.GetData(int_array_in_update_function);
         for(int i = 0; i < n_debug; ++i) Debug.Log(int_array_in_update_function[i]);
         /* int[] int_array_in_update_function = new int[n_debug];
         hash_grid_buffer.GetData(int_array_in_update_function);
