@@ -1,5 +1,4 @@
 #include "../Noise/noise.cginc"
-#pragma kernel malloc_particle
 #pragma kernel clear_hash_grid
 #pragma kernel compute_hash_grid
 #pragma kernel compute_neighbor_list
@@ -42,37 +41,18 @@ epsilon,
 pi;
 uint n,
 n_particle,
-dimension,
 max_particles_per_grid;
+int3 dimension;
 float4 time;
 
 int3 get_cell(float3 position)
 {
-    return int3(position.x / grid_size, position.y / grid_size, position.z / grid_size);
+    return int3((position.x - bound[0]) / grid_size, (position.y - bound[2]) / grid_size, (position.z - bound[4]) / grid_size);
 }
 
 int hash(int3 cell)
 {
-    return cell.x + dimension * (cell.y + dimension * cell.z);
-}
-
-[numthreads(1, 1, 1)]
-void malloc_particle(uint3 id : SV_DispatchThreadID)
-{
-    uint particle_per_dimension = pow(n_particle, 1.0 / 3.0),
-    i = 0;
-    while(i < n_particle)
-    {
-        for(uint x = 0; x < particle_per_dimension; ++x)
-            for(uint y = 0; y < particle_per_dimension; ++y)
-                for(uint z = 0; z < particle_per_dimension; ++z)
-                {
-                    float3 pos = float3(dimension - 1, dimension - 1, dimension - 1);
-                    particles[i].position = pos;
-                    particles[i].color = float4(0.25, 0.5, 1, 0.5);
-                    if(++i == n_particle) return;
-                }
-    }
+    return cell.x + dimension.x * (cell.y + dimension.y * cell.z);
 }
 
 [numthreads(100, 1, 1)]
@@ -145,7 +125,7 @@ void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8
     for(uint a = 0; a < n; ++a)
     {
         uint3 neighbor = neighbor_index[a];
-        if(neighbor.x < 0 || neighbor.x >= dimension || neighbor.y < 0 || neighbor.y >= dimension || neighbor.z < 0 || neighbor.z >= dimension)
+        if(neighbor.x < 0 || neighbor.x >= dimension.x || neighbor.y < 0 || neighbor.y >= dimension.y || neighbor.z < 0 || neighbor.z >= dimension.z)
             neighbor_key[a] = -1;
         else
             neighbor_key[a] = hash(neighbor_index[a]);

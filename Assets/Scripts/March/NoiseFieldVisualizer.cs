@@ -18,7 +18,7 @@ sealed class NoiseFieldVisualizer : MonoBehaviour
 
     [SerializeField] ComputeShader _volumeCompute = null;
     [SerializeField] ComputeShader _builderCompute = null;
-    [SerializeField] fluid fluid_cs;
+    [SerializeField] fluid_gpu fluid_cs;
     [SerializeField] Material material;
 
     #endregion

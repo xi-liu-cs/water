@@ -17,7 +17,7 @@ sealed class VolumeDataVisualizer : MonoBehaviour
 
     [SerializeField] ComputeShader _converterCompute = null;
     [SerializeField] ComputeShader _builderCompute = null;
-    [SerializeField] fluid fluid_cs;
+    [SerializeField] fluid_gpu fluid_cs;
     [SerializeField] Material material;
     #endregion
 

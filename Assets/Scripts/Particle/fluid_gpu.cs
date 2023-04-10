@@ -19,26 +19,28 @@ public class fluid_gpu : MonoBehaviour
     dt = 0.0008f,
     rest_density = 9f,
     damping = -0.9f;
-    public Vector3 position_offset,
+    public Vector3 position_offset = new Vector3(-140, -230, -60),
     velocity_initial = new Vector3(0, 500, 0);
     public float[] g = {0f, -9.81f * 2000f, 0f},
-    bound = {-100, 200, -300, -100, -100, 100};
+    bound = {-160, 140, -250, -150, -100, 100};
     float radius2,
     radius3,
     radius4,
     radius5,
     mass2;
-    int dimension2,
-    dimension3;
     Vector3[] points;
     float[] noise_densities;
     int[] triangles;
     triangle[] march_triangles;
 
     [Header("fluid")]
-    public int n_particle = 50000, /* max = 130000 */
-    dimension = 100,
-    max_particles_per_grid = 500;
+    public int n_particle = 130000, /* max = 130000 */
+    max_particles_per_grid = 500,
+    intial_particles_per_grid = 5;
+    public Vector3Int dimension;
+    int dimension2,
+    dimension3;
+    int[] dimension_array;
 
     [Header("voxel")]
     public int n_point_per_axis = 50; /* z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x, x ^ 3 + x ^ 2 + x = n_particle, (x = 50, n_particle = 130000) */
@@ -74,6 +76,8 @@ public class fluid_gpu : MonoBehaviour
     int n = 8,
     n_bound = 6,
     thread_group_size,
+    grid_size_over_2,
+    ceil_grid_size,
     n_debug = 64;
     particle[] particles;
     int[] neighbor_list,
@@ -119,15 +123,19 @@ public class fluid_gpu : MonoBehaviour
 
     public void Awake()
     {
+        dimension = new Vector3Int((int)((bound[1] - bound[0]) / grid_size), (int)((bound[1] - bound[0]) / grid_size), (int)((bound[1] - bound[0]) / grid_size));
+        dimension_array = new int[]{dimension.x, dimension.y, dimension.z};
+        dimension2 = dimension.x * dimension.y;
+        dimension3 = dimension2 * dimension.z;
+        grid_size_over_2 = (int)grid_size / 2;
+        ceil_grid_size = (int)Math.Ceiling(grid_size);
         table = new march_table();
         radius2 = radius * radius;
         radius3 = radius2 * radius;
         radius4 = radius3 * radius;
         radius5 = radius4 * radius;
         mass2 = mass * mass;
-        dimension2 = dimension * dimension;
-        dimension3 = dimension * dimension2;
-        thread_group_size = n_particle / dimension;
+        thread_group_size = n_particle / dimension.x;
 
         /* gameObject.AddComponent<MeshFilter>();
         gameObject.AddComponent<MeshRenderer>(); */
@@ -147,7 +155,7 @@ public class fluid_gpu : MonoBehaviour
     }
 
     public void Update()
-    {
+    { 
         compute_shader.Dispatch(clear_hash_grid_kernel, dimension2, 1, 1);
         compute_shader.Dispatch(compute_hash_grid_kernel, thread_group_size, 1, 1);
         compute_shader.Dispatch(compute_neighbor_list_kernel, thread_group_size, 1, 1);
@@ -167,7 +175,7 @@ public class fluid_gpu : MonoBehaviour
         neighbor_list_buffer.GetData(int_array_in_update_function);
         neighbor_tracker_buffer.GetData(int_array_in_update_function);
         density_buffer.GetData(int_array_in_update_function); */
-        neighbor_list_buffer.GetData(int_array_in_update_function);
+        neighbor_tracker_buffer.GetData(int_array_in_update_function);
         for(int i = 0; i < n_debug; ++i) Debug.Log(int_array_in_update_function[i]);
         /* int[] int_array_in_update_function = new int[n_debug];
         hash_grid_buffer.GetData(int_array_in_update_function);
@@ -360,27 +368,29 @@ public class fluid_gpu : MonoBehaviour
         density = new float[n_particle];
         pressure = new float[n_particle];
         velocity = new Vector3[n_particle];
-        force = new Vector3[n_particle]; 
-        int particle_per_dimension = Mathf.CeilToInt(Mathf.Pow(n_particle, 1f / 3f)),
-        i = 0;
+        force = new Vector3[n_particle];
+        int i = 0;
         while(i < n_particle)
         {
-            for(int x = 0; x < particle_per_dimension; ++x)
-                for(int y = 0; y < particle_per_dimension; ++y)
-                    for(int z = 0; z < particle_per_dimension; ++z)
+            for(int x = 0; x < dimension.x; ++x)
+                for(int y = 0; y < dimension.y; ++y)
+                    for(int z = 0; z < dimension.z; ++z)
                     {
-                        float r = UnityEngine.Random.Range(0f, 5f);
-                        Vector3 pos = new Vector3(dimension - 1, dimension - 1, dimension - 1) - new Vector3(x / 2f, y / 2f, z / 2f)  - new Vector3(UnityEngine.Random.Range(0f, 0.01f), UnityEngine.Random.Range(0f, 0.01f), UnityEngine.Random.Range(0f, 0.01f)); /* Vector3 pos = new Vector3(1.5f * r * x, r * y, r * z) + position_offset; */
-                        particles[i] = new particle
+                        Vector3 grid_pos = new Vector3(bound[0] + x * grid_size, bound[2] + y * grid_size, bound[4] + z * grid_size);
+                        for(int a = 0; a < intial_particles_per_grid; ++a)
                         {
-                            position = pos,
-                            color = new Vector4(0.3f, 0.5f, 1f, 0.5f)
-                        };
-                        density[i] = -1;
-                        pressure[i] = 0;
-                        force[i] = Vector3.zero;
-                        velocity[i] = velocity_initial;
-                        if(++i == n_particle) return;
+                            Vector3 pos = grid_pos - new Vector3(grid_size_over_2, grid_size_over_2, grid_size_over_2) - new Vector3(UnityEngine.Random.Range(0f, grid_size_over_2), UnityEngine.Random.Range(0f, grid_size_over_2), UnityEngine.Random.Range(0f, grid_size_over_2));
+                            particles[i] = new particle
+                            {
+                                position = pos,
+                                color = new Vector4(0.3f, 0.5f, 1f, 0.5f)
+                            };
+                            density[i] = -1;
+                            pressure[i] = 0;
+                            force[i] = Vector3.zero;
+                            velocity[i] = velocity_initial;
+                            if(++i == n_particle) return;
+                        }
                     }
         }
     }
@@ -401,7 +411,6 @@ public class fluid_gpu : MonoBehaviour
     {
         compute_shader.SetInt("n", 8);
         compute_shader.SetFloat("grid_size", grid_size);
-        compute_shader.SetInt("dimension", dimension);
         compute_shader.SetInt("max_particles_per_grid", max_particles_per_grid);
         compute_shader.SetFloat("radius", radius);
         compute_shader.SetFloat("radius2", radius2);
@@ -416,11 +425,12 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetFloat("damping", damping);
         compute_shader.SetFloat("dt", dt);
         compute_shader.SetFloats("g", g);
-        compute_shader.SetFloats("epsilon", Mathf.Epsilon);
-        compute_shader.SetFloats("pi", Mathf.PI);
+        compute_shader.SetFloat("epsilon", Mathf.Epsilon);
+        compute_shader.SetFloat("pi", Mathf.PI);
         compute_shader.SetVector("time", Shader.GetGlobalVector("_Time"));
         compute_shader.SetInt("n_point_per_axis", n_point_per_axis);
         compute_shader.SetFloat("isolevel", isolevel);
+        compute_shader.SetInts("dimension", dimension_array);
     }
 
     public unsafe void compute_buffer_init()
@@ -466,12 +476,14 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(compute_hash_grid_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(compute_hash_grid_kernel, "hash_grid", hash_grid_buffer);
         compute_shader.SetBuffer(compute_hash_grid_kernel, "hash_grid_tracker", hash_grid_tracker_buffer);
+        compute_shader.SetBuffer(compute_hash_grid_kernel, "bound", bound_buffer);
 
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "hash_grid", hash_grid_buffer);
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "hash_grid_tracker", hash_grid_tracker_buffer);
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "neighbor_list", neighbor_list_buffer);
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "neighbor_tracker", neighbor_tracker_buffer);
+        compute_shader.SetBuffer(compute_neighbor_list_kernel, "bound", bound_buffer);
         /* compute_shader.SetBuffer(compute_neighbor_list_kernel, "int_debug", int_debug_buffer); */
         
         compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_list", neighbor_list_buffer);

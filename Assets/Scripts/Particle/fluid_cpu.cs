@@ -51,7 +51,9 @@ public class fluid_cpu : MonoBehaviour
     int size_property = Shader.PropertyToID("size"),
     particle_buffer_property = Shader.PropertyToID("particle_buffer");
 
-    int n = 8;
+    int n = 8,
+    grid_size_over_2,
+    ceil_grid_size;
     float[] density,
     pressure;
     Vector3[] force,
@@ -61,6 +63,8 @@ public class fluid_cpu : MonoBehaviour
     {
         dimension = new Vector3Int((int)((bound[1] - bound[0]) / grid_size), (int)((bound[1] - bound[0]) / grid_size), (int)((bound[1] - bound[0]) / grid_size));
         hash_grid.Add(0, new List<int>());
+        grid_size_over_2 = (int)grid_size / 2;
+        ceil_grid_size = (int)Math.Ceiling(grid_size);
         radius2 = radius * radius;
         radius3 = radius2 * radius;
         radius4 = radius3 * radius;
@@ -97,12 +101,13 @@ public class fluid_cpu : MonoBehaviour
                         if(++i == n_particle) return;
                     }
         } */
-        int i = 0, grid_size_over_2 = (int)grid_size / 2;
+        
+        /* int i = 0;
         while(i < n_particle)
         {
-            for(int x = (int)bound[0]; x < bound[1]; x += (int)grid_size)
-                for(int y = (int)bound[2]; y < bound[3]; y += (int)grid_size)
-                    for(int z = (int)bound[4]; z < bound[5]; z += (int)grid_size)
+            for(int x = (int)((int)(bound[0] / grid_size) * grid_size); x < bound[1]; x += ceil_grid_size)
+                for(int y = (int)((int)(bound[2] / grid_size) * grid_size); y < bound[3]; y += ceil_grid_size)
+                    for(int z = (int)((int)(bound[4] / grid_size) * grid_size); z < bound[5]; z += ceil_grid_size)
                         for(int a = 0; a < intial_particles_per_grid; ++a)
                         {
                             Vector3 pos = new Vector3(x, y, z) - new Vector3(grid_size_over_2, grid_size_over_2, grid_size_over_2) + new Vector3(UnityEngine.Random.Range(0f, grid_size_over_2), UnityEngine.Random.Range(0f, grid_size_over_2), UnityEngine.Random.Range(0f, grid_size_over_2));
@@ -117,6 +122,31 @@ public class fluid_cpu : MonoBehaviour
                             velocity[i] = velocity_initial;
                             if(++i == n_particle) return;
                         }
+        } */
+
+        int i = 0;
+        while(i < n_particle)
+        {
+            for(int x = 0; x < dimension.x; ++x)
+                for(int y = 0; y < dimension.y; ++y)
+                    for(int z = 0; z < dimension.z; ++z)
+                    {
+                        Vector3 grid_pos = new Vector3(bound[0] + x * grid_size, bound[2] + y * grid_size, bound[4] + z * grid_size);
+                        for(int a = 0; a < intial_particles_per_grid; ++a)
+                        {
+                            Vector3 pos = grid_pos - new Vector3(grid_size_over_2, grid_size_over_2, grid_size_over_2) - new Vector3(UnityEngine.Random.Range(0f, grid_size_over_2), UnityEngine.Random.Range(0f, grid_size_over_2), UnityEngine.Random.Range(0f, grid_size_over_2));
+                            particles[i] = new particle
+                            {
+                                position = pos,
+                                color = new Vector4(0.3f, 0.5f, 1f, 0.5f)
+                            };
+                            density[i] = -1;
+                            pressure[i] = 0;
+                            force[i] = Vector3.zero;
+                            velocity[i] = velocity_initial;
+                            if(++i == n_particle) return;
+                        }
+                    }
         }
     }
 
@@ -127,12 +157,20 @@ public class fluid_cpu : MonoBehaviour
         neighbor_tracker = new int[n_particle];
         spatial_hash.grid_size = radius4;
         spatial_hash.dimension = dimension;
-        int ceil_grid_size = (int)Math.Ceiling(grid_size);
-        for(int x = (int)((int)(bound[0] / grid_size) * grid_size); x < bound[1]; x += ceil_grid_size)
+        spatial_hash.bound = bound;
+        /* for(int x = (int)((int)(bound[0] / grid_size) * grid_size); x < bound[1]; x += ceil_grid_size)
             for(int y = (int)((int)(bound[2] / grid_size) * grid_size); y < bound[3]; y += ceil_grid_size)
                 for(int z = (int)((int)(bound[4] / grid_size) * grid_size); z < bound[5]; z += ceil_grid_size)
                 {
                     int hash = spatial_hash.hash(spatial_hash.get_cell(new Vector3Int(x, y, z)));
+                    if(hash_grid.ContainsKey(hash)) continue;
+                    hash_grid.Add(hash, new List<int>());
+                } */
+        for(int x = 0; x < dimension.x; ++x)
+            for(int y = 0; y < dimension.y; ++y)
+                for(int z = 0; z < dimension.z; ++z)
+                {
+                    int hash = spatial_hash.hash(new Vector3Int(x, y, z));
                     if(hash_grid.ContainsKey(hash)) continue;
                     hash_grid.Add(hash, new List<int>());
                 }
@@ -174,6 +212,7 @@ public class fluid_cpu : MonoBehaviour
         {
             /* Debug.Log("cell = " + cell); */
             Debug.Log("count = " + cell.Value.Count);
+            Debug.Log("key = " + cell.Key);
             for(int i = 0; i < cell.Value.Count; ++i)
                 Debug.Log(String.Format("cell[{0}] = {1}", i, cell.Value[i]));
         }
@@ -181,9 +220,9 @@ public class fluid_cpu : MonoBehaviour
 
     /* origin_index = grid index of particles[particle_i].position 
     position = particles[particle_i].position 
-    (origin_index.x + 0.5f) * grid_size = mid point of x position in orgin_index-th grid 
-    (origin_index.y + 0.5f) * grid_size = mid point of y position in orgin_index-th grid
-    (origin_index.z + 0.5f) * grid_size = mid point of z position in orgin_index-th grid */
+    (origin_index.x + 0.5f) * grid_size = mid point of x position in origin_index-th grid 
+    (origin_index.y + 0.5f) * grid_size = mid point of y position in origin_index-th grid
+    (origin_index.z + 0.5f) * grid_size = mid point of z position in origin_index-th grid */
     int[] get_neighbor_key(Vector3Int origin_index, Vector3 position)
     { 
         Vector3Int[] neighbor_index = new Vector3Int[n];
@@ -255,7 +294,6 @@ public class fluid_cpu : MonoBehaviour
             int[] cells = get_neighbor_key(cell, particles[particle_i].position);
             for(int cell_i = 0; cell_i < cells.Length; ++cell_i)
             {
-                Debug.Log(String.Format("cells[{0}] = {1}", cell_i, cells[cell_i]));
                 if(!hash_grid.ContainsKey(cells[cell_i])) continue;
                 List<int> neighbor_cell = hash_grid[cells[cell_i]];
                 Debug.Log("neighbor cell count " + neighbor_cell.Count);
@@ -263,11 +301,12 @@ public class fluid_cpu : MonoBehaviour
                 {
                     int potential_neighbor = neighbor_cell[neighbor_i];
                     if(potential_neighbor == particle_i) continue;
+                    Debug.Log(String.Format("potential_neighbor: particles[{0}].position = {1}, particle_i: particles[{2}].position = {3}, distance = {4}", potential_neighbor, particles[potential_neighbor].position, particle_i, particles[particle_i].position, (particles[potential_neighbor].position - particles[particle_i].position).sqrMagnitude));
                     /* Debug.Log("neighbor_i = " + neighbor_i);
                     Debug.Log("potential_neighbor = " + potential_neighbor);
                     Debug.Log("potential = " + particles[potential_neighbor].position);
                     Debug.Log("particles[particle_i].position = " + particles[particle_i].position);
-                    Debug.Log("distance " + (particles[potential_neighbor].position - particles[particle_i].position).sqrMagnitude); */
+                    Debug.Log(String.Format("potential_neighbor: particles[{0}].position = {1}, particle_i: particles[{2}].position = {3}, distance = {4}", potential_neighbor, particles[potential_neighbor].position, particle_i, particles[particle_i].position, (particles[potential_neighbor].position - particles[particle_i].position).sqrMagnitude)); */
                     if((particles[potential_neighbor].position - particles[particle_i].position).sqrMagnitude < radius2)
                         neighbor_list[particle_i * max_particles_per_grid * n + neighbor_tracker[particle_i]++] = potential_neighbor;
                 }
