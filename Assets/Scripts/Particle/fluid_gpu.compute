@@ -255,19 +255,14 @@ void integrate(uint3 id : SV_DispatchThreadID)
     particles[id.x] = particle;
 }
 
-#pragma kernel noise_density
+#pragma kernel compute_density
 static const int n_thread = 100;
-RWStructuredBuffer<float3> points;
-RWStructuredBuffer<float> noise_densities;
+float max_density_multiplier;
 
 [numthreads(n_thread, 1, 1)]
-void noise_density(int3 id : SV_DispatchThreadID)
+void compute_density(int3 id : SV_DispatchThreadID)
 {
-    float3 pos = particles[id.x].position;
-    float noise = snoise(pos),
-    density_value = -pos.y + noise;
-    points[id.x] = pos;
-    noise_densities[id.x] = density_value;
+    density[id.x] *= max_density_multiplier;
 }
 
 #include "march_table.compute"
@@ -306,29 +301,34 @@ float3 interpolate_vertex(float3 vertex1, float density1, float3 vertex2, float 
 [numthreads(num_thread, num_thread, num_thread)]
 void march(int3 id : SV_DispatchThreadID)
 {
+    /* tri t;
+    t.vertex_a = float3(0, 1, 2);
+    t.vertex_b = float3(3, 4, 5);
+    t.vertex_c = float3(6, 7, 8);
+    triangles.Append(t); */
     if(id.x >= n_point_per_axis - 1 || id.y >= n_point_per_axis - 1 || id.z >= n_point_per_axis - 1) /* voxel includes neighbor points */
         return;
     float3 cube_corner_vertices[] =
     {
-        points[hash(id.x, id.y, id.z)],
-        points[hash(id.x + 1, id.y, id.z)],
-        points[hash(id.x + 1, id.y, id.z + 1)],
-        points[hash(id.x, id.y, id.z + 1)],
-        points[hash(id.x, id.y + 1, id.z)],
-        points[hash(id.x + 1, id.y + 1, id.z)],
-        points[hash(id.x + 1, id.y + 1, id.z + 1)],
-        points[hash(id.x, id.y + 1, id.z + 1)]
+        particles[hash(id.x, id.y, id.z)].position,
+        particles[hash(id.x + 1, id.y, id.z)].position,
+        particles[hash(id.x + 1, id.y, id.z + 1)].position,
+        particles[hash(id.x, id.y, id.z + 1)].position,
+        particles[hash(id.x, id.y + 1, id.z)].position,
+        particles[hash(id.x + 1, id.y + 1, id.z)].position,
+        particles[hash(id.x + 1, id.y + 1, id.z + 1)].position,
+        particles[hash(id.x, id.y + 1, id.z + 1)].position
     };
     float cube_corner_densities[] =
     {
-        noise_densities[hash(id.x, id.y, id.z)],
-        noise_densities[hash(id.x + 1, id.y, id.z)],
-        noise_densities[hash(id.x + 1, id.y, id.z + 1)],
-        noise_densities[hash(id.x, id.y, id.z + 1)],
-        noise_densities[hash(id.x, id.y + 1, id.z)],
-        noise_densities[hash(id.x + 1, id.y + 1, id.z)],
-        noise_densities[hash(id.x + 1, id.y + 1, id.z + 1)],
-        noise_densities[hash(id.x, id.y + 1, id.z + 1)]
+        density[hash(id.x, id.y, id.z)],
+        density[hash(id.x + 1, id.y, id.z)],
+        density[hash(id.x + 1, id.y, id.z + 1)],
+        density[hash(id.x, id.y, id.z + 1)],
+        density[hash(id.x, id.y + 1, id.z)],
+        density[hash(id.x + 1, id.y + 1, id.z)],
+        density[hash(id.x + 1, id.y + 1, id.z + 1)],
+        density[hash(id.x, id.y + 1, id.z + 1)]
     };
     uint n_corner = 8,
     cube_index = 0;

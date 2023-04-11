@@ -1,17 +1,23 @@
 #pragma kernel NoiseFieldGenerator
 #include "../Noise/noise.cginc"
 
-uint3 Dims;
-float Scale;
-float Time;
-RWStructuredBuffer<float> Voxels;
+uint3 dimension;
+float scale;
+float time;
+float max_density;
+RWStructuredBuffer<float> voxels;
+
+int hash(int x, int y, int z)
+{
+    return x + dimension.x * (y + dimension.y * z);
+}
 
 [numthreads(8, 8, 8)]
 void NoiseFieldGenerator(uint3 id : SV_DispatchThreadID)
 {
-    float3 p = Scale * (id + 0.5 - Dims / 2);
+    float3 p = scale * (id + 0.5 - dimension / 2);
     float value = -p.y;
-    value += snoise(p * 0.83 + float3(-0.37, -0.12, 0) * Time) * 0.5;
-    value += snoise(p * 0.72 + float3(0.21, +0.07, 0) * Time) * 0.5;
-    Voxels[id.x + Dims.x * (id.y + Dims.y * id.z)] = value;
+    value += snoise(p * 0.83 + float3(-0.37, -0.12, 0) * time) * 0.5;
+    value += snoise(p * 0.72 + float3(0.21, +0.07, 0) * time) * 0.5;
+    voxels[id.x + dimension.x * (id.y + dimension.y * id.z)] = value;
 }

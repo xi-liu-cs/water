@@ -43,10 +43,9 @@ sealed class NoiseFieldVisualizer : MonoBehaviour
         /* _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float)); */
         noise_field_visualizer_kernel = _volumeCompute.FindKernel("NoiseFieldGenerator");
         /* _voxelBuffer = fluid_cs.noise_density_buffer; */
+        _dimension = fluid_cs.dimension;
+        _gridScale = 1f;
         _voxelBuffer = fluid_cs.density_buffer;
-        // float[] b = new float[1000];
-        // _voxelBuffer.SetData(b);
-        // for(int i = 0; i < 1000; ++i) Debug.Log(String.Format("b[{0}] = {1}", i, b[i]));
         _builder = new MeshBuilder(_dimension, _triangleBudget, _builderCompute, material);
     }
 
@@ -59,15 +58,16 @@ sealed class NoiseFieldVisualizer : MonoBehaviour
     void Update()
     {
         fluid_cs.Update();
-        // float[] b = new float[1000];
-        // _voxelBuffer.GetData(b);
-        // for(int i = 0; i < 1000; ++i) Debug.Log(String.Format("b[{0}] = {1}", i, b[i]));
+        /* float[] b = new float[1000];
+        _voxelBuffer.GetData(b);
+        for(int i = 0; i < 1000; ++i) Debug.Log(String.Format("b[{0}] = {1}", i, b[i])); */
         // Noise field update
-        _volumeCompute.SetInts("Dims", _dimension);
-        _volumeCompute.SetFloat("Scale", _gridScale);
-        _volumeCompute.SetFloat("Time", Time.time);
+        _volumeCompute.SetInts("dimension", _dimension);
+        _volumeCompute.SetFloat("scale", _gridScale);
+        _volumeCompute.SetFloat("time", Time.time);
+        _volumeCompute.SetFloat("max_density", fluid_cs.max_density);
         _volumeCompute.SetBuffer(noise_field_visualizer_kernel, "particles", fluid_cs.particle_buffer);
-        _volumeCompute.SetBuffer(noise_field_visualizer_kernel, "Voxels", _voxelBuffer);
+        _volumeCompute.SetBuffer(noise_field_visualizer_kernel, "voxels", _voxelBuffer);
         _volumeCompute.DispatchThreads(noise_field_visualizer_kernel, _dimension);
 
         // Isosurface reconstruction

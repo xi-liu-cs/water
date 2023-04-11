@@ -116,10 +116,12 @@ public class fluid_gpu : MonoBehaviour
     compute_density_pressure_kernel,
     compute_force_kernel,
     integrate_kernel,
-    noise_density_kernel,
+    compute_density_kernel,
     march_kernel;
 
     public march_table table;
+
+    public float max_density = 0;
 
     public void Awake()
     {
@@ -160,6 +162,12 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.Dispatch(compute_hash_grid_kernel, thread_group_size, 1, 1);
         compute_shader.Dispatch(compute_neighbor_list_kernel, thread_group_size, 1, 1);
         compute_shader.Dispatch(compute_density_pressure_kernel, thread_group_size, 1, 1);
+        density_buffer.GetData(density);
+        for(int i = 0; i < density.Length; ++i)
+            if(density[i] > max_density)
+                max_density = density[i];
+        Debug.Log("max den = " + max_density);
+        compute_shader.SetFloat("max_density_multiplier", 1 / max_density);
         compute_shader.Dispatch(compute_force_kernel, thread_group_size, 1, 1);
         compute_shader.Dispatch(integrate_kernel, thread_group_size, 1, 1);
 
@@ -168,6 +176,7 @@ public class fluid_gpu : MonoBehaviour
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
 
         /* compute_shader.Dispatch(noise_density_kernel, thread_group_size, 1, 1); */
+        compute_shader.Dispatch(compute_density_kernel, thread_group_size, 1, 1);
 
         int[] int_array_in_update_function = new int[n_debug];
         /* hash_grid_buffer.GetData(int_array_in_update_function);
@@ -175,7 +184,6 @@ public class fluid_gpu : MonoBehaviour
         neighbor_list_buffer.GetData(int_array_in_update_function);
         neighbor_tracker_buffer.GetData(int_array_in_update_function);
         density_buffer.GetData(int_array_in_update_function); */
-        density_buffer.GetData(int_array_in_update_function);
         for(int i = 0; i < n_debug; ++i) Debug.Log(int_array_in_update_function[i]);
         /* int[] int_array_in_update_function = new int[n_debug];
         hash_grid_buffer.GetData(int_array_in_update_function);
@@ -185,6 +193,25 @@ public class fluid_gpu : MonoBehaviour
         density_buffer.GetData(int_array_in_update_function);
         for(int i = 0; i < n_debug; ++i) Debug.Log(int_array_in_update_function[i]); */
 
+        int march_kernel_n_thread = 4,
+        march_kernel_group_size = (int)(Mathf.Pow(n_particle, 1.0f / 3.0f) / march_kernel_n_thread);
+        triangle_buffer.SetCounterValue(0);
+        compute_shader.Dispatch(march_kernel, march_kernel_group_size, march_kernel_group_size, march_kernel_group_size);
+        
+        ComputeBuffer.CopyCount(triangle_buffer, triangle_count_buffer, 0);
+        int[] triangle_count_array = {0};
+        triangle_count_buffer.GetData(triangle_count_array);
+        int n_triangle = triangle_count_array[0];
+
+        march_triangles = new triangle[n_triangle];
+        triangle_buffer.GetData(march_triangles, 0, 0, n_triangle);
+        Debug.Log("n_triangle " + n_triangle);
+        for(int i = 0; i < n_triangle; ++i)
+        {
+            Debug.Log(march_triangles[i].vertex_a);
+            Debug.Log(march_triangles[i].vertex_b);
+            Debug.Log(march_triangles[i].vertex_c);
+        }
         /* int march_kernel_n_thread = 4,
         march_kernel_group_size = (int)(Mathf.Pow(n_particle, 1.0f / 3.0f) / march_kernel_n_thread);
         triangle_buffer.SetCounterValue(0);
@@ -403,7 +430,7 @@ public class fluid_gpu : MonoBehaviour
         compute_density_pressure_kernel = compute_shader.FindKernel("compute_density_pressure");
         compute_force_kernel = compute_shader.FindKernel("compute_force");
         integrate_kernel = compute_shader.FindKernel("integrate");
-        noise_density_kernel = compute_shader.FindKernel("noise_density");
+        compute_density_kernel = compute_shader.FindKernel("compute_density");
         march_kernel = compute_shader.FindKernel("march");
     }
 
@@ -464,6 +491,11 @@ public class fluid_gpu : MonoBehaviour
         force_buffer.SetData(force);
         bound_buffer = new ComputeBuffer(n_bound, sizeof(float));
         bound_buffer.SetData(bound);
+
+        triangle_buffer = new ComputeBuffer(n_particle, sizeof(triangle), ComputeBufferType.Append);
+        triangle_count_buffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
+        int_debug_buffer = new ComputeBuffer(n_debug, sizeof(int));
+        float_debug_buffer = new ComputeBuffer(n_debug, sizeof(float));
         /* point_buffer = new ComputeBuffer(n_particle, 3 * sizeof(float));
         noise_density_buffer = new ComputeBuffer(n_particle, sizeof(float));
         triangle_buffer = new ComputeBuffer(n_particle, sizeof(triangle), ComputeBufferType.Append);
@@ -505,6 +537,12 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(integrate_kernel, "force", force_buffer);
         compute_shader.SetBuffer(integrate_kernel, "bound", bound_buffer);
 
+        compute_shader.SetBuffer(compute_density_kernel, "density", density_buffer);
+
+        compute_shader.SetBuffer(march_kernel, "triangles", triangle_buffer);
+        compute_shader.SetBuffer(march_kernel, "int_debug", int_debug_buffer);
+        compute_shader.SetBuffer(march_kernel, "float_debug", float_debug_buffer);
+
         /* compute_shader.SetBuffer(noise_density_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(noise_density_kernel, "points", point_buffer);
         compute_shader.SetBuffer(noise_density_kernel, "noise_densities", noise_density_buffer);
@@ -532,8 +570,11 @@ public class fluid_gpu : MonoBehaviour
         density_buffer.Dispose();
         pressure_buffer.Dispose();
         velocity_buffer.Dispose();
+        bound_buffer.Dispose();
         force_buffer.Dispose();
         point_buffer.Dispose();
         triangle_buffer.Dispose();
+        int_debug_buffer.Dispose();
+        float_debug_buffer.Dispose();
     }
 }
