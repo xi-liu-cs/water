@@ -167,7 +167,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5a6c2b29f8a501c48a1ea71d79244fc0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  numBoids: 20
+  numBoids: 50
   dimensions: {x: 100, y: 100, z: 100}
   numDivisions: {x: 20, y: 20, z: 20}
   visualRange: 10
@@ -177,7 +177,7 @@ MonoBehaviour:
   avoidFactor: 0.05
   matchingFactor: 0.05
   speedLimits: {x: 0.1, y: 1}
-  drawCurrentCells: 1
+  drawCurrentCells: 0
   drawVisualCells: 0
   drawCloseCells: 0
   renderSize: 0.5
