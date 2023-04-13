@@ -15,12 +15,12 @@ public abstract class DensityGenerator : MonoBehaviour {
         }
     }
 
-    public virtual ComputeBuffer Generate (ComputeBuffer pointsBuffer, int numPointsPerAxis, float boundsSize, Vector3 worldBounds, Vector3 centre, Vector3 offset, float spacing) {
+    public virtual ComputeBuffer Generate (ComputeBuffer point_buffer, int numPointsPerAxis, float boundsSize, Vector3 worldBounds, Vector3 centre, Vector3 offset, float spacing) {
         int numPoints = numPointsPerAxis * numPointsPerAxis * numPointsPerAxis;
         int numThreadsPerAxis = Mathf.CeilToInt (numPointsPerAxis / (float) threadGroupSize);
         // Points buffer is populated inside shader with pos (xyz) + density (w).
         // Set paramaters
-        densityShader.SetBuffer (0, "points", pointsBuffer);
+        densityShader.SetBuffer (0, "points", point_buffer);
         densityShader.SetInt ("numPointsPerAxis", numPointsPerAxis);
         densityShader.SetFloat ("boundsSize", boundsSize);
         densityShader.SetVector ("centre", new Vector4 (centre.x, centre.y, centre.z));
@@ -38,6 +38,6 @@ public abstract class DensityGenerator : MonoBehaviour {
         }
 
         // Return voxel data buffer so it can be used to generate mesh
-        return pointsBuffer;
+        return point_buffer;
     }
 }

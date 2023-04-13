@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class NoiseDensity : DensityGenerator {
-
+public class noise_density : density_generator
+{
     [Header ("Noise")]
     public int seed;
     public int numOctaves = 4;
@@ -20,7 +20,7 @@ public class NoiseDensity : DensityGenerator {
 
     public Vector4 shaderParams;
 
-    public override ComputeBuffer Generate (ComputeBuffer point_buffer, int numPointsPerAxis, float boundsSize, Vector3 worldBounds, Vector3 centre, Vector3 offset, float spacing) {
+    public override ComputeBuffer generate(ComputeBuffer point_buffer, int n_point_per_axis, float boundsSize, Vector3 worldBounds, Vector3 center, Vector3 offset, float spacing) {
         buffersToRelease = new List<ComputeBuffer> ();
 
         // Noise parameters
@@ -35,7 +35,7 @@ public class NoiseDensity : DensityGenerator {
         offsetsBuffer.SetData (offsets);
         buffersToRelease.Add (offsetsBuffer);
 
-        densityShader.SetVector ("centre", new Vector4 (centre.x, centre.y, centre.z));
+        densityShader.SetVector ("center", new Vector4 (center.x, center.y, center.z));
         densityShader.SetInt ("octaves", Mathf.Max (1, numOctaves));
         densityShader.SetFloat ("lacunarity", lacunarity);
         densityShader.SetFloat ("persistence", persistence);
@@ -50,6 +50,6 @@ public class NoiseDensity : DensityGenerator {
 
         densityShader.SetVector ("params", shaderParams);
 
-        return base.Generate (point_buffer, numPointsPerAxis, boundsSize, worldBounds, centre, offset, spacing);
+        return base.generate (point_buffer, n_point_per_axis, boundsSize, worldBounds, center, offset, spacing);
     }
 }

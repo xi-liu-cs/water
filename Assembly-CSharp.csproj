@@ -37,14 +37,14 @@
   </PropertyGroup>
   <ItemGroup>
      <Compile Include="Assets\Scripts\Particle\march_table.cs" />
-     <Compile Include="Assets\Scripts\March\MeshBuilder.cs" />
+     <Compile Include="Assets\Scripts\March Cube\MeshBuilder.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\FirstPersonCamera.cs" />
      <Compile Include="Assets\Scripts\Particle\cuda.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\FleeUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Flee.cs" />
      <Compile Include="Assets\Scripts\Cave\MeshGenerator.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Wander2Unit.cs" />
-     <Compile Include="Assets\Scripts\March\VolumeDataVisualizer.cs" />
+     <Compile Include="Assets\Scripts\March Cube\VolumeDataVisualizer.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\CollisionAvoidance.cs" />
      <Compile Include="Assets\Scripts\Cave\SeaWorldColours.cs" />
      <Compile Include="Assets\Scripts\Input\input.cs" />
@@ -56,14 +56,14 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\HideUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\LinePath.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\NearSensor.cs" />
-     <Compile Include="Assets\Scripts\March\TriangleTable.cs" />
+     <Compile Include="Assets\Scripts\March Cube\TriangleTable.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\InfiniteGrid.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid_gpu.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Spawner.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\CameraMovement.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\FlockingUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Cohesion.cs" />
-     <Compile Include="Assets\Scripts\March\Util.cs" />
+     <Compile Include="Assets\Scripts\March Cube\Util.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\WallAvoidance.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Wander2.cs" />
      <Compile Include="Assets\Scripts\Cave\NoiseDensity.cs" />
@@ -100,10 +100,14 @@
      <Compile Include="Assets\Style\BarracudaStyleTransfer.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\ThirdPersonCamera.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
-     <Compile Include="Assets\Scripts\March\NoiseFieldVisualizer.cs" />
-     <None Include="Assets\Scripts\March\VolumeDataConverter.compute" />
+     <Compile Include="Assets\Scripts\March Cube\NoiseFieldVisualizer.cs" />
+     <Compile Include="Assets\Scripts\March\mesh_generator.cs" />
+     <Compile Include="Assets\Scripts\March\density_generator.cs" />
+     <Compile Include="Assets\Scripts\March\noise_density.cs" />
+     <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Particle\march_table.compute" />
+     <None Include="Assets\Scripts\March\march.compute" />
      <None Include="Assets\Scripts\Terrain\terrain_small.shader" />
      <None Include="Assets\Style\Resources\TextureToSRGBTensor.compute" />
      <None Include="Assets\Scripts\Cave\Compute\NoiseDensity.compute" />
@@ -113,17 +117,21 @@
      <None Include="Assets\Scripts\Cave\Compute\MarchingCubes.compute" />
      <None Include="Assets\Style\Resources\FrameToTilesConverter.compute" />
      <None Include="Assets\Scripts\Particle\fluid_gpu.compute" />
-     <None Include="Assets\Scripts\March\MarchingCubes.compute" />
+     <None Include="Assets\Scripts\March Cube\MarchingCubes.compute" />
      <None Include="Assets\Scripts\Water\coral.shader" />
      <None Include="Assets\Style\Resources\StyleDepthMotion.compute" />
      <None Include="Assets\Scripts\Particle\particle.shader" />
      <None Include="Assets\Scripts\Cave\SeaWorld.shader" />
      <None Include="Assets\Scripts\Fog\fog.shader" />
-     <None Include="Assets\Scripts\March\NoiseFieldGenerator.compute" />
+     <None Include="Assets\Scripts\March Cube\NoiseFieldGenerator.compute" />
      <None Include="Assets\Scripts\Cave\Compute\Includes\Noise.compute" />
      <None Include="Assets\Scripts\Cave\Compute\Includes\MarchTables.compute" />
+     <None Include="Assets\Scripts\March\march_table.compute" />
+     <None Include="Assets\Scripts\March\noise.compute" />
      <None Include="Assets\Scripts\Seafloor\seafloor.shader" />
      <None Include="Assets\Style\Resources\BFrameGenerator.compute" />
+     <None Include="Assets\Scripts\March\noise_density.compute" />
+     <None Include="Assets\Scripts\March\water.shader" />
     <Reference Include="UnityEngine">
         <HintPath>C:\Program Files\Unity 2021.3.11f1\Editor\Data\Managed\UnityEngine\UnityEngine.dll</HintPath>
     </Reference>

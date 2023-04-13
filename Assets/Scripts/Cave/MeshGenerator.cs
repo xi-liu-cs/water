@@ -41,9 +41,9 @@ public class MeshGenerator : MonoBehaviour {
     Queue<Chunk> recycleableChunks;
 
     // Buffers
-    ComputeBuffer triangleBuffer;
-    ComputeBuffer pointsBuffer;
-    ComputeBuffer triCountBuffer;
+    ComputeBuffer triangle_buffer;
+    ComputeBuffer point_buffer;
+    ComputeBuffer triangle_count_buffer;
 
     bool settingsUpdated;
 
@@ -185,25 +185,25 @@ public class MeshGenerator : MonoBehaviour {
 
         Vector3 worldBounds = new Vector3 (numChunks.x, numChunks.y, numChunks.z) * boundsSize;
 
-        densityGenerator.Generate (pointsBuffer, numPointsPerAxis, boundsSize, worldBounds, centre, offset, pointSpacing);
+        densityGenerator.Generate (point_buffer, numPointsPerAxis, boundsSize, worldBounds, centre, offset, pointSpacing);
 
-        triangleBuffer.SetCounterValue (0);
-        shader.SetBuffer (0, "points", pointsBuffer);
-        shader.SetBuffer (0, "triangles", triangleBuffer);
+        triangle_buffer.SetCounterValue (0);
+        shader.SetBuffer (0, "points", point_buffer);
+        shader.SetBuffer (0, "triangles", triangle_buffer);
         shader.SetInt ("numPointsPerAxis", numPointsPerAxis);
         shader.SetFloat ("isoLevel", isoLevel);
 
         shader.Dispatch (0, numThreadsPerAxis, numThreadsPerAxis, numThreadsPerAxis);
 
         // Get number of triangles in the triangle buffer
-        ComputeBuffer.CopyCount (triangleBuffer, triCountBuffer, 0);
+        ComputeBuffer.CopyCount (triangle_buffer, triangle_count_buffer, 0);
         int[] triCountArray = { 0 };
-        triCountBuffer.GetData (triCountArray);
+        triangle_count_buffer.GetData (triCountArray);
         int numTris = triCountArray[0];
 
         // Get triangle data from shader
         Triangle[] tris = new Triangle[numTris];
-        triangleBuffer.GetData (tris, 0, 0, numTris);
+        triangle_buffer.GetData (tris, 0, 0, numTris);
 
         Mesh mesh = chunk.mesh;
         mesh.Clear ();
@@ -246,22 +246,22 @@ public class MeshGenerator : MonoBehaviour {
 
         // Always create buffers in editor (since buffers are released immediately to prevent memory leak)
         // Otherwise, only create if null or if size has changed
-        if (!Application.isPlaying || (pointsBuffer == null || numPoints != pointsBuffer.count)) {
+        if (!Application.isPlaying || (point_buffer == null || numPoints != point_buffer.count)) {
             if (Application.isPlaying) {
                 ReleaseBuffers ();
             }
-            triangleBuffer = new ComputeBuffer (maxTriangleCount, sizeof (float) * 3 * 3, ComputeBufferType.Append);
-            pointsBuffer = new ComputeBuffer (numPoints, sizeof (float) * 4);
-            triCountBuffer = new ComputeBuffer (1, sizeof (int), ComputeBufferType.Raw);
+            triangle_buffer = new ComputeBuffer (maxTriangleCount, sizeof (float) * 3 * 3, ComputeBufferType.Append);
+            point_buffer = new ComputeBuffer (numPoints, sizeof (float) * 4);
+            triangle_count_buffer = new ComputeBuffer (1, sizeof (int), ComputeBufferType.Raw);
 
         }
     }
 
     void ReleaseBuffers () {
-        if (triangleBuffer != null) {
-            triangleBuffer.Release ();
-            pointsBuffer.Release ();
-            triCountBuffer.Release ();
+        if (triangle_buffer != null) {
+            triangle_buffer.Release ();
+            point_buffer.Release ();
+            triangle_count_buffer.Release ();
         }
     }
 
