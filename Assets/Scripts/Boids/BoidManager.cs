@@ -1,8 +1,9 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
-
+using Random = UnityEngine.Random;
+using System.Linq;
 
 public class BoidManager : MonoBehaviour
 {
@@ -137,6 +138,55 @@ public class BoidManager : MonoBehaviour
         }
     }
 
+    [Serializable]
+    public class Obstacle {
+        public GameObject gameObject;
+        private Transform transform;
+        private MeshFilter filter;
+        public Vector3 prevPosition;
+        public Quaternion prevRotation;
+        public Vector3 prevScale;
+        private Dictionary<Vector3Int, List<Vector3>> normalsDict = new Dictionary<Vector3Int, List<Vector3>>();
+
+        public void Initialize() {
+            this.prevPosition = this.gameObject.transform.position;
+            this.transform = this.gameObject.transform;
+            this.filter = this.gameObject.GetComponent<MeshFilter>();
+            this.CalculateNormals();
+        }
+        public void Update() {
+            if(filter == null) return;
+            bool changed = (
+                this.prevPosition != this.transform.position
+                || this.prevRotation != this.transform.rotation
+                || this.prevScale != this.transform.localScale
+            );
+            if(changed) {
+                // Our obstacle moved. That means that we need to recalculate the normals
+                // First, let's update BoidManager so that the normals associated with each Vector3Int hashPosition is removed
+               this.CalculateNormals();
+            }
+            this.prevPosition = this.transform.position;
+            this.prevRotation = this.transform.rotation;
+            this.prevScale = this.transform.localScale;
+        }
+        public void CalculateNormals() {
+            Vector3[] verts = this.filter.mesh.vertices;
+		    Vector4[] tangents = this.filter.mesh.tangents;
+		    Vector3[] norms = this.filter.mesh.normals;
+            Dictionary<Vector3Int, List<Vector3>> newNormalsDict = new Dictionary<Vector3Int, List<Vector3>>();
+            for(int i = 0; i < verts.Length; i++) {
+                Vector3 p = this.transform.TransformPoint(verts[i]);
+                Vector3Int hp = BoidManager.current.GetGridIndex(p);
+                Vector3 normal = this.transform.rotation * norms[i];
+                if(!newNormalsDict.ContainsKey(hp)) newNormalsDict[hp] = new List<Vector3>();
+                newNormalsDict[hp].Add(normal);
+            }
+            BoidManager.current.UpdateObstaclesGridVector(this.normalsDict,newNormalsDict);
+            this.normalsDict = newNormalsDict;
+        }
+    }
+
     public static BoidManager current;
 
     public int numBoids = 100;
@@ -183,6 +233,7 @@ public class BoidManager : MonoBehaviour
     public Vector2 speedLimits = new Vector2(3f,6f);
 
     private Dictionary<Vector3Int,List<Boid>> grid = new Dictionary<Vector3Int,List<Boid>>();
+    private Dictionary<Vector3Int,List<Vector3>> obstacleGrid = new Dictionary<Vector3Int, List<Vector3>>();
     private List<Boid> boids = new List<Boid>();
     public float renderSize = 0.5f;
 
@@ -190,6 +241,9 @@ public class BoidManager : MonoBehaviour
     public Color cellColor = Color.red;
     public bool drawBoids = true;
     public bool drawCurrentCells = true;
+    public bool drawObstacles = true;
+
+    public List<Obstacle> obstacles = new List<Obstacle>();
 
     void OnDrawGizmos() {
         
@@ -203,13 +257,13 @@ public class BoidManager : MonoBehaviour
                 foreach(Boid boid in boids)
                     Gizmos.DrawSphere(boid.position,renderSize);
             }
+            Vector3 divisionSize = new Vector3(
+                dimensions.x / numDivisions.x,
+                dimensions.y / numDivisions.y,
+                dimensions.z / numDivisions.z
+            );
             if(drawCurrentCells) {
                 Color gridColor = cellColor;
-                Vector3 divisionSize = new Vector3(
-                    dimensions.x / numDivisions.x,
-                    dimensions.y / numDivisions.y,
-                    dimensions.z / numDivisions.z
-                );
                 foreach(KeyValuePair<Vector3Int,List<Boid>> kvp in grid) {
                     gridColor.a = Mathf.Clamp((float)kvp.Value.Count / ((float)numBoids/10f), 0f, 1f);
                     Gizmos.color = gridColor;
@@ -220,6 +274,39 @@ public class BoidManager : MonoBehaviour
                     ) + divisionSize/2f;    
                     Gizmos.DrawCube(divisionPos,divisionSize);
                 }
+            }
+
+            if(drawObstacles && obstacles.Count > 0) {
+                Gizmos.color = Color.white;
+                //foreach(Vector3 obstaclePoint in obstaclePoints) {
+                //    Gizmos.DrawSphere(obstaclePoint,0.25f);
+                //}
+                /*
+                foreach(GameObject obstacle in obstacles) {
+                    MeshFilter filter = obstacle.GetComponent<MeshFilter>();
+                    if(filter == null) continue;
+                    Vector3[] verts = filter.mesh.vertices;
+		            Vector4[] tangents = filter.mesh.tangents;
+		            Vector3[] norms = filter.mesh.normals;
+                    for(int i = 0; i < verts.Length; i++) {
+                        Vector3 v = obstacle.transform.TransformPoint(verts[i]);
+                        Gizmos.DrawLine(v, v + obstacle.transform.rotation * norms[i]);
+                    }
+                }
+                */
+                foreach(KeyValuePair<Vector3Int,List<Vector3>> kvp in obstacleGrid) {
+                    Vector3 cellPos = new Vector3(
+                        transform.position.x + kvp.Key.x*divisionSize.x,
+                        transform.position.y + kvp.Key.y*divisionSize.y,
+                        transform.position.z + kvp.Key.z*divisionSize.z
+                    ) + divisionSize/2f;
+                    Vector3 norm = Vector3.zero;
+                    foreach(Vector3 normSmall in kvp.Value) {
+                        norm += normSmall;
+                    }
+                    Gizmos.DrawLine(cellPos, cellPos + norm.normalized);
+                }
+                
             }
             /*
             List<Vector3Int> toPrintSections = new List<Vector3Int>();
@@ -321,6 +408,9 @@ public class BoidManager : MonoBehaviour
         // Initializing Boids
         InitializeBoids();
 
+        // Initializing Obstacles
+        InitializeObstacles();
+
         foreach(Boid boid in boids) {
             if(!grid.ContainsKey(boid.hashPosition)) grid[boid.hashPosition] = new List<Boid>();
             grid[boid.hashPosition].Add(boid);
@@ -331,9 +421,10 @@ public class BoidManager : MonoBehaviour
     private void Update() {
         foreach(Boid boid in boids) {
             // Update boid manually
-            boid.Update();
-            // Update position of boid in grid
-            
+            boid.Update();            
+        }
+        foreach(Obstacle obs in obstacles) {
+            obs.Update();
         }
          
     }
@@ -341,8 +432,11 @@ public class BoidManager : MonoBehaviour
     private void InitializeGrid() {
         for(int x = 0; x < numDivisions.x; x++)
             for(int y = 0; y < numDivisions.y; y++)
-                for(int z = 0; z < numDivisions.z; z++)
-                    grid[new Vector3Int(x,y,z)] = new List<Boid>();
+                for(int z = 0; z < numDivisions.z; z++) {
+                    Vector3Int p = new Vector3Int(x,y,z);
+                    grid[p] = new List<Boid>();
+                    obstacleGrid[p] = new List<Vector3>();
+                }
     }
 
     private void InitializeBoids() {
@@ -355,6 +449,25 @@ public class BoidManager : MonoBehaviour
             Boid boid = new Boid(initPosition);
             boids.Add(boid);
         }
+    }
+
+    private void InitializeObstacles() {
+        foreach(Obstacle obstacle in obstacles) {
+            obstacle.Initialize();
+        }
+        /*
+        foreach(GameObject obstacle in obstacles) {
+            MeshFilter filter = obstacle.GetComponent<MeshFilter>();
+            if(filter == null) continue;
+            Vector3[] verts = filter.mesh.vertices;
+	        Vector4[] tangents = filter.mesh.tangents;
+		    Vector3[] norms = filter.mesh.normals;
+            for(int i = 0; i < verts.Length; i++) {
+                Vector3 worldP = obstacle.transform.TransformPoint(verts[i]);
+                Vector3 normVect = worldP + obstacle.transform.rotation * norms[i];
+            }
+        }
+        */
     }
 
     private Vector3Int GetGridIndex(Vector3 pos) {
@@ -389,5 +502,20 @@ public class BoidManager : MonoBehaviour
         if(grid[oldHashPosition].Contains(boid)) grid[oldHashPosition].Remove(boid);
         if(!grid.ContainsKey(newHashPosition)) grid[newHashPosition] = new List<Boid>();
         grid[newHashPosition].Add(boid);
+    }
+    public void UpdateObstaclesGridVector(Dictionary<Vector3Int, List<Vector3>> oldDict, Dictionary<Vector3Int, List<Vector3>> newDict) {
+        foreach(KeyValuePair<Vector3Int, List<Vector3>> kvp in oldDict) {
+            if(obstacleGrid.ContainsKey(kvp.Key) && obstacleGrid[kvp.Key].Count > 0) {
+                foreach(Vector3 norm in kvp.Value) {
+                    obstacleGrid[kvp.Key].Remove(norm);
+                }
+            }
+        }
+        foreach(KeyValuePair<Vector3Int, List<Vector3>> kvp in newDict) {
+            if(!obstacleGrid.ContainsKey(kvp.Key)) obstacleGrid[kvp.Key] = new List<Vector3>();
+            foreach(Vector3 norm in kvp.Value) {
+                obstacleGrid[kvp.Key].Add(norm);
+            }
+        }
     }
 }
