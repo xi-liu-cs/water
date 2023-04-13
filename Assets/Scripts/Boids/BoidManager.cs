@@ -33,7 +33,15 @@ public class BoidManager : MonoBehaviour
             // Get neighboring boids
             List<Boid> neighbors = new List<Boid>();
             List<Boid> closeNeighbors = new List<Boid>();
-            BoidManager.current.GetNeighboringBoids(this ,out neighbors, out closeNeighbors);
+            List<Vector3> farObstacles = new List<Vector3>();
+            List<Vector3> closeObstacles = new List<Vector3>();
+            BoidManager.current.GetNeighboringBoidsAndObstacles(
+                this,
+                out neighbors, 
+                out closeNeighbors,
+                out farObstacles,
+                out closeObstacles
+            );
             
             // local variables important for update
             float xpos_avg = 0f; 
@@ -46,13 +54,22 @@ public class BoidManager : MonoBehaviour
             float close_dx = 0f;
             float close_dy = 0f;
             float close_dz = 0f;
+            float far_obstacle_dx = 0f;
+            float far_obstacle_dy = 0f;
+            float far_obstacle_dz = 0f;
+            float close_obstacle_dx = 0f;
+            float close_obstacle_dy = 0f;
+            float close_obstacle_dz = 0f;
 
             // First, we update `close_dx/dy/dz` based on boids within the protected range
             UpdateSeparation(closeNeighbors, ref close_dx, ref close_dy, ref close_dz);
-            // Secondly, update `x/y/zpos_avg` and `x/y/zvel_avg` based on boids not in protected range but within visual range
+            // Secondly, we update `far_obstacle_dx/y/z` and `close_obstacle_dx/y/z` based on detected obstacles
+            UpdateObstacles(farObstacles, ref far_obstacle_dx, ref far_obstacle_dy, ref far_obstacle_dz);
+            UpdateObstacles(closeObstacles, ref close_obstacle_dx, ref close_obstacle_dy, ref close_obstacle_dz);
+            // Thirdly, update `x/y/zpos_avg` and `x/y/zvel_avg` based on boids not in protected range but within visual range
             UpdateAlignment(neighbors, ref xvel_avg, ref yvel_avg, ref zvel_avg);
             UpdateCohesion(neighbors, ref xpos_avg, ref ypos_avg, ref zpos_avg);
-            // Thirdly, update velocity based on if there were neighbor boids within visual range but not in protected range
+            // Fourthly, update velocity based on if there were neighbor boids within visual range but not in protected range
             if (neighbors.Count > 0) {
                 this.vx = this.vx 
                     + (xpos_avg - this.px) * BoidManager.current.centeringFactor 
@@ -64,10 +81,19 @@ public class BoidManager : MonoBehaviour
                     + (zpos_avg - this.pz) * BoidManager.current.centeringFactor 
                     + (zvel_avg - this.vz) * BoidManager.current.matchingFactor;
             }
-            // Fourthly, add avoidance contribution
-            this.vx = this.vx + (close_dx * BoidManager.current.avoidFactor);
-            this.vy = this.vy + (close_dy * BoidManager.current.avoidFactor);
-            this.vz = this.vz + (close_dz * BoidManager.current.avoidFactor);
+            // Fifthly, add avoidance contribution
+            this.vx = this.vx 
+                + (close_dx * BoidManager.current.avoidFactor) 
+                + (far_obstacle_dx * BoidManager.current.obstacleFactor * 0.5f)
+                + (close_obstacle_dx * BoidManager.current.obstacleFactor);
+            this.vy = this.vy 
+                + (close_dy * BoidManager.current.avoidFactor)
+                + (far_obstacle_dy * BoidManager.current.obstacleFactor * 0.5f)
+                + (close_obstacle_dy * BoidManager.current.obstacleFactor);
+            this.vz = this.vz 
+                + (close_dz * BoidManager.current.avoidFactor)
+                + (far_obstacle_dz * BoidManager.current.obstacleFactor * 0.5f)
+                + (close_obstacle_dz * BoidManager.current.obstacleFactor);
             // Fifthly, update based on edges and speed limits
             UpdateEdges();
             UpdateSpeedLimits();
@@ -90,6 +116,17 @@ public class BoidManager : MonoBehaviour
                 close_dy += this.position.y - boid.position.y;
                 close_dz += this.position.z - boid.position.z;
             }
+        }
+        public void UpdateObstacles(List<Vector3> obstacles, ref float obstacle_dx, ref float obstacle_dy, ref float obstacle_dz) {
+            if(obstacles.Count == 0) return;
+            foreach(Vector3 norm in obstacles) {
+                obstacle_dx += norm.x;
+                obstacle_dy += norm.y;
+                obstacle_dz += norm.z;
+            }
+            obstacle_dx /= obstacles.Count;
+            obstacle_dy /= obstacles.Count;
+            obstacle_dz /= obstacles.Count;
         }
         public void UpdateAlignment(List<Boid> neighbors, ref float xvel_avg, ref float yvel_avg, ref float zvel_avg) {
             if(neighbors.Count == 0) return;
@@ -120,7 +157,6 @@ public class BoidManager : MonoBehaviour
             if(this.py > BoidManager.current.maxY) this.vy -= BoidManager.current.turnFactor;
             if(this.pz < BoidManager.current.minZ) this.vz += BoidManager.current.turnFactor;
             if(this.pz > BoidManager.current.maxZ) this.vz -= BoidManager.current.turnFactor;
-            return;
         }
         public void UpdateSpeedLimits() {
             float speed = Mathf.Sqrt( Mathf.Pow(this.vx,2) + Mathf.Pow(this.vy,2) + Mathf.Pow(this.vz,2) );
@@ -134,13 +170,13 @@ public class BoidManager : MonoBehaviour
                 this.vy = (this.vy / speed) * BoidManager.current.speedLimits.x;
                 this.vz = (this.vz / speed) * BoidManager.current.speedLimits.x;
             }
-            return;
         }
     }
 
     [Serializable]
     public class Obstacle {
         public GameObject gameObject;
+        public bool isStatic = true;
         private Transform transform;
         private MeshFilter filter;
         public Vector3 prevPosition;
@@ -155,7 +191,7 @@ public class BoidManager : MonoBehaviour
             this.CalculateNormals();
         }
         public void Update() {
-            if(filter == null) return;
+            if(filter == null || isStatic) return;
             bool changed = (
                 this.prevPosition != this.transform.position
                 || this.prevRotation != this.transform.rotation
@@ -228,6 +264,7 @@ public class BoidManager : MonoBehaviour
     public float centeringFactor = 0.0005f;
     [Range(0f,0.1f)]
     public float avoidFactor = 0.05f;
+    public float obstacleFactor = 0.05f;
     [Range(0f,0.1f)]
     public float matchingFactor = 0.05f;
     public Vector2 speedLimits = new Vector2(3f,6f);
@@ -295,6 +332,7 @@ public class BoidManager : MonoBehaviour
                 }
                 */
                 foreach(KeyValuePair<Vector3Int,List<Vector3>> kvp in obstacleGrid) {
+                    if (kvp.Value.Count == 0) continue;
                     Vector3 cellPos = new Vector3(
                         transform.position.x + kvp.Key.x*divisionSize.x,
                         transform.position.y + kvp.Key.y*divisionSize.y,
@@ -493,6 +531,39 @@ public class BoidManager : MonoBehaviour
                                 if(isClose) closeNeighbors.Add(neighborBoid);
                                 else neighbors.Add(neighborBoid);
                             }
+                        }
+                    }
+                }
+    }
+    private void GetNeighboringBoidsAndObstacles(
+        Boid boid, 
+        out List<Boid> neighbors, 
+        out List<Boid> closeNeighbors,
+        out List<Vector3> farObstacles,
+        out List<Vector3> nearbyObstacles
+    ) {
+        neighbors = new List<Boid>();
+        closeNeighbors = new List<Boid>();
+        farObstacles = new List<Vector3>();
+        nearbyObstacles = new List<Vector3>();
+        bool isClose;
+
+        for(int x = boid.hashPosition.x - visualRange; x <= boid.hashPosition.x + visualRange; x++)
+            for(int y = boid.hashPosition.y - visualRange; y <= boid.hashPosition.y + visualRange; y++)
+                for(int z = boid.hashPosition.z - visualRange; z <= boid.hashPosition.z + visualRange; z++) {
+                    Vector3Int hp = new Vector3Int(x,y,z);
+                    isClose = Mathf.Abs(x-boid.hashPosition.x)<=protectedRange && Mathf.Abs(y-boid.hashPosition.y)<=protectedRange && Mathf.Abs(z-boid.hashPosition.z)<=protectedRange;
+                    if(grid.ContainsKey(hp) && grid[hp].Count > 0) {
+                        foreach(Boid neighborBoid in grid[hp]) {
+                            if(neighborBoid == boid) continue;
+                            if(isClose) closeNeighbors.Add(neighborBoid);
+                            else neighbors.Add(neighborBoid);
+                        }
+                    }
+                    if(obstacleGrid.ContainsKey(hp) && obstacleGrid[hp].Count > 0) {
+                        foreach(Vector3 norm in obstacleGrid[hp]) {
+                            if(isClose) nearbyObstacles.Add(norm);
+                            else farObstacles.Add(norm);
                         }
                     }
                 }
