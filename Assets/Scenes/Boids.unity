@@ -273,7 +273,7 @@ MonoBehaviour:
   turnFactor: 0.05
   centeringFactor: 0.0005
   avoidFactor: 0.005
-  obstacleFactor: 0.01
+  obstacleFactor: 0.05
   matchingFactor: 0.05
   speedLimits: {x: 0.5, y: 0.6}
   renderSize: 0.5
