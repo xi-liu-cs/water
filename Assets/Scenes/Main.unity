@@ -179,7 +179,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &56379758
 Transform:
   m_ObjectHideFlags: 0
@@ -1348,8 +1348,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 226704146}
-  m_LocalRotation: {x: -0.008091285, y: 0.97435904, z: 0.221801, w: 0.036923844}
-  m_LocalPosition: {x: 377.3541, y: -103.54738, z: 75.00885}
+  m_LocalRotation: {x: -0.0012642179, y: 0.99776286, z: 0.06385343, w: 0.019759715}
+  m_LocalPosition: {x: 408.74786, y: -33.41546, z: 17.629395}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1566,6 +1566,59 @@ MonoBehaviour:
   spaceBetweenObjects: 0.001
   offset: {x: 50, y: -250, z: 50}
   thingsToAvoid: []
+--- !u!1 &272826576
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 272826577}
+  - component: {fileID: 272826578}
+  m_Layer: 0
+  m_Name: mesh_fluid_generator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &272826577
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 272826576}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1944129685}
+  m_RootOrder: 22
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &272826578
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 272826576}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6090a8e7f99a4e48a6f0cc6385bb442, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
+  mat: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
+  isolevel: 8
+  boundsSize: 10
+  offset: {x: -0.64, y: 0, z: 0}
+  n_point_per_axis: 50
+  n_point: 0
+  march_kernel: 0
+  fluid_cs: {fileID: 193044022}
 --- !u!1001 &293320450
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -26307,7 +26360,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1740861793
 Transform:
   m_ObjectHideFlags: 0
@@ -31909,6 +31962,7 @@ Transform:
   - {fileID: 347988888}
   - {fileID: 56379758}
   - {fileID: 1740861793}
+  - {fileID: 272826577}
   m_Father: {fileID: 0}
   m_RootOrder: 6
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

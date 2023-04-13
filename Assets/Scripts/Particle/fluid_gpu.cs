@@ -166,8 +166,8 @@ public class fluid_gpu : MonoBehaviour
         for(int i = 0; i < density.Length; ++i)
             if(density[i] > max_density)
                 max_density = density[i];
-        Debug.Log("max den = " + max_density); */
-        compute_shader.SetFloat("max_density_multiplier", 1 / max_density);
+        Debug.Log("max den = " + max_density);
+        compute_shader.SetFloat("max_density_multiplier", 1 / max_density); */
         compute_shader.Dispatch(compute_force_kernel, thread_group_size, 1, 1);
         compute_shader.Dispatch(integrate_kernel, thread_group_size, 1, 1);
 

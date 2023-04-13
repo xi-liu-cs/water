@@ -277,7 +277,7 @@ struct tri
 
 AppendStructuredBuffer<tri> triangles;
 float isolevel;
-static const int num_thread = 4,
+static const int num_thread = 8,
 n_point_per_axis;
 RWStructuredBuffer<int> int_debug;
 RWStructuredBuffer<float> float_debug;
@@ -330,13 +330,13 @@ void march(int3 id : SV_DispatchThreadID)
         density[hash(id.x + 1, id.y + 1, id.z + 1)],
         density[hash(id.x, id.y + 1, id.z + 1)]
     };
-    uint n_corner = 8,
+    int n_corner = 8,
     cube_index = 0;
-    for(uint c = 0; c < n_corner; ++c)
+    for(int c = 0; c < n_corner; ++c)
         if(cube_corner_densities[c] < isolevel) /* if the input data is not binary, need an additional parameter (threshold value or isovalue) to classify samples as inside or outside the surface */
             cube_index |= 1 << c;
-    int_debug[map(id.x, id.y, id.z)] = id.x;
-    for(uint i = 0; triangle_table[cube_index][i] != -1; i += 3)
+    /* int_debug[map(id.x, id.y, id.z)] = id.x; */
+    for(int i = 0; triangle_table[cube_index][i] != -1; i += 3)
     {
         int a1 = corner_index_a_from_edge[triangle_table[cube_index][i]],
         b1 = corner_index_b_from_edge[triangle_table[cube_index][i]],
