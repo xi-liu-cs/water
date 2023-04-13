@@ -131,8 +131,10 @@ public class mesh_generator : MonoBehaviour
 
         public Vector3 this [int i]
         {
-            get {
-                switch (i) {
+            get
+            {
+                switch (i)
+                {
                     case 0:
                         return a;
                     case 1:
