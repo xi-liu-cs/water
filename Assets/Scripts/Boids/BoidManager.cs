@@ -8,12 +8,24 @@ public class BoidManager : MonoBehaviour
 {
     public class Boid {
         
-        public Vector3 position;
+        public float px = 0f;
+        public float py = 0f;
+        public float pz = 0f;
         public Vector3Int hashPosition;
-        public Vector3 velocity = Vector3.one;
+
+        public float vx = 1f;
+        public float vy = 1f;
+        public float vz = 1f;
         
+        public Vector3 position {
+            get => new Vector3(this.px, this.py, this.pz);
+            set {}
+        }
+
         public Boid(Vector3 initPos) {
-            this.position = initPos;
+            this.px = initPos.x;
+            this.py = initPos.y;
+            this.pz = initPos.z;
             this.hashPosition = BoidManager.current.GetGridIndex(this.position);
         }
         public void Update() {
@@ -22,17 +34,47 @@ public class BoidManager : MonoBehaviour
             List<Boid> closeNeighbors = new List<Boid>();
             BoidManager.current.GetNeighboringBoids(this ,out neighbors, out closeNeighbors);
             
-            // All update methods
-            UpdateSeparation(closeNeighbors);
-            UpdateAlignment(neighbors);
-            UpdateCohesion(neighbors);
+            // local variables important for update
+            float xpos_avg = 0f; 
+            float ypos_avg = 0f;
+            float zpos_avg = 0f;
+            float xvel_avg = 0f;
+            float yvel_avg = 0f;
+            float zvel_avg = 0f;
+
+            float close_dx = 0f;
+            float close_dy = 0f;
+            float close_dz = 0f;
+
+            // First, we update `close_dx/dy/dz` based on boids within the protected range
+            UpdateSeparation(closeNeighbors, ref close_dx, ref close_dy, ref close_dz);
+            // Secondly, update `x/y/zpos_avg` and `x/y/zvel_avg` based on boids not in protected range but within visual range
+            UpdateAlignment(neighbors, ref xvel_avg, ref yvel_avg, ref zvel_avg);
+            UpdateCohesion(neighbors, ref xpos_avg, ref ypos_avg, ref zpos_avg);
+            // Thirdly, update velocity based on if there were neighbor boids within visual range but not in protected range
+            if (neighbors.Count > 0) {
+                this.vx = this.vx 
+                    + (xpos_avg - this.px) * BoidManager.current.centeringFactor 
+                    + (xvel_avg - this.vx) * BoidManager.current.matchingFactor;
+                this.vy = this.vy 
+                    + (ypos_avg - this.py) * BoidManager.current.centeringFactor 
+                    + (yvel_avg - this.vy) * BoidManager.current.matchingFactor;
+                this.vz = this.vz 
+                    + (zpos_avg - this.pz) * BoidManager.current.centeringFactor 
+                    + (zvel_avg - this.vz) * BoidManager.current.matchingFactor;
+            }
+            // Fourthly, add avoidance contribution
+            this.vx = this.vx + (close_dx * BoidManager.current.avoidFactor);
+            this.vy = this.vy + (close_dy * BoidManager.current.avoidFactor);
+            this.vz = this.vz + (close_dz * BoidManager.current.avoidFactor);
+            // Fifthly, update based on edges and speed limits
             UpdateEdges();
             UpdateSpeedLimits();
-
-            // update position
-            this.position += this.velocity;
-
-            // Update hash position
+            // Sixthly, update position
+            this.px += this.vx;
+            this.py += this.vy;
+            this.pz += this.vz;
+            // Lastly, update hash position
             Vector3Int newHashPosition = BoidManager.current.GetGridIndex(this.position);
             if (newHashPosition != this.hashPosition) {
                 BoidManager.current.UpdateBoidGridPosition(this,this.hashPosition,newHashPosition);
@@ -40,78 +82,58 @@ public class BoidManager : MonoBehaviour
             this.hashPosition = newHashPosition;
             
         }
-        public void UpdateSeparation(List<Boid> closeNeighbors) {
-            float close_dx = 0f, close_dy = 0f, close_dz = 0f;
+        public void UpdateSeparation(List<Boid> closeNeighbors, ref float close_dx, ref float close_dy, ref float close_dz) {
+            if (closeNeighbors.Count == 0) return;
             foreach(Boid boid in closeNeighbors) {
                 close_dx += this.position.x - boid.position.x;
                 close_dy += this.position.y - boid.position.y;
                 close_dz += this.position.z - boid.position.z;
             }
-            this.velocity = new Vector3(
-                this.velocity.x + close_dx * BoidManager.current.avoidFactor,
-                this.velocity.y + close_dy * BoidManager.current.avoidFactor,
-                this.velocity.z + close_dz * BoidManager.current.avoidFactor
-            );
-            return;
         }
-        public void UpdateAlignment(List<Boid> neighbors) {
-            float xvel_avg = 0f, yvel_avg = 0f, zvel_avg = 0f;
+        public void UpdateAlignment(List<Boid> neighbors, ref float xvel_avg, ref float yvel_avg, ref float zvel_avg) {
+            if(neighbors.Count == 0) return;
             foreach(Boid boid in neighbors) {
-                xvel_avg += boid.velocity.x;
-                yvel_avg += boid.velocity.y;
-                zvel_avg += boid.velocity.z;
+                xvel_avg += boid.vx;
+                yvel_avg += boid.vy;
+                zvel_avg += boid.vz;
             }
-            if(neighbors.Count > 0) {
-                xvel_avg /= neighbors.Count;
-                yvel_avg /= neighbors.Count;
-                zvel_avg /= neighbors.Count;
-            }    
-            this.velocity = new Vector3(
-                this.velocity.x + (xvel_avg - this.velocity.x) * BoidManager.current.matchingFactor,
-                this.velocity.y + (yvel_avg - this.velocity.y) * BoidManager.current.matchingFactor,
-                this.velocity.z + (zvel_avg - this.velocity.z) * BoidManager.current.matchingFactor
-            );
-            return;
+            xvel_avg /= neighbors.Count;
+            yvel_avg /= neighbors.Count;
+            zvel_avg /= neighbors.Count;
         }
-        public void UpdateCohesion(List<Boid> neighbors) {
-            float xpos_avg = 0f, ypos_avg = 0f, zpos_avg = 0f;
+        public void UpdateCohesion(List<Boid> neighbors, ref float xpos_avg, ref float ypos_avg, ref float zpos_avg) {
+            if (neighbors.Count == 0) return;
             foreach(Boid boid in neighbors) {
-                xpos_avg += boid.position.x;
-                ypos_avg += boid.position.y;
-                zpos_avg += boid.position.z;
+                xpos_avg += boid.px;
+                ypos_avg += boid.py;
+                zpos_avg += boid.pz;
             }
-            if (neighbors.Count > 0) {
-                xpos_avg /= neighbors.Count;
-                ypos_avg /= neighbors.Count;
-                zpos_avg /= neighbors.Count;
-            }
-            this.velocity = new Vector3(
-                this.velocity.x + (xpos_avg - this.position.x) * BoidManager.current.centeringFactor,
-                this.velocity.y + (ypos_avg - this.position.y) * BoidManager.current.centeringFactor,
-                this.velocity.z + (zpos_avg - this.position.z) * BoidManager.current.centeringFactor
-            );
-            return;
+            xpos_avg /= neighbors.Count;
+            ypos_avg /= neighbors.Count;
+            zpos_avg /= neighbors.Count;
         }
         public void UpdateEdges() {
-            float vx = this.velocity.x;
-            float vy = this.velocity.y;
-            float vz = this.velocity.z;
-            if(this.position.x < BoidManager.current.minX) vx += BoidManager.current.turnFactor;
-            if(this.position.x > BoidManager.current.maxX) vx -= BoidManager.current.turnFactor;
-            if(this.position.y < BoidManager.current.minY) vy += BoidManager.current.turnFactor;
-            if(this.position.y > BoidManager.current.maxY) vy -= BoidManager.current.turnFactor;
-            if(this.position.z < BoidManager.current.minZ) vz += BoidManager.current.turnFactor;
-            if(this.position.z > BoidManager.current.maxZ) vz -= BoidManager.current.turnFactor;
-            this.velocity = new Vector3(vx,vy,vz);
+            if(this.px < BoidManager.current.minX) this.vx += BoidManager.current.turnFactor;
+            if(this.px > BoidManager.current.maxX) this.vx -= BoidManager.current.turnFactor;
+            if(this.py < BoidManager.current.minY) this.vy += BoidManager.current.turnFactor;
+            if(this.py > BoidManager.current.maxY) this.vy -= BoidManager.current.turnFactor;
+            if(this.pz < BoidManager.current.minZ) this.vz += BoidManager.current.turnFactor;
+            if(this.pz > BoidManager.current.maxZ) this.vz -= BoidManager.current.turnFactor;
+            return;
         }
         public void UpdateSpeedLimits() {
-            float speed = this.velocity.magnitude;
+            float speed = Mathf.Sqrt( Mathf.Pow(this.vx,2) + Mathf.Pow(this.vy,2) + Mathf.Pow(this.vz,2) );
             if(speed > BoidManager.current.speedLimits.y) {
-                this.velocity = (this.velocity / speed) * BoidManager.current.speedLimits.y;
+                this.vx = (this.vx / speed) * BoidManager.current.speedLimits.y;
+                this.vy = (this.vy / speed) * BoidManager.current.speedLimits.y;
+                this.vz = (this.vz / speed) * BoidManager.current.speedLimits.y;
             }
             if(speed < BoidManager.current.speedLimits.x) {
-                this.velocity = (this.velocity / speed) * BoidManager.current.speedLimits.x;
+                this.vx = (this.vx / speed) * BoidManager.current.speedLimits.x;
+                this.vy = (this.vy / speed) * BoidManager.current.speedLimits.x;
+                this.vz = (this.vz / speed) * BoidManager.current.speedLimits.x;
             }
+            return;
         }
     }
 
@@ -145,22 +167,29 @@ public class BoidManager : MonoBehaviour
         set {}
     }
     
+    [Range(1,20)]
     public int visualRange = 3;
+    [Range(0,1)]
     public int protectedRange = 1;
     
+    [Range(0f,0.5f)]
     public float turnFactor = 0.2f;
+    [Range(0f,0.01f)]
     public float centeringFactor = 0.0005f;
+    [Range(0f,0.1f)]
     public float avoidFactor = 0.05f;
+    [Range(0f,0.1f)]
     public float matchingFactor = 0.05f;
     public Vector2 speedLimits = new Vector2(3f,6f);
-    
-    public bool drawCurrentCells = true;
-    public bool drawVisualCells = true;
-    public bool drawCloseCells = true;
 
     private Dictionary<Vector3Int,List<Boid>> grid = new Dictionary<Vector3Int,List<Boid>>();
     private List<Boid> boids = new List<Boid>();
     public float renderSize = 0.5f;
+
+    public Color boidColor = Color.blue;
+    public Color cellColor = Color.red;
+    public bool drawBoids = true;
+    public bool drawCurrentCells = true;
 
     void OnDrawGizmos() {
         
@@ -168,6 +197,31 @@ public class BoidManager : MonoBehaviour
         Gizmos.DrawWireCube(transform.position + dimensions/2f, dimensions);
 
         if(Application.isPlaying) {
+            
+            if(drawBoids) {
+                Gizmos.color = boidColor;
+                foreach(Boid boid in boids)
+                    Gizmos.DrawSphere(boid.position,renderSize);
+            }
+            if(drawCurrentCells) {
+                Color gridColor = cellColor;
+                Vector3 divisionSize = new Vector3(
+                    dimensions.x / numDivisions.x,
+                    dimensions.y / numDivisions.y,
+                    dimensions.z / numDivisions.z
+                );
+                foreach(KeyValuePair<Vector3Int,List<Boid>> kvp in grid) {
+                    gridColor.a = Mathf.Clamp((float)kvp.Value.Count / ((float)numBoids/10f), 0f, 1f);
+                    Gizmos.color = gridColor;
+                    Vector3 divisionPos = new Vector3(
+                        transform.position.x + kvp.Key.x*divisionSize.x,
+                        transform.position.y + kvp.Key.y*divisionSize.y,
+                        transform.position.z + kvp.Key.z*divisionSize.z
+                    ) + divisionSize/2f;    
+                    Gizmos.DrawCube(divisionPos,divisionSize);
+                }
+            }
+            /*
             List<Vector3Int> toPrintSections = new List<Vector3Int>();
             List<Vector3Int> visualSections = new List<Vector3Int>();
             List<Vector3Int> protectedSections = new List<Vector3Int>();
@@ -233,7 +287,7 @@ public class BoidManager : MonoBehaviour
                     Gizmos.DrawWireCube(divisionPos,divisionSize);
                 }
             }
-            
+            */
         } else {
             if (!drawCurrentCells) return;
             Gizmos.color = Color.blue;
@@ -323,8 +377,8 @@ public class BoidManager : MonoBehaviour
                         isClose = Mathf.Abs(x-boid.hashPosition.x)<=protectedRange && Mathf.Abs(y-boid.hashPosition.y)<=protectedRange && Mathf.Abs(z-boid.hashPosition.z)<=protectedRange;
                         foreach(Boid neighborBoid in grid[hp]) {
                             if(neighborBoid != boid) {
-                                neighbors.Add(neighborBoid);
                                 if(isClose) closeNeighbors.Add(neighborBoid);
+                                else neighbors.Add(neighborBoid);
                             }
                         }
                     }
