@@ -77,6 +77,10 @@ public class mesh_generator : MonoBehaviour
         voxel_density_buffer.GetData(a);
         Debug.Log("voxel");
         for(int i = 0; i < 100; ++i) Debug.Log(a[i]); */
+        float[] a = new float[100];
+        voxel_density_buffer.GetData(a);
+        Debug.Log("voxel");
+        for(int i = 0; i < 100; ++i) Debug.Log(a[i]);
 
         triangle_buffer.SetCounterValue (0);
         shader.Dispatch (0, numThreadsPerAxis, numThreadsPerAxis, numThreadsPerAxis);

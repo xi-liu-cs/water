@@ -76,5 +76,5 @@ void Density (int3 id : SV_DispatchThreadID)
         finalVal = finalVal * (1 - edgeWeight) - 100 * edgeWeight;
     }
 
-    voxel_density[index] = finalVal;
+    voxel_density[index] = finalVal / 20;
 }
