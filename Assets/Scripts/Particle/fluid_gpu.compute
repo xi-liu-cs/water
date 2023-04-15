@@ -193,6 +193,13 @@ void compute_density_pressure(uint3 id : SV_DispatchThreadID)
     pressure[id.x] = gas_constant * (density[id.x] - rest_density);
 }
 
+/* [numthreads(100, 1, 1)]
+void compute_density_pressure(uint3 id : SV_DispatchThreadID)
+{
+    density[id.x] = abs(16 * snoise(particles[id.x].position));
+    pressure[id.x] = gas_constant * (density[id.x] - rest_density);
+} */
+
 [numthreads(100, 1, 1)]
 void compute_force(uint3 id : SV_DispatchThreadID)
 {

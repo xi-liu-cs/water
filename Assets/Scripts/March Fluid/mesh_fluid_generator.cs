@@ -6,7 +6,8 @@ public class mesh_fluid_generator : MonoBehaviour
 {
     const int thread_group_size = 8;
     /* public density_generator density_gen; */
-    public ComputeShader shader; /* march cube */
+    public ComputeShader shader,
+    march_shader;
     public Material mat;
     public float isolevel;
     public float boundsSize = 1;
@@ -21,7 +22,6 @@ public class mesh_fluid_generator : MonoBehaviour
     public int n_point,
     march_kernel;
 
-
     public fluid_gpu fluid_cs;
     
     public struct particle
@@ -35,6 +35,7 @@ public class mesh_fluid_generator : MonoBehaviour
         fluid_cs.Awake();
         particle_buffer = fluid_cs.particle_buffer;
         n_point_per_axis = fluid_cs.n_point_per_axis;
+        voxel_density_buffer = fluid_cs.density_buffer;
         CreateBuffers();
         gameObject.AddComponent<MeshFilter>();
         gameObject.AddComponent<MeshRenderer>();
@@ -51,7 +52,7 @@ public class mesh_fluid_generator : MonoBehaviour
 
     void find_kernel()
     {
-        march_kernel = shader.FindKernel("march");
+        march_kernel = march_shader.FindKernel("march");
     }
 
     unsafe void CreateBuffers()
@@ -60,14 +61,13 @@ public class mesh_fluid_generator : MonoBehaviour
         int n_voxel_per_axis = n_point_per_axis - 1,
         n_voxel = n_voxel_per_axis * n_voxel_per_axis * n_voxel_per_axis,
         maxTriangleCount = n_voxel * 5;
-        triangle_buffer = new ComputeBuffer (maxTriangleCount, sizeof (float) * 3 * 3, ComputeBufferType.Append);
-        triangle_count_buffer = new ComputeBuffer (1, sizeof (int), ComputeBufferType.Raw);
-        voxel_density_buffer = new ComputeBuffer(n_point, sizeof(float));
-        shader.SetBuffer (march_kernel, "triangles", triangle_buffer);
-        shader.SetInt ("n_point_per_axis", n_point_per_axis);
-        shader.SetFloat ("isolevel", isolevel);
-        /* shader.SetBuffer(march_kernel, "voxel_density", voxel_density_buffer); */
-        shader.SetBuffer(march_kernel, "particles", fluid_cs.particle_buffer);
+        triangle_buffer = new ComputeBuffer(maxTriangleCount, sizeof(tri), ComputeBufferType.Append);
+        triangle_count_buffer = new ComputeBuffer(1, sizeof (int), ComputeBufferType.Raw);
+        march_shader.SetBuffer(march_kernel, "triangles", triangle_buffer);
+        march_shader.SetInt("n_point_per_axis", n_point_per_axis);
+        march_shader.SetFloat("isolevel", isolevel);
+        march_shader.SetBuffer(march_kernel, "voxel_density", voxel_density_buffer);
+        march_shader.SetBuffer(march_kernel, "particles", fluid_cs.particle_buffer);
     }
 
     public void UpdateChunkMesh(Mesh mesh)
@@ -84,10 +84,6 @@ public class mesh_fluid_generator : MonoBehaviour
         voxel_density_buffer.GetData(a);
         Debug.Log("voxel");
         for(int i = 0; i < 100; ++i) Debug.Log(a[i]); */
-        float[] a = new float[100];
-        fluid_cs.density_buffer.GetData(a);
-        Debug.Log("voxel");
-        for(int i = 0; i < 100; ++i) Debug.Log(a[i]);
 
         triangle_buffer.SetCounterValue (0);
         shader.Dispatch (march_kernel, numThreadsPerAxis, numThreadsPerAxis, numThreadsPerAxis);
@@ -110,6 +106,13 @@ public class mesh_fluid_generator : MonoBehaviour
             Debug.Log(tris[i].a);
             Debug.Log(tris[i].b);
             Debug.Log(tris[i].c);
+        }
+        if(numTris == 0)
+        {
+            float[] a = new float[100];
+            voxel_density_buffer.GetData(a);
+            Debug.Log("voxel");
+            for(int i = 0; i < 100; ++i) Debug.Log(a[i]);
         }
 
         mesh.Clear();

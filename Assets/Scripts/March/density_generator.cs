@@ -39,12 +39,19 @@ public abstract class density_generator : MonoBehaviour
     public virtual ComputeBuffer generate (ComputeBuffer point_buffer, int n_point_per_axis, float boundsSize, Vector3 worldBounds, Vector3 center, Vector3 offset, float spacing) {
         int n_point = n_point_per_axis * n_point_per_axis * n_point_per_axis;
         int numThreadsPerAxis = Mathf.CeilToInt (n_point_per_axis / (float) thread_group_size);
-        // Set paramaters
         /* particle_buffer.SetData(particles); */
         densityShader.SetBuffer(0, "particles", fluid_cs.particle_buffer);
         densityShader.SetBuffer(0, "voxel_density", mesh_gen.voxel_density_buffer);
+        densityShader.SetBuffer(0, "neighbor_list", fluid_cs.neighbor_list_buffer);
+        densityShader.SetBuffer(0, "neighbor_tracker", fluid_cs.neighbor_tracker_buffer);
+        densityShader.SetFloat("mass", fluid_cs.mass);
+        densityShader.SetFloat("radius", fluid_cs.radius);
+        densityShader.SetFloat("radius2", fluid_cs.radius2);
+        densityShader.SetFloat("radius3", fluid_cs.radius3);
+        densityShader.SetFloat("boundsSize", boundsSize);
+        densityShader.SetFloat("pi", Mathf.PI);
+        densityShader.SetFloat("max_particles_per_grid", fluid_cs.max_particles_per_grid);
         densityShader.SetInt ("n_point_per_axis", n_point_per_axis);
-        densityShader.SetFloat ("boundsSize", boundsSize);
         densityShader.SetVector ("center", new Vector4 (center.x, center.y, center.z));
         densityShader.SetVector ("offset", new Vector4 (offset.x, offset.y, offset.z));
         densityShader.SetFloat ("spacing", spacing);

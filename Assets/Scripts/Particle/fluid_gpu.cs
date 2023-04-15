@@ -23,7 +23,8 @@ public class fluid_gpu : MonoBehaviour
     velocity_initial = new Vector3(0, 500, 0);
     public float[] g = {0f, -9.81f * 2000f, 0f},
     bound = {-160, 140, -250, -150, -100, 100};
-    float radius2,
+    [HideInInspector]
+    public float radius2,
     radius3,
     radius4,
     radius5,
