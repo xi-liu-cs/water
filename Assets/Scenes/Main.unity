@@ -209,13 +209,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   density_gen: {fileID: 1060349090}
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
-  mat: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
+  fluid_cs: {fileID: 193044022}
+  material: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
   isolevel: 150
   boundsSize: 1000
   offset: {x: -0.64, y: 0, z: 0}
   n_point_per_axis: 50
   n_point: 0
-  fluid_cs: {fileID: 193044022}
 --- !u!64 &56379760
 MeshCollider:
   m_ObjectHideFlags: 0

@@ -13,7 +13,6 @@ Shader "Instanced/particle"
 
 		CGPROGRAM
 		#include "../Noise/noise.cginc"
-		// Physically based Standard lighting model
 		#pragma surface surf Standard addshadow fullforwardshadows alpha:fade
 		#pragma multi_compile_instancing
 		#pragma instancing_options procedural:setup
@@ -55,7 +54,7 @@ Shader "Instanced/particle"
 
 	void surf(Input IN, inout SurfaceOutputStandard o)
 	{
-		float4 c = float4(0, 0, 1, 1);
+		float4 c = float4(1, 0, 0, 1);
 		#ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
 		c = particle_buffer[unity_InstanceID].color;
 		#endif

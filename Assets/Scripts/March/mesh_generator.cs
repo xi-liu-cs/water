@@ -7,7 +7,8 @@ public class mesh_generator : MonoBehaviour
     const int thread_group_size = 8;
     public density_generator density_gen;
     public ComputeShader shader;
-    public Material mat;
+    public fluid_gpu fluid_cs;
+    public Material material;
     public float isolevel;
     public float boundsSize = 1000;
     public Vector3 offset = Vector3.zero;
@@ -20,7 +21,8 @@ public class mesh_generator : MonoBehaviour
     particle_buffer;
     public int n_point;
 
-    public fluid_gpu fluid_cs;
+    int size_property = Shader.PropertyToID("size"),
+    particle_buffer_property = Shader.PropertyToID("particle_buffer");
     
     public struct particle
     {
@@ -61,6 +63,8 @@ public class mesh_generator : MonoBehaviour
         shader.SetFloat ("isolevel", isolevel);
         shader.SetBuffer(0, "voxel_density", voxel_density_buffer);
         shader.SetBuffer(0, "particles", fluid_cs.particle_buffer);
+        material.SetFloat(size_property, fluid_cs.particle_size);
+        material.SetBuffer(particle_buffer_property, fluid_cs.particle_buffer);
     }
 
     public void UpdateChunkMesh(Mesh mesh)
@@ -114,6 +118,7 @@ public class mesh_generator : MonoBehaviour
         mesh.vertices = vertices;
         mesh.triangles = meshTriangles;
         mesh.RecalculateNormals();
+        /* Graphics.DrawMeshInstancedIndirect(mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), fluid_cs.arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off); */
     }
 
     void OnDestroy()
