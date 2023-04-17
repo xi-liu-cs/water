@@ -35,6 +35,7 @@ public class mesh_generator : MonoBehaviour
         fluid_cs.Awake();
         particle_buffer = fluid_cs.particle_buffer;
         n_point_per_axis = fluid_cs.n_point_per_axis;
+        gameObject.transform.position = new Vector3(0, 0, 0);
         CreateBuffers();
         gameObject.AddComponent<MeshFilter>();
         gameObject.AddComponent<MeshRenderer>();
