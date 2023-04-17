@@ -40,6 +40,11 @@ neighbor_tracker;
 
 float4 params;
 
+float kernel(float x)
+{
+    return pow(1 - x * x, 3);
+}
+
 float std_kernel(float distance_square)
 {
     float x = 1.0 - distance_square / radius2;
@@ -102,14 +107,14 @@ void compute_density(int3 id : SV_DispatchThreadID)
     {
         int neighbor_index = neighbor_list[index * max_particles_per_grid * n + i];
         float3 abs_diff = length(origin - particles[neighbor_index].position);
-        weight_divisor += std_kernel(abs_diff / radius);
+        weight_divisor += kernel(abs_diff / radius);
     }
     weight_div = 1 / weight_divisor;
     for(int i = 0; i < neighbor_tracker[index]; ++i)
     {
         int neighbor_index = neighbor_list[index * max_particles_per_grid * n + i];
         float3 abs_diff = length(origin - particles[neighbor_index].position);
-        float weight_i = std_kernel(abs_diff / radius) * weight_div;
+        float weight_i = kernel(abs_diff / radius) * weight_div;
         sum += weight_i * length(origin - particles[neighbor_index].position);
     }
     voxel_density[index] = sum - radius;

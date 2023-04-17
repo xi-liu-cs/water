@@ -38,6 +38,7 @@ damping,
 dt,
 g,
 epsilon,
+e,
 pi;
 uint n,
 n_particle,
@@ -154,10 +155,28 @@ void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
     }
 }
 
-float std_kernel(float distance_square)
+/* float std_kernel(float distance_square)
 {
     float x = 1.0 - distance_square / radius2;
     return 315.0 / (64.0 * pi * radius3) * x * x * x;
+} 
+
+float spiky_kernel_first_derivative(float distance)
+{
+    float x = 1.0 - distance / radius;
+    return -45.0 / (pi * radius4) * x * x;
+}
+
+float spiky_kernel_second_derivative(float distance)
+{
+    float x = 1.0 - distance / radius;
+    return 90.0 / (pi * radius5) * x;
+} */
+
+float std_kernel(float r)
+{
+    float r2 = r * r;
+    return pow(1 / (pi * radius2), 1.5) * pow(e, -r2 / radius2);
 }
 
 float spiky_kernel_first_derivative(float distance)

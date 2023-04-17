@@ -428,6 +428,7 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetFloat("dt", dt);
         compute_shader.SetFloats("g", g);
         compute_shader.SetFloat("epsilon", Mathf.Epsilon);
+        compute_shader.SetFloat("e", Mathf.Exp(1));
         compute_shader.SetFloat("pi", Mathf.PI);
         compute_shader.SetVector("time", Shader.GetGlobalVector("_Time"));
         compute_shader.SetInt("n_point_per_axis", n_point_per_axis);

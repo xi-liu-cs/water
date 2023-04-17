@@ -59,9 +59,9 @@ public class mesh_generator : MonoBehaviour
         triangle_buffer = new ComputeBuffer (maxTriangleCount, sizeof(tri), ComputeBufferType.Append);
         triangle_count_buffer = new ComputeBuffer (1, sizeof (int), ComputeBufferType.Raw);
         voxel_density_buffer = new ComputeBuffer(n_point, sizeof(float));
-        shader.SetBuffer (0, "triangles", triangle_buffer);
-        shader.SetInt ("n_point_per_axis", n_point_per_axis);
-        shader.SetFloat ("isolevel", isolevel);
+        shader.SetBuffer(0, "triangles", triangle_buffer);
+        shader.SetInt("n_point_per_axis", n_point_per_axis);
+        shader.SetFloat("isolevel", isolevel);
         shader.SetBuffer(0, "voxel_density", voxel_density_buffer);
         shader.SetBuffer(0, "particles", fluid_cs.particle_buffer);
         material.SetFloat(size_property, fluid_cs.particle_size);
