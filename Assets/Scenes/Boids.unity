@@ -231,6 +231,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1135771745}
   - component: {fileID: 1135771746}
+  - component: {fileID: 1135771747}
   m_Layer: 0
   m_Name: BoidManager
   m_TagString: Untagged
@@ -260,11 +261,13 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1135771744}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5a6c2b29f8a501c48a1ea71d79244fc0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  boidManagerShader: {fileID: 7200000, guid: e5d6eeec0d167e447829ed30f18b92f3, type: 3}
+  boidUpdateKernel: 0
   numBoids: 100
   dimensions: {x: 100, y: 100, z: 100}
   numDivisions: {x: 20, y: 20, z: 20}
@@ -298,6 +301,30 @@ MonoBehaviour:
     prevPosition: {x: 0, y: 0, z: 0}
     prevRotation: {x: 0, y: 0, z: 0, w: 0}
     prevScale: {x: 0, y: 0, z: 0}
+--- !u!114 &1135771747
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1135771744}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8fae57fd9bb9e14d868cdbe68fda3ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  numBoids: 32
+  dimensions:
+    x: 50
+    y: 50
+    z: 50
+  parallelShader: {fileID: 7200000, guid: 03709e26dd2323548be3cf631bd7ee01, type: 3}
+  steerShader: {fileID: 7200000, guid: 34c3ff0ddd060ae4ba4800202d1a93d5, type: 3}
+  boidTarget: {fileID: 0}
+  alignmentFactor: 0.0005
+  separationFactor: 0.05
+  targetFactor: 0.5
+  moveSpeed: 10
 --- !u!1 &1422041101
 GameObject:
   m_ObjectHideFlags: 0

@@ -7,6 +7,22 @@ using System.Linq;
 
 public class BoidManager : MonoBehaviour
 {
+
+    public ComputeShader boidManagerShader;
+    public ComputeBuffer boidsBuffer;
+    public int boidUpdateKernel;
+    public struct Boid2 {
+        public float px;
+        public float py;
+        public float pz;
+        public Vector3Int hashPosition;
+
+        public float vx;
+        public float vy;
+        public float vz;
+    };
+    Boid2[] boids2;
+
     public class Boid {
         
         public float px = 0f;
@@ -315,22 +331,6 @@ public class BoidManager : MonoBehaviour
 
             if(drawObstacles && obstacles.Count > 0) {
                 Gizmos.color = Color.white;
-                //foreach(Vector3 obstaclePoint in obstaclePoints) {
-                //    Gizmos.DrawSphere(obstaclePoint,0.25f);
-                //}
-                /*
-                foreach(GameObject obstacle in obstacles) {
-                    MeshFilter filter = obstacle.GetComponent<MeshFilter>();
-                    if(filter == null) continue;
-                    Vector3[] verts = filter.mesh.vertices;
-		            Vector4[] tangents = filter.mesh.tangents;
-		            Vector3[] norms = filter.mesh.normals;
-                    for(int i = 0; i < verts.Length; i++) {
-                        Vector3 v = obstacle.transform.TransformPoint(verts[i]);
-                        Gizmos.DrawLine(v, v + obstacle.transform.rotation * norms[i]);
-                    }
-                }
-                */
                 foreach(KeyValuePair<Vector3Int,List<Vector3>> kvp in obstacleGrid) {
                     if (kvp.Value.Count == 0) continue;
                     Vector3 cellPos = new Vector3(
@@ -346,73 +346,6 @@ public class BoidManager : MonoBehaviour
                 }
                 
             }
-            /*
-            List<Vector3Int> toPrintSections = new List<Vector3Int>();
-            List<Vector3Int> visualSections = new List<Vector3Int>();
-            List<Vector3Int> protectedSections = new List<Vector3Int>();
-            Gizmos.color = Color.yellow;
-            foreach(Boid boid in boids) {
-                Gizmos.DrawSphere(boid.position,renderSize);
-                Vector3Int hashIndexes = GetGridIndex(boid.position);
-                if(!toPrintSections.Contains(hashIndexes)) toPrintSections.Add(hashIndexes);
-                // Addding visual sections
-                if (drawVisualCells) {
-                    for(int x = hashIndexes.x-visualRange; x <= hashIndexes.x+visualRange; x++)
-                        for(int y = hashIndexes.y-visualRange; y <= hashIndexes.y+visualRange;y++) 
-                            for(int z = hashIndexes.z-visualRange; z <= hashIndexes.z+visualRange; z++) {
-                                Vector3Int neighborIndex = new Vector3Int(x,y,z);
-                                if(!visualSections.Contains(neighborIndex)) visualSections.Add(neighborIndex);
-                            }
-                }
-                // Adding protected sections
-                if (drawCurrentCells) {
-                    for(int x = hashIndexes.x-protectedRange; x <= hashIndexes.x+protectedRange; x++)
-                        for(int y = hashIndexes.y-protectedRange; y <= hashIndexes.y+protectedRange;y++) 
-                            for(int z = hashIndexes.z-protectedRange; z <= hashIndexes.z+protectedRange; z++) {
-                                Vector3Int neighborIndex = new Vector3Int(x,y,z);
-                                if(!protectedSections.Contains(neighborIndex)) protectedSections.Add(neighborIndex);
-                            }
-                }
-            }
-            Vector3 divisionSize = new Vector3(
-                dimensions.x / numDivisions.x,
-                dimensions.y / numDivisions.y,
-                dimensions.z / numDivisions.z
-            );
-            if (drawVisualCells) {
-                Gizmos.color = Color.yellow;
-                foreach(Vector3Int neighborIndex in visualSections) {
-                    Vector3 divisionPos = new Vector3(
-                        transform.position.x + neighborIndex.x*divisionSize.x,
-                        transform.position.y + neighborIndex.y*divisionSize.y,
-                        transform.position.z + neighborIndex.z*divisionSize.z
-                    ) + divisionSize/2f;
-                    Gizmos.DrawWireCube(divisionPos,divisionSize);
-                }
-            }
-            if (drawCloseCells) {
-                Gizmos.color = Color.red;
-                foreach(Vector3Int neighborIndex in protectedSections) {
-                    Vector3 divisionPos = new Vector3(
-                        transform.position.x + neighborIndex.x*divisionSize.x,
-                        transform.position.y + neighborIndex.y*divisionSize.y,
-                        transform.position.z + neighborIndex.z*divisionSize.z
-                    ) + divisionSize/2f;
-                    Gizmos.DrawWireCube(divisionPos,divisionSize);
-                }
-            }
-            if (drawCurrentCells) {
-                Gizmos.color = Color.blue;
-                foreach(Vector3Int actualIndex in toPrintSections) {
-                    Vector3 divisionPos = new Vector3(
-                        transform.position.x + actualIndex.x*divisionSize.x,
-                        transform.position.y + actualIndex.y*divisionSize.y,
-                        transform.position.z + actualIndex.z*divisionSize.z
-                    ) + divisionSize/2f;
-                    Gizmos.DrawWireCube(divisionPos,divisionSize);
-                }
-            }
-            */
         } else {
             if (!drawCurrentCells) return;
             Gizmos.color = Color.blue;
@@ -436,6 +369,50 @@ public class BoidManager : MonoBehaviour
 
     private void Awake() {
         current = this;
+
+        InitializeBoids2();
+        InitializeValues();
+        InitializeBuffers();
+    }
+
+    private void InitializeBoids2() {
+        boids2 = new Boid2[numBoids];
+        for(int i = 0; i < numBoids; i++) {
+            Vector3 initPosition = new Vector3(
+                Random.Range(transform.position.x,transform.position.x+dimensions.x),
+                Random.Range(transform.position.y,transform.position.y+dimensions.y),
+                Random.Range(transform.position.z,transform.position.z+dimensions.z)
+            );
+            Vector3 initVel = new Vector3(
+                Random.Range(-1f,1f),
+                Random.Range(-1f,1f),
+                Random.Range(-1f,1f)
+            ).normalized;
+            boids2[i] = new Boid2 {
+                px = initPosition.x,
+                py = initPosition.y,
+                pz = initPosition.z,
+                hashPosition = GetGridIndex(initPosition),
+                vx = initVel.x,
+                vy = initVel.y,
+                vz = initVel.z
+            };
+        }
+    }
+
+    private void InitializeValues() {
+        boidManagerShader.SetInt("numParticles",numBoids);
+    }
+
+    private void InitializeKernels() {
+        boidUpdateKernel = boidManagerShader.FindKernel("UpdateBoids");
+    }
+
+    private void InitializeBuffers() {
+        boidsBuffer = new ComputeBuffer(numBoids, sizeof(float)*6 + sizeof(int)*3);
+        boidsBuffer.SetData(boids2);
+
+        boidManagerShader.SetBuffer(boidUpdateKernel, "boids", boidsBuffer);
     }
 
     // Start is called before the first frame update
