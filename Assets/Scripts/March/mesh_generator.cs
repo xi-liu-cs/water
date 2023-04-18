@@ -56,8 +56,8 @@ public class mesh_generator : MonoBehaviour
         int n_voxel_per_axis = n_point_per_axis - 1,
         n_voxel = n_voxel_per_axis * n_voxel_per_axis * n_voxel_per_axis,
         maxTriangleCount = n_voxel * 5;
-        triangle_buffer = new ComputeBuffer (maxTriangleCount, sizeof(tri), ComputeBufferType.Append);
-        triangle_count_buffer = new ComputeBuffer (1, sizeof (int), ComputeBufferType.Raw);
+        triangle_buffer = new ComputeBuffer(maxTriangleCount, sizeof(tri), ComputeBufferType.Append);
+        triangle_count_buffer = new ComputeBuffer(1, sizeof (int), ComputeBufferType.Raw);
         voxel_density_buffer = new ComputeBuffer(n_point, sizeof(float));
         shader.SetBuffer(0, "triangles", triangle_buffer);
         shader.SetInt("n_point_per_axis", n_point_per_axis);

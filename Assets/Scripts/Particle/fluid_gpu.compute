@@ -155,28 +155,10 @@ void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
     }
 }
 
-/* float std_kernel(float distance_square)
+float std_kernel(float distance_square)
 {
     float x = 1.0 - distance_square / radius2;
     return 315.0 / (64.0 * pi * radius3) * x * x * x;
-} 
-
-float spiky_kernel_first_derivative(float distance)
-{
-    float x = 1.0 - distance / radius;
-    return -45.0 / (pi * radius4) * x * x;
-}
-
-float spiky_kernel_second_derivative(float distance)
-{
-    float x = 1.0 - distance / radius;
-    return 90.0 / (pi * radius5) * x;
-} */
-
-float std_kernel(float r)
-{
-    float r2 = r * r;
-    return pow(1 / (pi * radius2), 1.5) * pow(e, -r2 / radius2);
 }
 
 float spiky_kernel_first_derivative(float distance)
@@ -241,44 +223,42 @@ void compute_force(uint3 id : SV_DispatchThreadID)
 [numthreads(100, 1, 1)]
 void integrate(uint3 id : SV_DispatchThreadID)
 {
-    particle particle = particles[id.x];
+    particle p = particles[id.x];
     velocity[id.x] += dt * force[id.x] / mass;
-    particle.position += dt * velocity[id.x];
-    particles[id.x] = particle;
-    particle = particles[id.x];
+    p.position += dt * velocity[id.x];
     float3 v = velocity[id.x];
-    if(particles[id.x].position.x < bound[0] + epsilon)
+    if(p.position.x < bound[0] + epsilon)
     {
         v.x *= damping;
-        particle.position.x = bound[0] + epsilon;
+        p.position.x = bound[0] + epsilon;
     }
-    else if(particles[id.x].position.x > bound[1] - epsilon) 
+    else if(p.position.x > bound[1] - epsilon) 
     {
         v.x *= damping;
-        particle.position.x = bound[1] - epsilon;
+        p.position.x = bound[1] - epsilon;
     }
-    if(particles[id.x].position.y < bound[2] + epsilon)
+    if(p.position.y < bound[2] + epsilon)
     {
         v.y *= damping;
-        particle.position.y = bound[2] + epsilon;
+        p.position.y = bound[2] + epsilon;
     }
-    else if(particles[id.x].position.y > bound[3] - epsilon) 
+    else if(p.position.y > bound[3] - epsilon) 
     {
         v.y *= damping;
-        particle.position.y = bound[3] - epsilon;
+        p.position.y = bound[3] - epsilon;
     }
-    if(particles[id.x].position.z < bound[4] + epsilon)
+    if(p.position.z < bound[4] + epsilon)
     {
         v.z *= damping;
-        particle.position.z = bound[4] + epsilon;
+        p.position.z = bound[4] + epsilon;
     }
-    else if(particles[id.x].position.z > bound[5] - epsilon) 
+    else if(p.position.z > bound[5] - epsilon) 
     {
         v.z *= damping;
-        particle.position.z = bound[5] - epsilon;
+        p.position.z = bound[5] - epsilon;
     }
     velocity[id.x] = v;
-    particles[id.x] = particle;
+    particles[id.x] = p;
 }
 
 #pragma kernel compute_density
