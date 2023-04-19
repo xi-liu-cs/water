@@ -32,11 +32,17 @@ float mass,
 radius,
 radius2,
 radius3,
-pi;
+pi,
+sphere_radius;
 RWStructuredBuffer<particle> particles;
 RWStructuredBuffer<float> voxel_density;
+RWStructuredBuffer<float3> points;
 RWStructuredBuffer<int> neighbor_list,
 neighbor_tracker;
+
+RWStructuredBuffer<float> bound;
+float grid_size;
+int3 dimension;
 
 float4 params;
 
@@ -56,6 +62,16 @@ float std_kernel(float distance_square)
 int hash(uint x, uint y, uint z)
 {
     return x + n_point_per_axis * (y + n_point_per_axis * z);
+}
+
+int3 get_cell(float3 position)
+{
+    return int3((position.x - bound[0]) / grid_size, (position.y - bound[2]) / grid_size, (position.z - bound[4]) / grid_size);
+}
+
+int hash_cell(int3 cell)
+{
+    return cell.x + dimension.x * (cell.y + dimension.y * cell.z);
 }
 
 /* [numthreads(n_thread, n_thread, n_thread)]
@@ -122,7 +138,7 @@ void compute_density(int3 id : SV_DispatchThreadID)
     voxel_density[index] = sum - radius;
 } */
 
-[numthreads(n_thread, n_thread, n_thread)]
+/* [numthreads(n_thread, n_thread, n_thread)]
 void compute_density(int3 id : SV_DispatchThreadID)
 {
     int index = hash(id.x, id.y, id.z);
@@ -135,5 +151,49 @@ void compute_density(int3 id : SV_DispatchThreadID)
         r *= 0.005;
         sum += pow(e, -r * r);
     }
+    points[index] = center + id * spacing - boundsSize / 2;
     voxel_density[index] = sum;
+} */
+
+/* [numthreads(n_thread, n_thread, n_thread)]
+void compute_density(int3 id : SV_DispatchThreadID)
+{
+    int index = hash(id.x, id.y, id.z);
+    if(id.x >= n_point_per_axis || id.y >= n_point_per_axis || id.z >= n_point_per_axis)
+        return;
+    float3 pos = center + id * spacing - boundsSize / 2;
+    points[index] = pos;
+    voxel_density[index] = sphere_radius - length(pos + offset);
+} */
+
+/* [numthreads(n_thread, n_thread, n_thread)]
+void compute_density(int3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_point_per_axis || id.y >= n_point_per_axis || id.z >= n_point_per_axis)
+        return;
+    int index = hash(id.x, id.y, id.z);
+    float3 pos = float3(bound[0], bound[2], bound[4]) + id * grid_size;
+    points[index] = pos;
+    voxel_density[index] = sphere_radius - length(pos + offset);
+} */
+
+[numthreads(n_thread, n_thread, n_thread)]
+void compute_density(int3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_point_per_axis || id.y >= n_point_per_axis || id.z >= n_point_per_axis)
+        return;
+    int index = hash(id.x, id.y, id.z);
+    float3 vertex = particles[index].position;
+    int3 cell_index = get_cell(vertex);
+    float3 cell_pos = float3(bound[0] + cell_index[0] * grid_size, bound[2] + cell_index[1] * grid_size, bound[4] + cell_index[2] * grid_size);
+    float sum = 0;
+    for(int i = 0; i < neighbor_tracker[index]; ++i)
+    {
+        int neighbor_index = neighbor_list[index * max_particles_per_grid * n + i];
+        float r = length(cell_pos - particles[neighbor_index].position);
+        r *= 0.005;
+        sum += pow(e, -r);
+    }
+    points[index] = cell_pos;
+    voxel_density[index] = sum - 10;
 }

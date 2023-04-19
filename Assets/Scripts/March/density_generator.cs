@@ -12,6 +12,7 @@ public abstract class density_generator : MonoBehaviour
     /* public particle[] particles; */
     public mesh_generator mesh_gen;
     public fluid_gpu fluid_cs;
+    public float sphere_radius = 50f;
 
     public struct particle
     {
@@ -42,6 +43,7 @@ public abstract class density_generator : MonoBehaviour
         /* particle_buffer.SetData(particles); */
         densityShader.SetBuffer(0, "particles", fluid_cs.particle_buffer);
         densityShader.SetBuffer(0, "voxel_density", mesh_gen.voxel_density_buffer);
+        densityShader.SetBuffer(0, "points", point_buffer);
         densityShader.SetBuffer(0, "neighbor_list", fluid_cs.neighbor_list_buffer);
         densityShader.SetBuffer(0, "neighbor_tracker", fluid_cs.neighbor_tracker_buffer);
         densityShader.SetFloat("mass", fluid_cs.mass);
@@ -49,6 +51,7 @@ public abstract class density_generator : MonoBehaviour
         densityShader.SetFloat("radius2", fluid_cs.radius2);
         densityShader.SetFloat("radius3", fluid_cs.radius3);
         densityShader.SetFloat("boundsSize", boundsSize);
+        densityShader.SetFloat("sphere_radius", sphere_radius);
         densityShader.SetFloat("pi", Mathf.PI);
         densityShader.SetFloat("max_particles_per_grid", fluid_cs.max_particles_per_grid);
         densityShader.SetInt ("n_point_per_axis", n_point_per_axis);
@@ -56,6 +59,9 @@ public abstract class density_generator : MonoBehaviour
         densityShader.SetVector ("offset", new Vector4 (offset.x, offset.y, offset.z));
         densityShader.SetFloat ("spacing", spacing);
         densityShader.SetVector("worldSize", worldBounds);
+        densityShader.SetFloat("grid_size", fluid_cs.grid_size);
+        densityShader.SetBuffer(0, "bound", fluid_cs.bound_buffer);
+        densityShader.SetInts("dimension", fluid_cs.dimension_array);
         densityShader.Dispatch (0, numThreadsPerAxis, numThreadsPerAxis, numThreadsPerAxis);
 
         if (buffersToRelease != null) {

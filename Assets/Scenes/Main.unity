@@ -211,8 +211,8 @@ MonoBehaviour:
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
   fluid_cs: {fileID: 193044022}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
-  isolevel: 2
-  boundsSize: 1000
+  isolevel: 0
+  boundsSize: 500
   offset: {x: -0.64, y: 0, z: 0}
   n_point_per_axis: 50
   n_point: 0
@@ -1353,8 +1353,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 226704146}
-  m_LocalRotation: {x: 0.005203067, y: 0.9841738, z: 0.17483126, w: -0.028443199}
-  m_LocalPosition: {x: 409.73013, y: -104.52457, z: 105.6308}
+  m_LocalRotation: {x: -0.009525153, y: 0.96460956, z: 0.26107255, w: 0.03576157}
+  m_LocalPosition: {x: 416.04517, y: -99.27557, z: 97.14929}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -7475,6 +7475,7 @@ MonoBehaviour:
   densityShader: {fileID: 7200000, guid: fe37e8d3da18f7a498eae86a5f70b377, type: 3}
   mesh_gen: {fileID: 1358004673}
   fluid_cs: {fileID: 1905805526}
+  sphere_radius: 1
   seed: 1
   numOctaves: 8
   lacunarity: 2
@@ -19796,6 +19797,7 @@ MonoBehaviour:
   densityShader: {fileID: 7200000, guid: fe37e8d3da18f7a498eae86a5f70b377, type: 3}
   mesh_gen: {fileID: 56379759}
   fluid_cs: {fileID: 193044022}
+  sphere_radius: 50
   seed: 1
   numOctaves: 8
   lacunarity: 2

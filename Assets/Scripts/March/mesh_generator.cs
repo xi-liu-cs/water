@@ -10,7 +10,7 @@ public class mesh_generator : MonoBehaviour
     public fluid_gpu fluid_cs;
     public Material material;
     public float isolevel;
-    public float boundsSize = 1000;
+    public float boundsSize = 1;
     public Vector3 offset = Vector3.zero;
     public int n_point_per_axis = 50;
     Mesh fluid;
@@ -65,11 +65,13 @@ public class mesh_generator : MonoBehaviour
         triangle_buffer = new ComputeBuffer(maxTriangleCount, sizeof(tri), ComputeBufferType.Append);
         triangle_count_buffer = new ComputeBuffer(1, sizeof (int), ComputeBufferType.Raw);
         voxel_density_buffer = new ComputeBuffer(n_point, sizeof(float));
+        point_buffer = new ComputeBuffer(n_point, 3 * sizeof(float));
         shader.SetBuffer(0, "triangles", triangle_buffer);
         shader.SetInt("n_point_per_axis", n_point_per_axis);
         shader.SetFloat("isolevel", isolevel);
         shader.SetBuffer(0, "voxel_density", voxel_density_buffer);
         shader.SetBuffer(0, "particles", fluid_cs.particle_buffer);
+        shader.SetBuffer(0, "points", point_buffer);
         material.SetFloat(size_property, fluid_cs.particle_size);
         material.SetBuffer(particle_buffer_property, fluid_cs.particle_buffer);
         fluid_mesh_renderer.material = material;

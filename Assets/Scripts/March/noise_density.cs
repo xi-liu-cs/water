@@ -47,7 +47,6 @@ public class noise_density : density_generator
         densityShader.SetFloat ("weightMultiplier", weightMultiplier);
         densityShader.SetFloat ("hardFloor", hardFloorHeight);
         densityShader.SetFloat ("hardFloorWeight", hardFloorWeight);
-
         densityShader.SetVector ("params", shaderParams);
 
         return base.generate (point_buffer, n_point_per_axis, boundsSize, worldBounds, center, offset, spacing);

@@ -19,6 +19,7 @@ struct tri
 AppendStructuredBuffer<tri> triangles;
 RWStructuredBuffer<particle> particles;
 RWStructuredBuffer<float> voxel_density;
+RWStructuredBuffer<float3> points;
 
 int n_point_per_axis;
 float isolevel;
@@ -42,14 +43,14 @@ void march(int3 id : SV_DispatchThreadID)
 
     float3 cube_corner_vertices[] =
     {
-        particles[hash(id.x, id.y, id.z)].position,
-        particles[hash(id.x + 1, id.y, id.z)].position,
-        particles[hash(id.x + 1, id.y, id.z + 1)].position,
-        particles[hash(id.x, id.y, id.z + 1)].position,
-        particles[hash(id.x, id.y + 1, id.z)].position,
-        particles[hash(id.x + 1, id.y + 1, id.z)].position,
-        particles[hash(id.x + 1, id.y + 1, id.z + 1)].position,
-        particles[hash(id.x, id.y + 1, id.z + 1)].position
+        points[hash(id.x, id.y, id.z)],
+        points[hash(id.x + 1, id.y, id.z)],
+        points[hash(id.x + 1, id.y, id.z + 1)],
+        points[hash(id.x, id.y, id.z + 1)],
+        points[hash(id.x, id.y + 1, id.z)],
+        points[hash(id.x + 1, id.y + 1, id.z)],
+        points[hash(id.x + 1, id.y + 1, id.z + 1)],
+        points[hash(id.x, id.y + 1, id.z + 1)]
     };
     float cube_corner_densities[] = 
     {
