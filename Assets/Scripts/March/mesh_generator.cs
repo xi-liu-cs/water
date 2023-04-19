@@ -14,6 +14,8 @@ public class mesh_generator : MonoBehaviour
     public Vector3 offset = Vector3.zero;
     public int n_point_per_axis = 50;
     Mesh fluid;
+    MeshFilter fluid_mesh_filter;
+    MeshRenderer fluid_mesh_renderer;
     public ComputeBuffer triangle_buffer,
     point_buffer,
     triangle_count_buffer,
@@ -36,10 +38,14 @@ public class mesh_generator : MonoBehaviour
         particle_buffer = fluid_cs.particle_buffer;
         n_point_per_axis = fluid_cs.n_point_per_axis;
         gameObject.transform.position = new Vector3(0, 0, 0);
-        CreateBuffers();
-        gameObject.AddComponent<MeshFilter>();
-        gameObject.AddComponent<MeshRenderer>();
+        fluid_mesh_filter = gameObject.GetComponent<MeshFilter>();
+        if(fluid_mesh_filter == null)
+            gameObject.AddComponent<MeshFilter>();
+        fluid_mesh_renderer = gameObject.GetComponent<MeshRenderer>();
+        if(fluid_mesh_renderer == null)
+            gameObject.AddComponent<MeshRenderer>();
         fluid = GetComponent<MeshFilter>().mesh;
+        CreateBuffers();
         density_gen.Awake();
     }
     
@@ -66,6 +72,7 @@ public class mesh_generator : MonoBehaviour
         shader.SetBuffer(0, "particles", fluid_cs.particle_buffer);
         material.SetFloat(size_property, fluid_cs.particle_size);
         material.SetBuffer(particle_buffer_property, fluid_cs.particle_buffer);
+        fluid_mesh_renderer.material = material;
     }
 
     public void UpdateChunkMesh(Mesh mesh)
@@ -94,7 +101,7 @@ public class mesh_generator : MonoBehaviour
         triangle_count_buffer.GetData (triCountArray);
         int numTris = triCountArray[0];
         tri[] tris = new tri[numTris];
-        triangle_buffer.GetData (tris, 0, 0, numTris);
+        triangle_buffer.GetData(tris, 0, 0, numTris);
         Debug.Log("triangle count = " + numTris);
         /* Debug.Log("triangle count = " + numTris);
         for(int i = 0; i < numTris; ++i)
@@ -118,6 +125,10 @@ public class mesh_generator : MonoBehaviour
         }
         mesh.vertices = vertices;
         mesh.triangles = meshTriangles;
+        /* Color[] colors = new Color[vertices.Length];
+        for(int i = 0; i < vertices.Length; ++i)
+            colors[i] = Color.Lerp(Color.red, Color.green, vertices[i].y);
+        mesh.colors = colors; */
         mesh.RecalculateNormals();
         /* Graphics.DrawMeshInstancedIndirect(mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), fluid_cs.arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off); */
     }

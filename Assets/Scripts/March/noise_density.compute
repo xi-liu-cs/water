@@ -40,6 +40,8 @@ neighbor_tracker;
 
 float4 params;
 
+static const float e = 2.7182818284590452353602874713527;
+
 float kernel(float x)
 {
     return pow(1 - x * x, 3);
@@ -95,7 +97,7 @@ void compute_density(int3 id : SV_DispatchThreadID)
     voxel_density[index] = sum / neighbor_tracker[index] * 0.0005;
 } */
 
-[numthreads(n_thread, n_thread, n_thread)]
+/* [numthreads(n_thread, n_thread, n_thread)]
 void compute_density(int3 id : SV_DispatchThreadID)
 {
     int index = hash(id.x, id.y, id.z);
@@ -118,4 +120,20 @@ void compute_density(int3 id : SV_DispatchThreadID)
         sum += weight_i * length(origin - particles[neighbor_index].position);
     }
     voxel_density[index] = sum - radius;
+} */
+
+[numthreads(n_thread, n_thread, n_thread)]
+void compute_density(int3 id : SV_DispatchThreadID)
+{
+    int index = hash(id.x, id.y, id.z);
+    float3 pos = particles[index].position;
+    float sum = 0;
+    for(int i = 0; i < neighbor_tracker[index]; ++i)
+    {
+        int neighbor_index = neighbor_list[index * max_particles_per_grid * n + i];
+        float r = length(pos - particles[neighbor_index].position);
+        r *= 0.005;
+        sum += pow(e, -r * r);
+    }
+    voxel_density[index] = sum;
 }
