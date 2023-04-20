@@ -370,6 +370,7 @@ public class BoidManager : MonoBehaviour
     private void Awake() {
         current = this;
 
+        InitializeGrid();
         InitializeBoids2();
         InitializeValues();
         InitializeBuffers();
@@ -433,6 +434,7 @@ public class BoidManager : MonoBehaviour
     }
 
     // Update is called once per frame
+    /*
     private void Update() {
         foreach(Boid boid in boids) {
             // Update boid manually
@@ -441,7 +443,11 @@ public class BoidManager : MonoBehaviour
         foreach(Obstacle obs in obstacles) {
             obs.Update();
         }
-         
+    }
+    */
+
+    private void Update() {
+        // We first update our grid - hashing the positions of the boids, then producing a new array where boid ID is key and neighbors is 
     }
 
     private void InitializeGrid() {
@@ -450,7 +456,7 @@ public class BoidManager : MonoBehaviour
                 for(int z = 0; z < numDivisions.z; z++) {
                     Vector3Int p = new Vector3Int(x,y,z);
                     grid[p] = new List<Boid>();
-                    obstacleGrid[p] = new List<Vector3>();
+                    //obstacleGrid[p] = new List<Vector3>();
                 }
     }
 
@@ -466,30 +472,17 @@ public class BoidManager : MonoBehaviour
         }
     }
 
-    private void InitializeObstacles() {
-        foreach(Obstacle obstacle in obstacles) {
-            obstacle.Initialize();
-        }
-        /*
-        foreach(GameObject obstacle in obstacles) {
-            MeshFilter filter = obstacle.GetComponent<MeshFilter>();
-            if(filter == null) continue;
-            Vector3[] verts = filter.mesh.vertices;
-	        Vector4[] tangents = filter.mesh.tangents;
-		    Vector3[] norms = filter.mesh.normals;
-            for(int i = 0; i < verts.Length; i++) {
-                Vector3 worldP = obstacle.transform.TransformPoint(verts[i]);
-                Vector3 normVect = worldP + obstacle.transform.rotation * norms[i];
-            }
-        }
-        */
-    }
-
     private Vector3Int GetGridIndex(Vector3 pos) {
         int hashX = Mathf.FloorToInt(((pos.x-transform.position.x)/dimensions.x)*numDivisions.x);
         int hashY = Mathf.FloorToInt(((pos.y-transform.position.y)/dimensions.y)*numDivisions.y);
         int hashZ = Mathf.FloorToInt(((pos.z-transform.position.z)/dimensions.z)*numDivisions.z);
         return new Vector3Int(hashX, hashY, hashZ);
+    }
+
+    private void InitializeObstacles() {
+        foreach(Obstacle obstacle in obstacles) {
+            obstacle.Initialize();
+        }
     }
 
     private void GetNeighboringBoids(Boid boid, out List<Boid> neighbors, out List<Boid> closeNeighbors) {

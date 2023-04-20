@@ -1,34 +1,249 @@
 // Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel CSMain
 #pragma kernel UpdateBoids
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
-RWTexture2D<float4> Result;
+int numBoids;           // Total # of boids in the simulation
+float3 dimensions;      // The world space boundaries of the simulation
+int3 numCells;          // The # of cells along the X, Y, and Z axes each
 
-int numParticles;
+int visualRange;        // The visual range in XYZ grid dimensions that the boid is allowed to see
+int closeRange;         // The range in XYZ grid dimensions that the boid considers to be too close
+float minSpeed;         // Minimum speed a boid can move
+float maxSpeed;         // Maximum speed a boid can move
+
+float cohesionFactor;   // Weight for cohesion between boids
+float alignmentFactor;  // Weight for alignment between boids
+float separationFactor; // Weight for separation from close boids
+float obstacleFactor;   // Weight for avoiding obstacles. CURRENTLY UNUSED!
+float turnFactor;       // Weight for turning back into the boundary space
+
+float deltaTime;        // Time difference between frames. Used for position change due to velocity
+int3 innerDim_min;      // The inner XYZ grid dimension where boids are restricted to stay in
+int3 innerDim_max;      // The inner XYZ grid dimension where boids are restricted to stay in
+
 struct Boid {
+    // We keep these separate! Makes it easier to manipulate them separately
     float px;
     float py;
     float pz;
-    int3 hashPosition;
 
     float vx;
     float vy;
     float vz;
+
+    float3 position;
+    int3 hashPosition;
+    float3 velocity;
+
+    int minX,maxX,minY,maxY,minZ,maxZ;
+    int numNeighbors, numCloseNeighbors;
+};
+
+struct GridCell {
+    float3 separation;
+    float3 alignment;
+    float3 cohesion;
+    int n;
 };
 
 RWStructuredBuffer<Boid> boids;
+RWStructuredBuffer<GridCell> grid;
 
-[numthreads(8,8,1)]
-void CSMain (uint3 id : SV_DispatchThreadID)
-{
-    // TODO: insert actual code here!
+int3 GetHashPosition(float3 position) {
+    int hashX = (int)floor((position.x / dimensions.x) * numCells.x);
+    int hashY = (int)floor((position.y / dimensions.y) * numCells.y);
+    int hashZ = (int)floor((position.z / dimensions.z) * numCells.z);
+    return int3(hashX, hashY, hashZ);
+}
 
-    Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+int GetProjectedHashIndex(int3 p) {
+    return p.x + (p.y * numCells.x) + (p.z * numCells.x * numCells.y);
+}
+int GetProjectedHashIndex(int x, int y, int z) {
+    return x + (y * numCells.x) + (z * numCells.x * numCells.y);
+}
+
+float3 UpdateSeparation(float3 pos, GridCell cell) {
+    if (cell.n == 0) return float3(0,0,0);
+    return (pos * cell.n) - cell.separation;
+}
+
+float3 UpdateAlignment(GridCell cell) {
+    if (cell.n == 0) return float3(0,0,0);
+    return cell.alignment / cell.n;
+}
+
+float3 UpdateCohesion(GridCell cell) {
+    if (cell.n == 0) return float3(0,0,0);
+    return cell.cohesion / cell.n;
+}
+
+float3 UpdateEdges(int3 hashPosition) {
+    float vx = 0;
+    float vy = 0;
+    float vz = 0;
+    if(hashPosition.x < innerDim_min.x) vx += turnFactor;
+    if(hashPosition.x > innerDim_max.x) vx -= turnFactor;
+    if(hashPosition.y < innerDim_min.y) vy += turnFactor;
+    if(hashPosition.y > innerDim_max.y) vy -= turnFactor;
+    if(hashPosition.z < innerDim_min.z) vz += turnFactor;
+    if(hashPosition.z > innerDim_max.z) vz -= turnFactor;
+    return float3(vx,vy,vz);
+}
+
+float3 UpdateSpeedLimits(float vx, float vy, float vz) {
+    float _vx = 0;
+    float _vy = 0;
+    float _vz = 0;
+    float speed = sqrt( vx * vx + vy * vy + vz * vz );
+    if(speed > maxSpeed) {
+        _vx = (vx / speed) * maxSpeed;
+        _vy = (vy / speed) * maxSpeed;
+        _vz = (vz / speed) * maxSpeed;
+    }
+    else if(speed < minSpeed) {
+        _vx = (vx / speed) * minSpeed;
+        _vy = (vy / speed) * minSpeed;
+        _vz = (vz / speed) * minSpeed;
+    }
+    return float3(_vx, _vy, _vz);
 }
 
 [numthreads(32,1,1)]
 void UpdateBoids (uint3 id : SV_DispatchThreadID) {
-    Boid b = boids[id.x];
+    // id.x == our boid's ID in `boids`
+    Boid boid = boids[id.x];
+    
+    // Step 1: Variables
+    float3 close = float3(0,0,0);
+    float3 vel_avg = float3(0,0,0);
+    float3 pos_avg = float3(0,0,0);
+
+    // Step 2: Find mins and maxes of possible neighbor hash positions
+    boid.minX = max(boid.hashPosition.x - visualRange, 0);
+    boid.maxX = min(boid.hashPosition.x + visualRange, numCells.x-1);
+    boid.minY = max(boid.hashPosition.y - visualRange, 0);
+    boid.maxY = min(boid.hashPosition.y + visualRange, numCells.y-1);
+    boid.minZ = max(boid.hashPosition.z - visualRange, 0);
+    boid.maxZ = min(boid.hashPosition.z + visualRange, numCells.z-1);
+
+    float3 oldPosition = boid.position;
+    float3 oldVelocity = boid.velocity;
+    float3 oldHashPosition = boid.hashPosition;
+
+    int neighborsCount = 0;
+    int closeNeighborsCount = 0;
+
+    // Step 3: Iterate through neighbors
+    for (int x = boid.minX; x <= boid.maxX; x++) {
+        bool isCloseX = abs(boid.hashPosition.x - x) <= closeRange;
+        for (int y = boid.minY; y <= boid.maxY; y++) {
+            bool isCloseY = isCloseX && abs(boid.hashPosition.y - y) <= closeRange;
+            for (int z = boid.minZ; z <= boid.maxZ; z++) {
+                // Get projected index
+                int projectedIndex = GetProjectedHashIndex(x,y,z);
+                // Get the cell associated with the projected index
+                GridCell cell = grid[projectedIndex];
+                // Check if it's within the close range
+                bool isClose = isCloseY && abs(boid.hashPosition.z - z) <= closeRange;
+                // Cells in the `close` range only affect separation. Those not in the close range affect alignment and cohesion
+                if (isClose) {
+                    closeNeighborsCount += cell.n;
+                    close += UpdateSeparation(boid.position, cell);
+                } else {
+                    neighborsCount += cell.n;
+                    vel_avg += UpdateAlignment(cell);
+                    pos_avg += UpdateCohesion(cell);
+                }
+            }
+        }
+    }
+
+    boid.numNeighbors = neighborsCount;
+    boid.numCloseNeighbors = closeNeighborsCount;
+
+    // Alighment and Cohesion
+    if (neighborsCount > 0) {
+        boid.vx = boid.vx 
+            + (pos_avg.x - boid.px) * cohesionFactor 
+            + (vel_avg.x - boid.vx) * alignmentFactor;
+        boid.vy = boid.vy 
+            + (pos_avg.y - boid.py) * cohesionFactor 
+            + (vel_avg.y - boid.vy) * alignmentFactor;
+        boid.vz = boid.vz 
+            + (pos_avg.z - boid.pz) * cohesionFactor 
+            + (vel_avg.z - boid.vz) * alignmentFactor;
+    }
+
+    // Separation (and later, obstacle avoidance)
+    boid.vx = boid.vx 
+        + (close.x * separationFactor); 
+        //+ (far_obstacle_dx * BoidManager.current.obstacleFactor * 0.5f)
+        //+ (close_obstacle_dx * BoidManager.current.obstacleFactor);
+    boid.vy = boid.vy 
+        + (close.y * separationFactor);
+        //+ (far_obstacle_dy * BoidManager.current.obstacleFactor * 0.5f)
+        //+ (close_obstacle_dy * BoidManager.current.obstacleFactor);
+    boid.vz = boid.vz 
+        + (close.z * separationFactor);
+        //+ (far_obstacle_dz * BoidManager.current.obstacleFactor * 0.5f)
+
+    // update based on edges and speed limits
+    float3 edges = UpdateEdges(boid.hashPosition);
+    float3 speedLims = UpdateSpeedLimits(boid.vx, boid.vy, boid.vz);
+    boid.vx += edges.x + speedLims.x;
+    boid.vy += edges.y + speedLims.y;
+    boid.vz += edges.z + speedLims.z;
+    
+    // Sixthly, update position
+    boid.px += boid.vx * deltaTime;
+    boid.py += boid.vy * deltaTime;
+    boid.pz += boid.vz * deltaTime;
+
+    // Get the new properties
+    boid.position = float3(boid.px, boid.py, boid.pz);
+    boid.velocity = float3(boid.vx, boid.vy, boid.vz);
+    boid.hashPosition = GetHashPosition(boid.position);
+
+    // Mirror to the other side (s) if the hash position is out of bounds in any way
+    if (boid.hashPosition.x < 0) {
+        // Flip px to the reverse X side
+        boid.px = dimensions.x;
+    }
+    if (boid.hashPosition.x > numCells.x) {
+        // Flip the px to the reverse X side
+        boid.px = 0;
+    }
+    if (boid.hashPosition.y < 0) {
+        boid.py = dimensions.y;
+    }
+    if (boid.hashPosition.y > numCells.y) {
+        boid.py = 0;
+    }
+    if (boid.hashPosition.z < 0) {
+        boid.pz = dimensions.z;
+    }
+    if (boid.hashPosition.z > numCells.z) {
+        boid.pz = 0;
+    }
+
+    // Recalculate them
+    boid.position = float3(boid.px, boid.py, boid.pz);
+    boid.hashPosition = GetHashPosition(boid.position);
+
+    // If the boid's previous hash position is not equal to its expected one, we have to update the cells too
+    if (any(boid.hashPosition != oldHashPosition)) {
+        GridCell oldCell = grid[GetProjectedHashIndex(oldHashPosition)];
+        oldCell.separation -= oldPosition;
+        oldCell.alignment -= oldVelocity;
+        oldCell.cohesion -= oldVelocity;
+        oldCell.n -= 1;
+
+        GridCell newCell = grid[GetProjectedHashIndex(boid.hashPosition)];
+        newCell.separation += boid.position;
+        newCell.alignment += boid.velocity;
+        newCell.cohesion += boid.velocity;
+        newCell.n += 1;
+    }
+
+    boids[id.x] = boid;
 }

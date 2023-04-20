@@ -113,6 +113,7 @@ public class BoidManager2 : MonoBehaviour
 
     private void UpdateAggregation() {
         parallelShader.GetKernelThreadGroupSizes(parallelMainKernel, out var x, out var y, out var z);
+        Debug.Log(x);
         parallelShader.SetBuffer(parallelMainKernel, "boidsBuffer", boidsBuffer);
         parallelShader.SetBuffer(parallelMainKernel, "boidsPrefixSumBuffer", boidsPrefixSumBuffer);
         for (var n = boidCountPoT; n >= prefixSumBlockSize; n /= prefixSumBlockSize)
