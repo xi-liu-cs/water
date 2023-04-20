@@ -84,5 +84,4 @@ void march(int3 id : SV_DispatchThreadID)
         a.vertex_c = interpolate_vertex(cube_corner_vertices[a2], cube_corner_densities[a2], cube_corner_vertices[b2], cube_corner_densities[b2]);
         triangles.Append(a);
     }
-    
 }
