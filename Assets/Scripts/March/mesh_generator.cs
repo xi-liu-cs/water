@@ -22,6 +22,7 @@ public class mesh_generator : MonoBehaviour
     voxel_density_buffer,
     particle_buffer;
     public int n_point;
+    int n_particle;
 
     int size_property = Shader.PropertyToID("size"),
     particle_buffer_property = Shader.PropertyToID("particle_buffer");
@@ -32,11 +33,24 @@ public class mesh_generator : MonoBehaviour
         public Vector4 color;
     }
 
+    /* void OnDrawGizmos()
+    {
+        if(Application.isPlaying)
+        {
+            Gizmos.color = Color.yellow;
+            particle[] debug_particles = new particle[n_particle];
+            particle_buffer.GetData(debug_particles);
+            for(int i = 0; i < debug_particles.Length; ++i)
+                Gizmos.DrawSphere(debug_particles[i].position, 1f);
+        }
+    } */
+
     void Awake()
     {
         fluid_cs.Awake();
         particle_buffer = fluid_cs.particle_buffer;
         n_point_per_axis = fluid_cs.n_point_per_axis;
+        n_particle = fluid_cs.n_particle;
         gameObject.transform.position = new Vector3(0, 0, 0);
         fluid_mesh_filter = gameObject.GetComponent<MeshFilter>();
         if(fluid_mesh_filter == null)
