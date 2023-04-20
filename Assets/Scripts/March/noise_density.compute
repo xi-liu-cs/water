@@ -144,6 +144,34 @@ void compute_density(int3 id : SV_DispatchThreadID)
 void compute_density(int3 id : SV_DispatchThreadID)
 {
     int index = hash(id.x, id.y, id.z);
+    float3 origin = particles[index].position;
+    float sum = 0,
+    weight_divisor = 0,
+    weight_div;
+    for(int i = 0; i < neighbor_tracker[index]; ++i)
+    {
+        int neighbor_index = neighbor_list[index * max_particles_per_grid * n + i];
+        float3 abs_diff = length(origin - particles[neighbor_index].position);
+        weight_divisor += kernel(abs_diff / radius);
+    }
+    weight_div = 1 / weight_divisor;
+    for(int i = 0; i < neighbor_tracker[index]; ++i)
+    {
+        int neighbor_index = neighbor_list[index * max_particles_per_grid * n + i];
+        float3 abs_diff = length(origin - particles[neighbor_index].position);
+        float weight_i = kernel(abs_diff / radius) * weight_div;
+        sum += weight_i * length(origin - particles[neighbor_index].position);
+    }
+    int3 cell_index = get_cell(origin);
+    int cell_hash = hash_cell(cell_index);
+    points[cell_hash] = float3(bound[0] + cell_index[0] * grid_size, bound[2] + cell_index[1] * grid_size, bound[4] + cell_index[2] * grid_size);
+    voxel_density[cell_hash] += sum - 100;
+} */
+
+/* [numthreads(n_thread, n_thread, n_thread)]
+void compute_density(int3 id : SV_DispatchThreadID)
+{
+    int index = hash(id.x, id.y, id.z);
     float3 pos = particles[index].position;
     float sum = 0;
     for(int i = 0; i < neighbor_tracker[index]; ++i)
