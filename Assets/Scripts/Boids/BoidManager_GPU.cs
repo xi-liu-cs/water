@@ -64,9 +64,9 @@ public class BoidManager_GPU : MonoBehaviour
 
     [Header("= WORLD CONFIGURATIONS =")]
     [Tooltip("The inner XYZ grid dimension where boids are restricted to stay in")]
-        public int[] innerHashPos_min = { 2, 2, 2 };
+        public float[] innerHashPos_min = { 2f, 2f, 2f };
     [Tooltip("The inner XYZ grid dimension where boids are restricted to stay in")]
-        public int[] innerHashPos_max = { 8, 8, 8 };
+        public float[] innerHashPos_max = { 8f, 8f, 8f };
 
     private Boid[] boids;
     private GridCell[] boidsGrid;
@@ -184,8 +184,8 @@ public class BoidManager_GPU : MonoBehaviour
         boidShader.SetFloat("turnFactor", turnFactor);
 
         // World Configurations
-        boidShader.SetInts("innerDim_min", innerHashPos_min);
-        boidShader.SetInts("innerDim_max", innerHashPos_max);
+        boidShader.SetFloats("innerDim_min", innerHashPos_min);
+        boidShader.SetFloats("innerDim_max", innerHashPos_max);
         if (deltaTime != -1f) 
             boidShader.SetFloat("deltaTime", deltaTime);
     }

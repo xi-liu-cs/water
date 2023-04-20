@@ -354,7 +354,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3bd47696447e90745943a8b6c245b2b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  numBoids: 2000
+  numBoids: 3000
   dimensions:
   - 1000
   - 300
@@ -369,8 +369,14 @@ MonoBehaviour:
   alignmentFactor: 0.025
   separationFactor: 0.05
   turnFactor: 0.25
-  innerHashPos_min: 0a0000000a0000000a000000
-  innerHashPos_max: de0300002201000022010000
+  innerHashPos_min:
+  - 30
+  - 30
+  - 30
+  innerHashPos_max:
+  - 970
+  - 270
+  - 270
   updateTimeDelay: 0.0001
 --- !u!4 &1304671565
 Transform:
