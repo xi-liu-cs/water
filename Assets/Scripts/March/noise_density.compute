@@ -135,7 +135,9 @@ void compute_density(int3 id : SV_DispatchThreadID)
         float weight_i = kernel(abs_diff / radius) * weight_div;
         sum += weight_i * length(origin - particles[neighbor_index].position);
     }
-    voxel_density[index] = sum - radius;
+    int3 cell_index = get_cell(origin);
+    points[index] = float3(bound[0] + cell_index[0] * grid_size, bound[2] + cell_index[1] * grid_size, bound[4] + cell_index[2] * grid_size);
+    voxel_density[index] = sum - radius - 150;
 } */
 
 /* [numthreads(n_thread, n_thread, n_thread)]
