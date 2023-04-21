@@ -2,7 +2,9 @@
 #pragma kernel UpdateBoids
 
 int numBoids;           // Total # of boids in the simulation
-float3 dimensions;      // The world space boundaries of the simulation
+float3 minBounds;       // The minimum limits of the world space boundaries of the simulation
+float3 maxBounds;       // The maximum limits of the world space boundaries of the simulation
+float3 dimensions;      // The world space size of the simulation
 int3 numCells;          // The # of cells along the X, Y, and Z axes each
 
 int visualRange;        // The visual range in XYZ grid dimensions that the boid is allowed to see
@@ -15,6 +17,7 @@ float alignmentFactor;  // Weight for alignment between boids
 float separationFactor; // Weight for separation from close boids
 float obstacleFactor;   // Weight for avoiding obstacles. CURRENTLY UNUSED!
 float turnFactor;       // Weight for turning back into the boundary space
+float targetFactor;     // Weight for turning towards a target
 
 float deltaTime;        // Time difference between frames. Used for position change due to velocity
 float3 innerDim_min;      // The inner XYZ grid dimension where boids are restricted to stay in
@@ -36,6 +39,8 @@ struct Boid {
 
     int minX,maxX,minY,maxY,minZ,maxZ;
     int numNeighbors, numCloseNeighbors;
+
+    int targetIndex;
 };
 
 struct GridCell {
@@ -45,13 +50,19 @@ struct GridCell {
     int n;
 };
 
+struct Target {
+    float3 position;
+    int numBoids;
+};
+
 RWStructuredBuffer<Boid> boids;
 RWStructuredBuffer<GridCell> grid;
+RWStructuredBuffer<Target> targets;
 
 int3 GetHashPosition(float3 position) {
-    int hashX = (int)floor((position.x / dimensions.x) * numCells.x);
-    int hashY = (int)floor((position.y / dimensions.y) * numCells.y);
-    int hashZ = (int)floor((position.z / dimensions.z) * numCells.z);
+    int hashX = (int)floor(((position.x - minBounds[0]) / dimensions.x) * numCells.x);
+    int hashY = (int)floor(((position.y - minBounds[1]) / dimensions.y) * numCells.y);
+    int hashZ = (int)floor(((position.z - minBounds[2]) / dimensions.z) * numCells.z);
     return int3(hashX, hashY, hashZ);
 }
 
@@ -106,6 +117,15 @@ float3 UpdateSpeedLimits(float vx, float vy, float vz) {
         _vz = (vz / speed) * minSpeed;
     }
     return float3(_vx, _vy, _vz);
+}
+
+float3 UpdateTargetHeading(float px, float py, float pz, Target target) {
+    float pDiffX = target.position.x - px;
+    float pDiffY = target.position.y - py;
+    float pDiffZ = target.position.z - pz; 
+    float3 pDiff = float3(pDiffX, pDiffY, pDiffZ);
+    float3 dir = pDiff / length(pDiff);
+    return dir;
 }
 
 [numthreads(100,1,1)]
@@ -187,6 +207,14 @@ void UpdateBoids (uint3 id : SV_DispatchThreadID) {
         + (close.z * separationFactor);
         //+ (far_obstacle_dz * BoidManager.current.obstacleFactor * 0.5f)
 
+    // Update based on target position
+    if (boid.targetIndex > -1) {
+        float3 targetDir = UpdateTargetHeading(boid.px, boid.py, boid.pz, targets[boid.targetIndex]);
+        boid.vx += targetDir.x * targetFactor;
+        boid.vy += targetDir.y * targetFactor;
+        boid.vz += targetDir.z * targetFactor;
+    }
+
     // update based on edges and speed limits
     float3 edges = UpdateEdges(boid.position);
     float3 speedLims = UpdateSpeedLimits(boid.vx, boid.vy, boid.vz);
@@ -207,23 +235,23 @@ void UpdateBoids (uint3 id : SV_DispatchThreadID) {
     // Mirror to the other side (s) if the hash position is out of bounds in any way
     if (boid.hashPosition.x < 0) {
         // Flip px to the reverse X side
-        boid.px = dimensions.x;
+        boid.px = maxBounds[0];
     }
     if (boid.hashPosition.x > numCells.x) {
         // Flip the px to the reverse X side
-        boid.px = 0;
+        boid.px = minBounds[0];
     }
     if (boid.hashPosition.y < 0) {
-        boid.py = dimensions.y;
+        boid.py = maxBounds[1];
     }
     if (boid.hashPosition.y > numCells.y) {
-        boid.py = 0;
+        boid.py = minBounds[1];
     }
     if (boid.hashPosition.z < 0) {
-        boid.pz = dimensions.z;
+        boid.pz = maxBounds[2];
     }
     if (boid.hashPosition.z > numCells.z) {
-        boid.pz = 0;
+        boid.pz = minBounds[2];
     }
 
     // Recalculate them

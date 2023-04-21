@@ -21,6 +21,8 @@ public class BoidManager_GPU : MonoBehaviour
 
         public int minX, maxX, minY, maxY, minZ, maxZ;
         public int numNeighbors, numCloseNeighbors;
+
+        public int targetIndex;
     };
 
     struct GridCell {
@@ -29,12 +31,22 @@ public class BoidManager_GPU : MonoBehaviour
         public Vector3 cohesion;
         public int n;
     };
+
+    // Private list of structs that represent targets. Sent into a custom targets buffer
+    private struct Target {
+        public Vector3 position;
+        public int numBoids;
+    }
     
     [Header("= CORE SETTINGS =")]
     [Tooltip("Total # of boids in the simulation")] 
         public int numBoids = 32;
-    [Tooltip("The world space boundaries of the simulation")] 
-        public float[] dimensions = { 100f, 100f, 100f };
+    [Tooltip("The minimum limits of the world space boundaries of the simulation. Stored in XYZ format")] 
+        public float[] minBounds = { -100f,-100f,-100f };
+    [Tooltip("The maximum limits of the world space boundaries of the simulation. Stored in XYZ format")] 
+        public float[] maxBounds = { 100f,100f,100f };
+    // The world space size of the simulation
+    private float[] dimensions;
     [Tooltip("The # of cells along the X, Y, and Z axes each")]
         public int[] numCells = { 10,10,10 };
     [Tooltip("The Compute Shader for Boid Behavior")]
@@ -61,6 +73,8 @@ public class BoidManager_GPU : MonoBehaviour
     //    public float obstacleFactor = 0.05f;
     [Tooltip("Weight for turning back into the boundary space")]
         public float turnFactor = 0.05f;
+    [Tooltip("Weight for turning towards a target")]
+        public float targetFactor = 0.75f;
 
     [Header("= WORLD CONFIGURATIONS =")]
     [Tooltip("The inner XYZ grid dimension where boids are restricted to stay in")]
@@ -68,19 +82,41 @@ public class BoidManager_GPU : MonoBehaviour
     [Tooltip("The inner XYZ grid dimension where boids are restricted to stay in")]
         public float[] innerHashPos_max = { 8f, 8f, 8f };
 
+    [Header("= TARGETS AND OBSTACLES =")]
+    [Tooltip("All gameobjects that are considered targets")]
+        public Transform[] targets = new Transform[0];
+    [Tooltip("The total number of boids that a target can be associated with")]
+        public int boidsPerTarget = 200;
+
+    private Target[] _targets;
     private Boid[] boids;
     private GridCell[] boidsGrid;
 
     private int updateKernel;
     private ComputeBuffer boidsBuffer;
     private ComputeBuffer boidsGridBuffer;
+    private ComputeBuffer targetsBuffer;
 
     [SerializeField] private float updateTimeDelay = 0.1f;
 
     void OnDrawGizmos() {
         Gizmos.color = Color.white;
-        Vector3 d = new Vector3(dimensions[0], dimensions[1], dimensions[2]);
-        Gizmos.DrawWireCube(d/2f, d);
+        Vector3 minBoundVector = new Vector3(minBounds[0], minBounds[1], minBounds[2]);
+        Vector3 d = new Vector3(
+            maxBounds[0]-minBounds[0], 
+            maxBounds[1]-minBounds[1], 
+            maxBounds[2]-minBounds[2]
+        );
+        Gizmos.DrawWireCube(minBoundVector + d/2f, d);
+
+        Gizmos.color = Color.red;
+        Vector3 minInnerBoundVector = new Vector3(innerHashPos_min[0], innerHashPos_min[1], innerHashPos_min[2]);
+        Vector3 d2 = new Vector3(
+            innerHashPos_max[0]-innerHashPos_min[0], 
+            innerHashPos_max[1]-innerHashPos_min[1], 
+            innerHashPos_max[2]-innerHashPos_min[2]
+        );
+        Gizmos.DrawWireCube(minInnerBoundVector + d2/2f, d2);
 
         if (Application.isPlaying) {
             Gizmos.color = Color.yellow;
@@ -95,6 +131,8 @@ public class BoidManager_GPU : MonoBehaviour
 
     // Start is called before the first frame update
     private void Start() {
+        CalculateDimensions();
+        InitializeTargets();
         InitializeBoids();
         InitializeGrid();
         InitializeShaderVariables();
@@ -103,13 +141,31 @@ public class BoidManager_GPU : MonoBehaviour
         StartCoroutine(CustomUpdate());
     }
 
+    private void CalculateDimensions() {
+        dimensions = new float[3];
+        dimensions[0] = Mathf.Abs(maxBounds[0] - minBounds[0]);
+        dimensions[1] = Mathf.Abs(maxBounds[1] - minBounds[1]);
+        dimensions[2] = Mathf.Abs(maxBounds[2] - minBounds[2]);
+    }
+
+    private void InitializeTargets() {
+        _targets = new Target[targets.Length];
+        for(int i = 0; i < targets.Length; i++) {
+            Target _target = new Target();
+            _target.position = targets[i].position;
+            _target.numBoids = 0;
+            _targets[i] = _target;
+        }
+    }
+
     private void InitializeBoids() {
+        int totalNumBoidsAttachedToTarget = 0;
         boids = new Boid[numBoids];
         for(int i = 0; i < numBoids; i++) {
             Vector3 initPosition = new Vector3(
-                Random.Range(0,dimensions[0]),
-                Random.Range(0,dimensions[1]),
-                Random.Range(0,dimensions[2])
+                Random.Range(minBounds[0],maxBounds[0]),
+                Random.Range(minBounds[1],maxBounds[1]),
+                Random.Range(minBounds[2],maxBounds[2])
             );
             Vector3 initVelocity = new Vector3(
                 Random.Range(-1f,1f),
@@ -128,6 +184,15 @@ public class BoidManager_GPU : MonoBehaviour
             boid.position = initPosition;
             boid.velocity = initVelocity;
             boid.hashPosition = hashPosition;
+            boid.targetIndex = -1;
+            if(_targets.Length > 0 && totalNumBoidsAttachedToTarget < _targets.Length * boidsPerTarget) {
+                int targetIndex = Random.Range(0,_targets.Length);
+                if (_targets[targetIndex].numBoids < boidsPerTarget) {
+                    boid.targetIndex = targetIndex;
+                    _targets[targetIndex].numBoids += 1;
+                    totalNumBoidsAttachedToTarget += 1;
+                }
+            }
             boids[i] = boid;
         }
     }
@@ -163,6 +228,8 @@ public class BoidManager_GPU : MonoBehaviour
 
         updateKernel = boidShader.FindKernel("UpdateBoids");
         boidShader.SetInt("numBoids", numBoids);
+        boidShader.SetFloats("minBounds", minBounds);
+        boidShader.SetFloats("maxBounds", maxBounds);
         boidShader.SetFloats("dimensions",dimensions);
         boidShader.SetInts("numCells",numCells);
 
@@ -182,6 +249,7 @@ public class BoidManager_GPU : MonoBehaviour
         boidShader.SetFloat("separationFactor", separationFactor);
         // boidShader.SetFloat("obstacleFactor", obstacleFactor);
         boidShader.SetFloat("turnFactor", turnFactor);
+        boidShader.SetFloat("targetFactor", targetFactor);
 
         // World Configurations
         boidShader.SetFloats("innerDim_min", innerHashPos_min);
@@ -191,21 +259,36 @@ public class BoidManager_GPU : MonoBehaviour
     }
 
     private void InitializeBuffers() {
-        boidsBuffer = new ComputeBuffer(numBoids, sizeof(float)*12 + sizeof(int)*11);
+        boidsBuffer = new ComputeBuffer(numBoids, sizeof(float)*12 + sizeof(int)*12);
         boidsBuffer.SetData(boids);
 
         boidsGridBuffer = new ComputeBuffer(numCells[0] * numCells[1] * numCells[2], sizeof(float)*9 + sizeof(int));
         boidsGridBuffer.SetData(boidsGrid);
 
+        targetsBuffer = new ComputeBuffer(targets.Length, sizeof(float)*3+sizeof(int));
+        targetsBuffer.SetData(_targets);
+
         boidShader.SetBuffer(updateKernel, "boids", boidsBuffer);
         boidShader.SetBuffer(updateKernel, "grid", boidsGridBuffer);
+        boidShader.SetBuffer(updateKernel, "targets", targetsBuffer);
+    }
+
+    private void UpdateTargets() {
+        for(int i = 0; i < _targets.Length; i++) {
+            _targets[i].position = targets[i].position;
+        }
+    }
+    private void UpdateBuffers() {
+        targetsBuffer.SetData(_targets);
     }
 
     // Update is called once per frame
     private IEnumerator CustomUpdate() {
         while(true) {
             float deltaTime = Time.deltaTime;
+            UpdateTargets();
             UpdateShaderVariables(deltaTime);
+            UpdateBuffers();
 
             boidShader.Dispatch(updateKernel,100,1,1);
 
@@ -222,9 +305,9 @@ public class BoidManager_GPU : MonoBehaviour
     }
 
     private Vector3Int GetHashPosition(Vector3 position) {
-        int hashX = Mathf.FloorToInt((position.x / dimensions[0]) * numCells[0]);
-        int hashY = Mathf.FloorToInt((position.y / dimensions[1]) * numCells[1]);
-        int hashZ = Mathf.FloorToInt((position.z / dimensions[2]) * numCells[2]);
+        int hashX = Mathf.FloorToInt(((position.x - minBounds[0]) / dimensions[0]) * numCells[0]);
+        int hashY = Mathf.FloorToInt(((position.y - minBounds[1]) / dimensions[1]) * numCells[1]);
+        int hashZ = Mathf.FloorToInt(((position.z - minBounds[2]) / dimensions[2]) * numCells[2]);
         return new Vector3Int(hashX, hashY, hashZ);
     }
 
@@ -244,5 +327,6 @@ public class BoidManager_GPU : MonoBehaviour
     {
         boidsBuffer.Dispose();
         boidsGridBuffer.Dispose();
+        targetsBuffer.Dispose();
     }
 }
