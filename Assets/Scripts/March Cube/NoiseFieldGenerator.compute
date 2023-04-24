@@ -1,23 +1,89 @@
 #pragma kernel NoiseFieldGenerator
 #include "../Noise/noise.cginc"
 
-uint3 dimension;
 float scale;
 float time;
 float max_density;
 RWStructuredBuffer<float> voxels;
 
-int hash(int x, int y, int z)
+static const int n = 8,
+n_thread = 8,
+max_particles_per_grid;
+
+struct particle
 {
-    return x + dimension.x * (y + dimension.y * z);
+    float3 position;
+    float4 color;
+};
+RWStructuredBuffer<particle> particles;
+RWStructuredBuffer<int> neighbor_list,
+neighbor_tracker;
+
+RWStructuredBuffer<float> bound;
+int n_point_per_axis;
+float grid_size;
+int3 dimension;
+float mass,
+radius,
+radius2,
+radius3,
+pi,
+sphere_radius;
+
+float kernel(float x)
+{
+    return pow(1 - x * x, 3);
+}
+
+float std_kernel(float distance_square)
+{
+    float x = 1.0 - distance_square / radius2;
+    return 315.0 / (64.0 * pi * radius3) * x * x * x;
+}
+
+int hash(uint x, uint y, uint z)
+{
+    return x + n_point_per_axis * (y + n_point_per_axis * z);
+}
+
+int3 get_cell(float3 position)
+{
+    return int3((position.x - bound[0]) / grid_size, (position.y - bound[2]) / grid_size, (position.z - bound[4]) / grid_size);
+}
+
+int hash_cell(int3 cell)
+{
+    return cell.x + n_point_per_axis * (cell.y + n_point_per_axis * cell.z);
 }
 
 [numthreads(8, 8, 8)]
 void NoiseFieldGenerator(uint3 id : SV_DispatchThreadID)
 {
-    float3 p = scale * (id + 0.5 - dimension / 2);
+    /* float3 p = scale * (id + 0.5 - dimension / 2);
     float value = -p.y;
     value += snoise(p * 0.83 + float3(-0.37, -0.12, 0) * time) * 0.5;
     value += snoise(p * 0.72 + float3(0.21, +0.07, 0) * time) * 0.5;
-    voxels[id.x + dimension.x * (id.y + dimension.y * id.z)] = value;
+    voxels[id.x + dimension.x * (id.y + dimension.y * id.z)] = value; */
+    int index = hash(id.x, id.y, id.z);
+    float3 origin = particles[index].position;
+    float sum = 0,
+    weight_divisor = 0,
+    weight_div;
+    for(int i = 0; i < neighbor_tracker[index]; ++i)
+    {
+        int neighbor_index = neighbor_list[index * max_particles_per_grid * n + i];
+        float3 abs_diff = length(origin - particles[neighbor_index].position);
+        weight_divisor += kernel(abs_diff / radius);
+    }
+    weight_div = 1 / weight_divisor;
+    for(int i = 0; i < neighbor_tracker[index]; ++i)
+    {
+        int neighbor_index = neighbor_list[index * max_particles_per_grid * n + i];
+        float3 abs_diff = length(origin - particles[neighbor_index].position);
+        float weight_i = kernel(abs_diff / radius) * weight_div;
+        sum += weight_i * length(origin - particles[neighbor_index].position);
+    }
+    int3 cell_index = get_cell(origin);
+    int cell_hash = hash_cell(cell_index);
+    voxels[cell_hash] += sum - 101;
 }

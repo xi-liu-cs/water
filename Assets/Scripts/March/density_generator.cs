@@ -54,7 +54,7 @@ public abstract class density_generator : MonoBehaviour
         densityShader.SetFloat("sphere_radius", sphere_radius);
         densityShader.SetFloat("pi", Mathf.PI);
         densityShader.SetFloat("max_particles_per_grid", fluid_cs.max_particles_per_grid);
-        densityShader.SetInt ("n_point_per_axis", n_point_per_axis);
+        densityShader.SetInt("n_point_per_axis", n_point_per_axis);
         densityShader.SetVector ("center", new Vector4 (center.x, center.y, center.z));
         densityShader.SetVector ("offset", new Vector4 (offset.x, offset.y, offset.z));
         densityShader.SetFloat ("spacing", spacing);

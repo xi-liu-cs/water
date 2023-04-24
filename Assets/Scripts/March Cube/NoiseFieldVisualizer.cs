@@ -47,6 +47,24 @@ sealed class NoiseFieldVisualizer : MonoBehaviour
         _gridScale = 1f;
         _voxelBuffer = fluid_cs.density_buffer;
         _builder = new MeshBuilder(_dimension, _triangleBudget, _builderCompute, material);
+        _volumeCompute.SetInts("dimension", _dimension);
+        _volumeCompute.SetFloat("scale", _gridScale);
+        _volumeCompute.SetFloat("time", Time.time);
+        _volumeCompute.SetFloat("max_density", fluid_cs.max_density);
+        _volumeCompute.SetBuffer(noise_field_visualizer_kernel, "particles", fluid_cs.particle_buffer);
+        _volumeCompute.SetBuffer(noise_field_visualizer_kernel, "neighbor_list", fluid_cs.neighbor_list_buffer);
+        _volumeCompute.SetBuffer(noise_field_visualizer_kernel, "neighbor_tracker", fluid_cs.neighbor_tracker_buffer);
+        _volumeCompute.SetBuffer(noise_field_visualizer_kernel, "voxels", _voxelBuffer);
+        _volumeCompute.DispatchThreads(noise_field_visualizer_kernel, _dimension);
+        _volumeCompute.SetFloat("grid_size", fluid_cs.grid_size);
+        _volumeCompute.SetBuffer(noise_field_visualizer_kernel, "bound", fluid_cs.bound_buffer);
+        _volumeCompute.SetFloat("mass", fluid_cs.mass);
+        _volumeCompute.SetFloat("radius", fluid_cs.radius);
+        _volumeCompute.SetFloat("radius2", fluid_cs.radius2);
+        _volumeCompute.SetFloat("radius3", fluid_cs.radius3);
+        _volumeCompute.SetFloat("pi", Mathf.PI);
+        _volumeCompute.SetFloat("max_particles_per_grid", fluid_cs.max_particles_per_grid);
+        _volumeCompute.SetInt("n_point_per_axis", fluid_cs.n_point_per_axis);
     }
 
     void OnDestroy()
@@ -61,15 +79,10 @@ sealed class NoiseFieldVisualizer : MonoBehaviour
         /* float[] b = new float[1000];
         _voxelBuffer.GetData(b);
         for(int i = 0; i < 1000; ++i) Debug.Log(String.Format("b[{0}] = {1}", i, b[i])); */
+        float[] b = new float[100];
+        _voxelBuffer.GetData(b);
+        for(int i = 0; i < 100; ++i) Debug.Log(String.Format("b[{0}] = {1}", i, b[i]));
         // Noise field update
-        _volumeCompute.SetInts("dimension", _dimension);
-        _volumeCompute.SetFloat("scale", _gridScale);
-        _volumeCompute.SetFloat("time", Time.time);
-        _volumeCompute.SetFloat("max_density", fluid_cs.max_density);
-        _volumeCompute.SetBuffer(noise_field_visualizer_kernel, "particles", fluid_cs.particle_buffer);
-        _volumeCompute.SetBuffer(noise_field_visualizer_kernel, "voxels", _voxelBuffer);
-        _volumeCompute.DispatchThreads(noise_field_visualizer_kernel, _dimension);
-
         // Isosurface reconstruction
         _builder.BuildIsosurface(_voxelBuffer, _targetValue, _gridScale);
         GetComponent<MeshFilter>().sharedMesh = _builder.Mesh;
