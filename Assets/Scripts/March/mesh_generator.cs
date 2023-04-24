@@ -21,8 +21,10 @@ public class mesh_generator : MonoBehaviour
     triangle_count_buffer,
     voxel_density_buffer,
     particle_buffer;
-    public int n_point;
-    int n_particle;
+    public int n_point,
+    n_particle,
+    n_voxel_per_axis,
+    n_voxel;
 
     int size_property = Shader.PropertyToID("size"),
     particle_buffer_property = Shader.PropertyToID("particle_buffer");
@@ -73,9 +75,9 @@ public class mesh_generator : MonoBehaviour
     unsafe void CreateBuffers()
     {
         n_point = n_point_per_axis * n_point_per_axis * n_point_per_axis;
-        int n_voxel_per_axis = n_point_per_axis - 1,
-        n_voxel = n_voxel_per_axis * n_voxel_per_axis * n_voxel_per_axis,
-        maxTriangleCount = n_voxel * 5;
+        n_voxel_per_axis = n_point_per_axis - 1;
+        n_voxel = n_voxel_per_axis * n_voxel_per_axis * n_voxel_per_axis;
+        int maxTriangleCount = n_voxel * 5;
         triangle_buffer = new ComputeBuffer(maxTriangleCount, sizeof(tri), ComputeBufferType.Append);
         triangle_count_buffer = new ComputeBuffer(1, sizeof (int), ComputeBufferType.Raw);
         voxel_density_buffer = new ComputeBuffer(n_point, sizeof(float));

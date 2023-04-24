@@ -67,6 +67,7 @@ void compute_hash_grid(uint3 id : SV_DispatchThreadID)
 {
     uint original_value = 0;
     const int hash_grid_position = hash(get_cell(particles[id.x].position));
+    if(hash_grid_tracker[hash_grid_position] + 1 > max_particles_per_grid) return;
     InterlockedAdd(hash_grid_tracker[hash_grid_position], 1, original_value); /* 'original_value' is an output variable that will be set to the original value of dest */
     if(original_value >= max_particles_per_grid)
     {
