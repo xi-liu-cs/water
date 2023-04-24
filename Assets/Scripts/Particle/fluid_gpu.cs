@@ -13,7 +13,7 @@ public class fluid_gpu : MonoBehaviour
     public float mass = 1f,
     viscosity_coefficient = 0.01f,
     particle_size = 8f,
-    radius = 2f,
+    radius = 2f, /* h, smoothing length */
     grid_size = 8f, /* 4 * radius */
     gas_constant = 2000f,
     dt = 0.0008f,

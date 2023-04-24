@@ -35,6 +35,7 @@ radius,
 radius2,
 radius3,
 pi,
+particle_size,
 sphere_radius;
 RWStructuredBuffer<particle> particles;
 RWStructuredBuffer<float> voxel_density;
@@ -298,6 +299,23 @@ void compute_density(int3 id : SV_DispatchThreadID)
     voxel_density[index] = sum - 0.5;
 } */
 
+/* [numthreads(n_thread, n_thread, n_thread)]
+void compute_density(int3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_point_per_axis || id.y >= n_point_per_axis || id.z >= n_point_per_axis)
+        return;
+    float3 cube_corner_pos = float3(bound[0], bound[2], bound[4]) + id * grid_size;
+    int cube_corner_index = hash_cell(id);
+    float sum = 0;
+    for(int i = 0; i < cube_corner_neighbor_tracker[cube_corner_index]; ++i)
+    {
+        int neighbor_index = cube_corner_neighbor_list[cube_corner_index * max_particles_per_cube + i];
+        sum += 1 / length(particles[neighbor_index].position - cube_corner_pos);
+    }
+    points[cube_corner_index] = cube_corner_pos;
+    voxel_density[cube_corner_index] = sum - 0.5;
+} */
+
 [numthreads(n_thread, n_thread, n_thread)]
 void clear_cube_corner_neighbor_tracker(uint3 id : SV_DispatchThreadID)
 {
@@ -325,12 +343,23 @@ void compute_density(int3 id : SV_DispatchThreadID)
         return;
     float3 cube_corner_pos = float3(bound[0], bound[2], bound[4]) + id * grid_size;
     int cube_corner_index = hash_cell(id);
-    float sum = 0;
+    float sum = 0,
+    weight_divisor = 0,
+    weight_multiplier;
+    float3 average_particle_pos = float3(0, 0, 0);
     for(int i = 0; i < cube_corner_neighbor_tracker[cube_corner_index]; ++i)
     {
         int neighbor_index = cube_corner_neighbor_list[cube_corner_index * max_particles_per_cube + i];
-        sum += 1 / length(particles[neighbor_index].position - cube_corner_pos);
+        weight_divisor += kernel(length(cube_corner_pos - particles[neighbor_index].position) / radius);
+    }
+    weight_multiplier = 1 / weight_divisor;
+    for(int i = 0; i < cube_corner_neighbor_tracker[cube_corner_index]; ++i)
+    {
+        int neighbor_index = cube_corner_neighbor_list[cube_corner_index * max_particles_per_cube + i];
+        float x = length(cube_corner_pos - particles[neighbor_index].position) / radius,
+        weight_i = weight_multiplier * kernel(x);
+        average_particle_pos += weight_i * particles[neighbor_index].position;
     }
     points[cube_corner_index] = cube_corner_pos;
-    voxel_density[cube_corner_index] = sum - 0.5;
+    voxel_density[cube_corner_index] = length(cube_corner_pos - average_particle_pos) - particle_size;
 }

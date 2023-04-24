@@ -64,6 +64,7 @@ public abstract class density_generator : MonoBehaviour
         densityShader.SetFloat("radius", fluid_cs.radius);
         densityShader.SetFloat("radius2", fluid_cs.radius2);
         densityShader.SetFloat("radius3", fluid_cs.radius3);
+        densityShader.SetFloat("particle_size", fluid_cs.particle_size);
         densityShader.SetFloat("boundsSize", boundsSize);
         densityShader.SetFloat("sphere_radius", sphere_radius);
         densityShader.SetFloat("pi", Mathf.PI);
