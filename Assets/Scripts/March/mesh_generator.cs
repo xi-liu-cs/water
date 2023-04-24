@@ -56,10 +56,16 @@ public class mesh_generator : MonoBehaviour
         gameObject.transform.position = new Vector3(0, 0, 0);
         fluid_mesh_filter = gameObject.GetComponent<MeshFilter>();
         if(fluid_mesh_filter == null)
+        {
             gameObject.AddComponent<MeshFilter>();
+            fluid_mesh_filter = gameObject.GetComponent<MeshFilter>();
+        }
         fluid_mesh_renderer = gameObject.GetComponent<MeshRenderer>();
         if(fluid_mesh_renderer == null)
+        {
             gameObject.AddComponent<MeshRenderer>();
+            fluid_mesh_renderer = gameObject.GetComponent<MeshRenderer>();
+        }
         fluid = GetComponent<MeshFilter>().mesh;
         CreateBuffers();
         density_gen.Awake();
