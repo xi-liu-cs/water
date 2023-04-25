@@ -327,12 +327,62 @@ void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
     int index = hash(id.x, id.y, id.z);
     float3 pos = particles[index].position;
     int3 cell_index = get_cell(pos);
+
     int cube_corner_index = hash_cell(cell_index),
     original_value = 0;
     if(cube_corner_neighbor_tracker[cube_corner_index] + 1 > max_particles_per_cube) return;
     InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index], 1, original_value);
     if(original_value > max_particles_per_cube) return;
     cube_corner_neighbor_list[cube_corner_index * max_particles_per_cube + original_value] = index;
+
+    int cube_corner_index2 = hash(cell_index[0], cell_index[1], cell_index[2] + 1),
+    original_value2 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index2] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index2], 1, original_value2);
+    if(original_value2 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index2 * max_particles_per_cube + original_value2] = index;
+
+    int cube_corner_index3 = hash(cell_index[0], cell_index[1] + 1, cell_index[2]),
+    original_value3 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index3] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index3], 1, original_value3);
+    if(original_value3 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index3 * max_particles_per_cube + original_value3] = index;
+
+    int cube_corner_index4 = hash(cell_index[0], cell_index[1] + 1, cell_index[2] + 1),
+    original_value4 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index4] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index4], 1, original_value4);
+    if(original_value4 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index4 * max_particles_per_cube + original_value4] = index;
+
+    int cube_corner_index5 = hash(cell_index[0] + 1, cell_index[1], cell_index[2]),
+    original_value5 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index5] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index5], 1, original_value5);
+    if(original_value5 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index5 * max_particles_per_cube + original_value5] = index;
+
+    int cube_corner_index6 = hash(cell_index[0] + 1, cell_index[1], cell_index[2] + 1),
+    original_value6 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index6] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index6], 1, original_value6);
+    if(original_value6 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index6 * max_particles_per_cube + original_value6] = index;
+
+    int cube_corner_index7 = hash(cell_index[0] + 1, cell_index[1] + 1, cell_index[2]),
+    original_value7 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index7] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index7], 1, original_value7);
+    if(original_value7 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index7 * max_particles_per_cube + original_value7] = index;
+
+    int cube_corner_index8 = hash(cell_index[0] + 1, cell_index[1] + 1, cell_index[2] + 1),
+    original_value8 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index8] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index8], 1, original_value8);
+    if(original_value8 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index8 * max_particles_per_cube + original_value8] = index;
 }
 
 [numthreads(n_thread, n_thread, n_thread)]

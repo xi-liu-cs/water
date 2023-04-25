@@ -1790,8 +1790,8 @@ MonoBehaviour:
   radius4: 0
   radius5: 0
   mass2: 0
-  n_particle: 130000
-  max_particles_per_grid: 500
+  n_particle: 150000
+  max_particles_per_grid: 50
   intial_particles_per_grid: 5
   dimension: {x: 0, y: 0, z: 0}
   dimension_array: 
