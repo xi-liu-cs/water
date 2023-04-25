@@ -53,7 +53,7 @@ Shader "Instanced/particle"
 
 	void surf(Input IN, inout SurfaceOutputStandard o)
 	{
-		float4 c = float4(0.25, 0.5, 1, 1);
+		float4 c = float4(0.25, 0.5, 1, 0.6);
 		/* #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
 		c = particle_buffer[unity_InstanceID].color;
 		#endif */

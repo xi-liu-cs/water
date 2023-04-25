@@ -467,7 +467,7 @@ MonoBehaviour:
   isolevel: 0
   boundsSize: 500
   offset: {x: 0, y: 0, z: 0}
-  n_point_per_axis: 50
+  n_point_per_axis: 53
   n_point: 0
   n_particle: 0
   n_voxel_per_axis: 0

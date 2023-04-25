@@ -77,7 +77,7 @@ Shader "Instanced/water"
 			/* #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
 			c = particle_buffer[unity_InstanceID].color;
 			#endif */
-			float4 c = float4(0.1, 0.2, 0.6, 0.7);
+			float4 c = float4(0.1, 0.2, 0.6, 0.6);
 			c *= tex2D(_MainTex, IN.uv_MainTex);
 			o.Albedo = c.rgb + noise(c.rgb);
 			o.Albedo *= tex2D(_Detail, IN.uv_Detail).rgb * 2;
