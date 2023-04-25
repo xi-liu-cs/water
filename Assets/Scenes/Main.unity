@@ -1765,9 +1765,9 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   mass: 1
   viscosity_coefficient: 0.01
-  particle_size: 16
-  radius: 16
-  grid_size: 16
+  particle_size: 8
+  radius: 8
+  grid_size: 8
   gas_constant: 2000
   dt: 0.0008
   rest_density: 9
@@ -1779,11 +1779,11 @@ MonoBehaviour:
   - -9
   - 0
   bound:
-  - -150
-  - 150
+  - -130
+  - 130
   - -250
   - -200
-  - -100
+  - 0
   - 100
   radius2: 0
   radius3: 0
@@ -2056,8 +2056,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 226704146}
-  m_LocalRotation: {x: 0.0032262993, y: 0.9908004, z: 0.13337483, w: -0.022702483}
-  m_LocalPosition: {x: 390.01797, y: -45.176846, z: 50.169342}
+  m_LocalRotation: {x: 0.008218944, y: 0.98096627, z: 0.18947878, w: -0.041659538}
+  m_LocalPosition: {x: 390.01776, y: -45.176216, z: 50.169586}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
