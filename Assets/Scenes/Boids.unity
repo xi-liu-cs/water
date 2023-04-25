@@ -156,6 +156,37 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &881316715
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 881316716}
+  m_Layer: 0
+  m_Name: Obstacles
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &881316716
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 881316715}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 24.285316, y: -36.18676, z: 73.41973}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 6
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &904482755
 GameObject:
   m_ObjectHideFlags: 0
@@ -340,7 +371,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1135771744}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a8fae57fd9bb9e14d868cdbe68fda3ac, type: 3}
   m_Name: 
@@ -386,38 +417,40 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3bd47696447e90745943a8b6c245b2b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  numBoids: 3000
+  numBoids: 2
   minBounds:
-  - -300
-  - -200
-  - -200
+  - -50
+  - -50
+  - -50
   maxBounds:
-  - 300
-  - 200
-  - 200
-  numCells: 1e0000001e0000001e000000
+  - 50
+  - 50
+  - 50
+  innerMinBounds:
+  - -5
+  - -5
+  - -5
+  innerMaxBounds:
+  - 5
+  - 5
+  - 5
+  boidGridDiscretizations: 1e0000001e0000001e000000
+  obstacleGridDiscretizations: 1e0000001e0000001e000000
   boidShader: {fileID: 7200000, guid: e5d6eeec0d167e447829ed30f18b92f3, type: 3}
-  visualRange: 3
+  updateTimeDelay: 10
+  visualRange: 10
   closeRange: 0
-  minSpeed: 0.5
-  maxSpeed: 1
-  cohesionFactor: 0.001
-  alignmentFactor: 0.025
+  minSpeed: 3
+  maxSpeed: 6
+  cohesionFactor: 0.0005
+  alignmentFactor: 0.05
   separationFactor: 0.05
-  turnFactor: 0.25
+  turnFactor: 1
   targetFactor: 0.75
-  innerHashPos_min:
-  - -50
-  - -50
-  - -50
-  innerHashPos_max:
-  - 50
-  - 50
-  - 50
-  targets:
-  - {fileID: 1760316330}
   boidsPerTarget: 300
-  updateTimeDelay: 0.0001
+  obstacles: []
+  visualizeBoidFrequency: 1
+  visualizeBoidFrequencyColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!4 &1304671565
 Transform:
   m_ObjectHideFlags: 0

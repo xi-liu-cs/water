@@ -17,18 +17,36 @@ public class BoidManager_GPU : MonoBehaviour
 
         public Vector3 position;
         public Vector3Int hashPosition;
+        public int projectedHashPosition;
+        public Vector3Int oldHashPosition;
+        public int oldProjectedHashPosition;
         public Vector3 velocity;
 
-        public int minX, maxX, minY, maxY, minZ, maxZ;
-        public int numNeighbors, numCloseNeighbors;
+        public int minX;
+        public int maxX;
+        public int minY;
+        public int maxY;
+        public int minZ;
+        public int maxZ;
+
+        public Vector3 separationInfluence;
+        public Vector3 alignmentInfluence;
+        public Vector3 cohesionInfluence;
+        //public Vector3 targetInfluence;
+        public Vector3 edgeInfluence;
+
+        public int numNeighbors;
+        public int numCloseNeighbors;
 
         public int targetIndex;
+        public int numUpdates;
     };
 
     struct GridCell {
         public Vector3 separation;
         public Vector3 alignment;
         public Vector3 cohesion;
+        public Vector3 position;
         public int n;
     };
 
@@ -36,6 +54,13 @@ public class BoidManager_GPU : MonoBehaviour
     private struct Target {
         public Vector3 position;
         public int numBoids;
+        public int isActive;
+    }
+
+    [System.Serializable]
+    public class Obstacle {
+        public MeshFilter obstacle;
+        public bool isStatic;
     }
     
     [Header("= CORE SETTINGS =")]
@@ -45,13 +70,24 @@ public class BoidManager_GPU : MonoBehaviour
         public float[] minBounds = { -100f,-100f,-100f };
     [Tooltip("The maximum limits of the world space boundaries of the simulation. Stored in XYZ format")] 
         public float[] maxBounds = { 100f,100f,100f };
+    [Tooltip("The inner XYZ grid dimension where boids are restricted to stay in")]
+        public float[] innerMinBounds = { 2f, 2f, 2f };
+    [Tooltip("The inner XYZ grid dimension where boids are restricted to stay in")]
+        public float[] innerMaxBounds = { 8f, 8f, 8f };
+
     // The world space size of the simulation
     private float[] dimensions;
-    [Tooltip("The # of cells along the X, Y, and Z axes each")]
-        public int[] numCells = { 10,10,10 };
+    [Tooltip("The # of cells along the X, Y, and Z axes each for the BOID grid")]
+        public int[] boidGridDiscretizations = { 10,10,10 };
+    [Tooltip("The # of cells along the X, Y, and Z axis each for the OBSTACLE grid")]
+        public int[] obstacleGridDiscretizations = {20,20,20};
+    // Tracking the size of each grid cell based on discretizations
+    private float[] boidGridCellSize;
+    private float[] obstacleGridSize;
     [Tooltip("The Compute Shader for Boid Behavior")]
         public ComputeShader boidShader;
-
+    
+    [SerializeField] private float updateTimeDelay = 0.1f;
     [Header("= BOID CONFIGURATIONS =")]
     [Tooltip("The visual range in XYZ grid dimensions that the boid is allowed to see")]
         public int visualRange = 5;
@@ -76,28 +112,32 @@ public class BoidManager_GPU : MonoBehaviour
     [Tooltip("Weight for turning towards a target")]
         public float targetFactor = 0.75f;
 
-    [Header("= WORLD CONFIGURATIONS =")]
-    [Tooltip("The inner XYZ grid dimension where boids are restricted to stay in")]
-        public float[] innerHashPos_min = { 2f, 2f, 2f };
-    [Tooltip("The inner XYZ grid dimension where boids are restricted to stay in")]
-        public float[] innerHashPos_max = { 8f, 8f, 8f };
-
     [Header("= TARGETS AND OBSTACLES =")]
-    [Tooltip("All gameobjects that are considered targets")]
-        public Transform[] targets = new Transform[0];
+    //[Tooltip("All gameobjects that are considered targets")]
+        //public Transform[] targets = new Transform[0];
     [Tooltip("The total number of boids that a target can be associated with")]
         public int boidsPerTarget = 200;
+    [Tooltip("All game objects (that have meshes attached to them) that are considered obstacles")]
+        public Obstacle[] obstacles = new Obstacle[0];
 
-    private Target[] _targets;
+    [Header("= DEBUG TOOLS =")]
+    [Tooltip("Visualize the number of boids in each grid cell")]
+        public bool visualizeBoidFrequency = false;
+    [Tooltip("What color should grid cells be visualized with?")]
+        public Color visualizeBoidFrequencyColor = Color.red;
+
+    //private Target[] _targets;
     private Boid[] boids;
     private GridCell[] boidsGrid;
+    
+    private int boidUpdateNeighborCellsKernel;
+    private int boidUpdateInfluenceVectorsKernel;
+    private int boidUpdateStatusKernel;
+    //private int updateKernel;
 
-    private int updateKernel;
     private ComputeBuffer boidsBuffer;
     private ComputeBuffer boidsGridBuffer;
-    private ComputeBuffer targetsBuffer;
-
-    [SerializeField] private float updateTimeDelay = 0.1f;
+    //private ComputeBuffer targetsBuffer;
 
     void OnDrawGizmos() {
         Gizmos.color = Color.white;
@@ -110,35 +150,67 @@ public class BoidManager_GPU : MonoBehaviour
         Gizmos.DrawWireCube(minBoundVector + d/2f, d);
 
         Gizmos.color = Color.red;
-        Vector3 minInnerBoundVector = new Vector3(innerHashPos_min[0], innerHashPos_min[1], innerHashPos_min[2]);
+        Vector3 minInnerBoundVector = new Vector3(innerMinBounds[0], innerMinBounds[1], innerMinBounds[2]);
         Vector3 d2 = new Vector3(
-            innerHashPos_max[0]-innerHashPos_min[0], 
-            innerHashPos_max[1]-innerHashPos_min[1], 
-            innerHashPos_max[2]-innerHashPos_min[2]
+            innerMaxBounds[0]-innerMinBounds[0], 
+            innerMaxBounds[1]-innerMinBounds[1], 
+            innerMaxBounds[2]-innerMinBounds[2]
         );
         Gizmos.DrawWireCube(minInnerBoundVector + d2/2f, d2);
 
         if (Application.isPlaying) {
-            Gizmos.color = Color.yellow;
+            
             int bCount = boidsBuffer.count;
             Boid[] _boids = new Boid[bCount];
             boidsBuffer.GetData(_boids);
+
+            GridCell[] visualGrid = new GridCell[boidsGridBuffer.count];
+            boidsGridBuffer.GetData(visualGrid);
+            
             for(int i = 0; i < bCount; i++) {
+                Gizmos.color = Color.yellow;
                 Gizmos.DrawSphere(_boids[i].position, 1f);
+                Gizmos.DrawLine(_boids[i].position, _boids[i].position + _boids[i].velocity);
+                Debug.Log($"Boid {i} has position {_boids[i].position.ToString()}");
+                /*
+                for (int x = _boids[i].minX; x <= _boids[i].maxX; x++) {
+                    for (int y = _boids[i].minY; y <= _boids[i].maxY; y++) {
+                        for (int z = _boids[i].minZ; z <= _boids[i].maxZ; z++) {
+                            Gizmos.color = visualizeBoidFrequencyColor;
+                            Gizmos.DrawLine(
+                                visualGrid[GetProjectedHashIndex(_boids[i].hashPosition)].position, 
+                                visualGrid[GetProjectedHashIndex(x,y,z)].position
+                            );
+                        }
+                    }
+                }
+                */
+            }
+            if(visualizeBoidFrequency) {
+                Color gridColor = visualizeBoidFrequencyColor;
+                Vector3 boidGridSizeVector3 = new Vector3(boidGridCellSize[0], boidGridCellSize[1], boidGridCellSize[2]);
+                for(int j = 0; j < visualGrid.Length; j++) {
+                    GridCell cell = visualGrid[j];
+                    if (cell.n <= 0) continue;
+                    Debug.Log($"GIZMOS - Cell {j} has separation value of {cell.separation.ToString()}");
+                    gridColor.a = Mathf.Clamp((float)cell.n / ((float)numBoids/1f), 0f, 1f);
+                    Gizmos.color = gridColor;   
+                    Gizmos.DrawCube(cell.position,boidGridSizeVector3);
+                }
             }
         }
     }
 
     // Start is called before the first frame update
-    private void Start() {
+    private void Awake() {
         CalculateDimensions();
-        InitializeTargets();
+        //InitializeTargets();
         InitializeBoids();
         InitializeGrid();
         InitializeShaderVariables();
         InitializeBuffers();
 
-        StartCoroutine(CustomUpdate());
+        Debug.Log("=== UPDATINMG STARTOOOO ===");
     }
 
     private void CalculateDimensions() {
@@ -146,17 +218,38 @@ public class BoidManager_GPU : MonoBehaviour
         dimensions[0] = Mathf.Abs(maxBounds[0] - minBounds[0]);
         dimensions[1] = Mathf.Abs(maxBounds[1] - minBounds[1]);
         dimensions[2] = Mathf.Abs(maxBounds[2] - minBounds[2]);
+        boidGridCellSize = new float[3];
+        boidGridCellSize[0] = dimensions[0] / (float)boidGridDiscretizations[0];
+        boidGridCellSize[1] = dimensions[1] / (float)boidGridDiscretizations[1];
+        boidGridCellSize[2] = dimensions[2] / (float)boidGridDiscretizations[2];
+        obstacleGridSize = new float[3];
+        obstacleGridSize[0] = dimensions[0] / (float)obstacleGridDiscretizations[0];
+        obstacleGridSize[1] = dimensions[1] / (float)obstacleGridDiscretizations[1];
+        obstacleGridSize[2] = dimensions[2] / (float)obstacleGridDiscretizations[2];
+        Debug.Log($"Boid Grid Size: ({boidGridCellSize[0]}, {boidGridCellSize[1]}, {boidGridCellSize[2]})");
     }
 
+    /*
     private void InitializeTargets() {
-        _targets = new Target[targets.Length];
-        for(int i = 0; i < targets.Length; i++) {
+        if (targets.Length > 0) {
+            _targets = new Target[targets.Length];
+            for(int i = 0; i < targets.Length; i++) {
+                Target _target = new Target();
+                _target.position = targets[i].position;
+                _target.numBoids = 0;
+                _target.isActive = 1;
+                _targets[i] = _target;
+            }
+        } else {
+            _targets = new Target[1];
             Target _target = new Target();
-            _target.position = targets[i].position;
+            _target.position = Vector3.zero;
             _target.numBoids = 0;
-            _targets[i] = _target;
+            _target.isActive = 0;
+            _targets[0] = _target;
         }
     }
+    */
 
     private void InitializeBoids() {
         int totalNumBoidsAttachedToTarget = 0;
@@ -184,7 +277,17 @@ public class BoidManager_GPU : MonoBehaviour
             boid.position = initPosition;
             boid.velocity = initVelocity;
             boid.hashPosition = hashPosition;
+            boid.projectedHashPosition = GetProjectedHashIndex(boid.hashPosition);
+            boid.separationInfluence = Vector3.zero;
+            boid.alignmentInfluence = Vector3.zero;
+            boid.cohesionInfluence = Vector3.zero;
+            //boid.targetInfluence = Vector3.zero;
+            boid.edgeInfluence = Vector3.zero;
             boid.targetIndex = -1;
+            boid.numUpdates = 0;
+            Debug.Log($"ORIGINAL HASH POSITION: {boid.hashPosition}");
+            Debug.Log($"ORIGINAL PROJECTED HASH POSITION: {boid.projectedHashPosition}");
+            /*
             if(_targets.Length > 0 && totalNumBoidsAttachedToTarget < _targets.Length * boidsPerTarget) {
                 int targetIndex = Random.Range(0,_targets.Length);
                 if (_targets[targetIndex].numBoids < boidsPerTarget) {
@@ -193,45 +296,59 @@ public class BoidManager_GPU : MonoBehaviour
                     totalNumBoidsAttachedToTarget += 1;
                 }
             }
+            */
             boids[i] = boid;
         }
     }
 
     private void InitializeGrid() {
-        boidsGrid = new GridCell[numCells[0] * numCells[1] * numCells[2]];
-        for(int x = 0; x < numCells[0]; x++) {
-            for(int y = 0; y < numCells[1]; y++) {
-                for(int z = 0; z < numCells[2]; z++) {
+        boidsGrid = new GridCell[boidGridDiscretizations[0] * boidGridDiscretizations[1] * boidGridDiscretizations[2]];
+        for(int x = 0; x < boidGridDiscretizations[0]; x++) {
+            for(int y = 0; y < boidGridDiscretizations[1]; y++) {
+                for(int z = 0; z < boidGridDiscretizations[2]; z++) {
                     int gridIndex = GetProjectedHashIndex(x,y,z);
                     GridCell cell;
                     cell.separation = Vector3.zero;
                     cell.alignment = Vector3.zero;
                     cell.cohesion = Vector3.zero;
+                    cell.position = new Vector3(
+                        minBounds[0] + x*boidGridCellSize[0] + (boidGridCellSize[0]/2f),
+                        minBounds[1] + y*boidGridCellSize[1] + (boidGridCellSize[1]/2f),
+                        minBounds[2] + z*boidGridCellSize[2] + (boidGridCellSize[2]/2f)
+                    );
                     cell.n = 0;
                     boidsGrid[gridIndex] = cell;
                 }
             }
         }
-        // Debug.Log("Number of grid cells: " + boidsGrid.Length.ToString());
+        Debug.Log($"Number of grid cells: {boidsGrid.Length}");
 
         for(int i = 0; i < boids.Length; i++) {
-            int projectedIndex = GetProjectedHashIndex(boids[i].hashPosition);
             //Debug.Log(boids[i].position.ToString() + " | " +  boids[i].hashPosition.ToString() + " | " + projectedIndex.ToString());
-            boidsGrid[projectedIndex].separation += boids[i].position;
-            boidsGrid[projectedIndex].alignment += boids[i].velocity;
-            boidsGrid[projectedIndex].cohesion += boids[i].velocity;
-            boidsGrid[projectedIndex].n += 1;
+            boidsGrid[boids[i].projectedHashPosition].separation += boids[i].position;
+            boidsGrid[boids[i].projectedHashPosition].alignment += boids[i].velocity;
+            boidsGrid[boids[i].projectedHashPosition].cohesion += boids[i].velocity;
+            boidsGrid[boids[i].projectedHashPosition].n += 1;
+        }
+
+        for(int j = 0; j < boidsGrid.Length; j++) {
+            if (boidsGrid[j].n > 0) Debug.Log($"Boid Grid Cell {j} n: {boidsGrid[j].n}");
         }
     }
 
     private void InitializeShaderVariables() {
+        
+        boidUpdateNeighborCellsKernel = boidShader.FindKernel("UpdateBoidNeighborCells");
+        boidUpdateInfluenceVectorsKernel = boidShader.FindKernel("UpdateBoidInfluenceVectors");
+        boidUpdateStatusKernel = boidShader.FindKernel("UpdateBoidStatus");
+        //updateKernel = boidShader.FindKernel("UpdateBoids");
 
-        updateKernel = boidShader.FindKernel("UpdateBoids");
         boidShader.SetInt("numBoids", numBoids);
         boidShader.SetFloats("minBounds", minBounds);
         boidShader.SetFloats("maxBounds", maxBounds);
         boidShader.SetFloats("dimensions",dimensions);
-        boidShader.SetInts("numCells",numCells);
+        boidShader.SetFloats("boidGridCellSize", boidGridCellSize);
+        boidShader.SetInts("boidGridDiscretizations",boidGridDiscretizations);
 
         UpdateShaderVariables();
     }
@@ -252,70 +369,115 @@ public class BoidManager_GPU : MonoBehaviour
         boidShader.SetFloat("targetFactor", targetFactor);
 
         // World Configurations
-        boidShader.SetFloats("innerDim_min", innerHashPos_min);
-        boidShader.SetFloats("innerDim_max", innerHashPos_max);
+        boidShader.SetFloats("innerDim_min", innerMinBounds);
+        boidShader.SetFloats("innerDim_max", innerMaxBounds);
         if (deltaTime != -1f) 
             boidShader.SetFloat("deltaTime", deltaTime);
     }
 
     private void InitializeBuffers() {
-        boidsBuffer = new ComputeBuffer(numBoids, sizeof(float)*12 + sizeof(int)*12);
+        boidsBuffer = new ComputeBuffer(
+            numBoids, 
+            sizeof(float)*24 + sizeof(int)*18
+        );
         boidsBuffer.SetData(boids);
 
-        boidsGridBuffer = new ComputeBuffer(numCells[0] * numCells[1] * numCells[2], sizeof(float)*9 + sizeof(int));
+        boidsGridBuffer = new ComputeBuffer(
+            boidGridDiscretizations[0] * boidGridDiscretizations[1] * boidGridDiscretizations[2], 
+            sizeof(float)*12 + sizeof(int)
+        );
         boidsGridBuffer.SetData(boidsGrid);
-
-        targetsBuffer = new ComputeBuffer(targets.Length, sizeof(float)*3+sizeof(int));
+        
+        /*
+        targetsBuffer = new ComputeBuffer(
+            _targets.Length, 
+            sizeof(float)*3+sizeof(int)*2
+        );
         targetsBuffer.SetData(_targets);
+        */
 
+        boidShader.SetBuffer(boidUpdateNeighborCellsKernel, "boids", boidsBuffer);
+
+        boidShader.SetBuffer(boidUpdateInfluenceVectorsKernel, "boids", boidsBuffer);
+        boidShader.SetBuffer(boidUpdateInfluenceVectorsKernel, "grid", boidsGridBuffer);
+        //boidShader.SetBuffer(boidUpdateInfluenceVectorsKernel, "targets", targetsBuffer);
+
+        boidShader.SetBuffer(boidUpdateStatusKernel, "boids", boidsBuffer);
+        boidShader.SetBuffer(boidUpdateStatusKernel, "grid", boidsGridBuffer);
+        //boidShader.SetBuffer(boidUpdateStatusKernel, "targets", targetsBuffer);
+        
+        /*
         boidShader.SetBuffer(updateKernel, "boids", boidsBuffer);
         boidShader.SetBuffer(updateKernel, "grid", boidsGridBuffer);
         boidShader.SetBuffer(updateKernel, "targets", targetsBuffer);
+        */
     }
 
+    /*
     private void UpdateTargets() {
         for(int i = 0; i < _targets.Length; i++) {
-            _targets[i].position = targets[i].position;
+            if(_targets[i].isActive == 1)
+                _targets[i].position = targets[i].position;
         }
     }
     private void UpdateBuffers() {
         targetsBuffer.SetData(_targets);
     }
+    */
 
     // Update is called once per frame
-    private IEnumerator CustomUpdate() {
-        while(true) {
+    private void Update() {
+            
             float deltaTime = Time.deltaTime;
-            UpdateTargets();
+            //UpdateTargets();
             UpdateShaderVariables(deltaTime);
-            UpdateBuffers();
+            //UpdateBuffers();
 
-            boidShader.Dispatch(updateKernel,100,1,1);
+            boidShader.Dispatch(boidUpdateNeighborCellsKernel, 200,1,1);
+            boidShader.Dispatch(boidUpdateInfluenceVectorsKernel, 200,1,1);
+            boidShader.Dispatch(boidUpdateStatusKernel, 200,1,1);
+            //boidShader.Dispatch(updateKernel,200,1,1);
 
             /*
-            boidsBuffer.GetData(boids);
-            for(int i = 0; i < boids.Length; i++) {
-                Boid boid = boids[i];
-                Debug.Log(boid.numNeighbors.ToString() + "|" + boid.numCloseNeighbors.ToString());
+            GridCell[] visualGrid = new GridCell[boidsGridBuffer.count];
+            boidsGridBuffer.GetData(visualGrid);    
+            for(int i = 0; i < visualGrid.Length; i++) {
+                GridCell cell = visualGrid[i];
+                if (cell.n != 0) {
+                    Debug.Log($"{i}: {cell.n}");
+                }
             }
             */
 
-            yield return new WaitForSeconds(updateTimeDelay);
-        }
+            boidsBuffer.GetData(boids);
+            for(int i = 0; i < boids.Length; i++) {
+                //Debug.Log($"Boid {i} # Updates: {boids[i].numUpdates}");
+                //Debug.Log($"Boid {i} Old hash position: {boids[i].oldHashPosition}");
+                //Debug.Log($"Boid {i} New hash position: {boids[i].hashPosition}");
+                //Debug.Log($"Boid {i} Old projected hash position: {boids[i].oldProjectedHashPosition}");
+                //Debug.Log($"Boid {i} New projected hash position: {boids[i].projectedHashPosition}");
+
+            }
+
     }
 
     private Vector3Int GetHashPosition(Vector3 position) {
-        int hashX = Mathf.FloorToInt(((position.x - minBounds[0]) / dimensions[0]) * numCells[0]);
-        int hashY = Mathf.FloorToInt(((position.y - minBounds[1]) / dimensions[1]) * numCells[1]);
-        int hashZ = Mathf.FloorToInt(((position.z - minBounds[2]) / dimensions[2]) * numCells[2]);
+        /*
+        int hashX = Mathf.FloorToInt(((position.x - minBounds[0]) / dimensions[0]) * boidGridDiscretizations[0]);
+        int hashY = Mathf.FloorToInt(((position.y - minBounds[1]) / dimensions[1]) * boidGridDiscretizations[1]);
+        int hashZ = Mathf.FloorToInt(((position.z - minBounds[2]) / dimensions[2]) * boidGridDiscretizations[2]);
+        */
+        int hashX = Mathf.FloorToInt((position.x - minBounds[0])/boidGridCellSize[0]);
+        int hashY = Mathf.FloorToInt((position.y - minBounds[1])/boidGridCellSize[1]);
+        int hashZ = Mathf.FloorToInt((position.z - minBounds[2])/boidGridCellSize[2]);
         return new Vector3Int(hashX, hashY, hashZ);
     }
 
     private int GetProjectedHashIndex(int x, int y, int z) {
-        return x + (y * numCells[0]) + (z * numCells[0] * numCells[1]);
+        return x + (y * boidGridDiscretizations[0]) + (z * boidGridDiscretizations[0] * boidGridDiscretizations[1]);
     }
     private int GetProjectedHashIndex(Vector3Int p) {
-        return p.x + (p.y * numCells[0]) + (p.z * numCells[0] * numCells[1]);
+        return p.x + (p.y * boidGridDiscretizations[0]) + (p.z * boidGridDiscretizations[0] * boidGridDiscretizations[1]);
     }
 
     private void OnDestroy()
@@ -327,6 +489,6 @@ public class BoidManager_GPU : MonoBehaviour
     {
         boidsBuffer.Dispose();
         boidsGridBuffer.Dispose();
-        targetsBuffer.Dispose();
+        //targetsBuffer.Dispose();
     }
 }
