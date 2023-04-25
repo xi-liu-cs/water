@@ -27,7 +27,6 @@ public class mesh_fluid_generator : MonoBehaviour
     public struct particle
     {
         public Vector3 position;
-        public Vector4 color;
     }
 
     void Awake()

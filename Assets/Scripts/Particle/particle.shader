@@ -28,7 +28,6 @@ Shader "Instanced/particle"
 		struct particle
 		{
 			float3 position;
-			float4 color;	// TODO-SATJ: could probably get away with float3
 		};
 
 		#ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
@@ -54,10 +53,10 @@ Shader "Instanced/particle"
 
 	void surf(Input IN, inout SurfaceOutputStandard o)
 	{
-		float4 c = float4(0, 0, 1, 1);
-		#ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+		float4 c = float4(0.25, 0.5, 1, 1);
+		/* #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
 		c = particle_buffer[unity_InstanceID].color;
-		#endif
+		#endif */
 		c *= tex2D(_MainTex, IN.uv_MainTex);
 		o.Albedo = c.rgb + noise(c.rgb);
 		o.Metallic = _Metallic;

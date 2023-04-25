@@ -25,7 +25,6 @@ public abstract class density_generator : MonoBehaviour
     public struct particle
     {
         public Vector3 position;
-        public Vector4 color;
     }
 
     public void Awake()

@@ -47,7 +47,6 @@ public class fluid : MonoBehaviour
     public struct particle
     {
         public Vector3 position;
-        public Vector4 color;
     }
 
     public struct triangle
@@ -363,11 +362,7 @@ public class fluid : MonoBehaviour
                     {
                         float r = UnityEngine.Random.Range(0f, 5f);
                         Vector3 pos = new Vector3(dimension - 1, dimension - 1, dimension - 1) - new Vector3(x / 2f, y / 2f, z / 2f)  - new Vector3(UnityEngine.Random.Range(0f, 0.01f), UnityEngine.Random.Range(0f, 0.01f), UnityEngine.Random.Range(0f, 0.01f)); /* Vector3 pos = new Vector3(1.5f * r * x, r * y, r * z) + position_offset; */
-                        particles[i] = new particle
-                        {
-                            position = pos,
-                            color = new Vector4(0.3f, 0.5f, 1f, 0.3f)
-                        };
+                        particles[i] = new particle{position = pos};
                         density[i] = -1;
                         pressure[i] = 0;
                         force[i] = Vector3.zero;

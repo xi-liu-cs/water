@@ -13,7 +13,6 @@ max_particles_per_grid;
 struct particle
 {
     float3 position;
-    float4 color;
 };
 RWStructuredBuffer<particle> particles;
 RWStructuredBuffer<int> neighbor_list,

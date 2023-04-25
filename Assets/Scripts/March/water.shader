@@ -38,7 +38,6 @@ Shader "Instanced/water"
 		struct particle
 		{
 			float3 position;
-			float4 color;	// TODO-SATJ: could probably get away with float3
 		};
 
 		/* #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED

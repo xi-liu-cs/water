@@ -10,7 +10,6 @@
 struct particle
 {
     float3 position;
-    float4 color;
 };
 
 RWStructuredBuffer<particle> particles;
@@ -69,7 +68,6 @@ void malloc_particle(uint3 id : SV_DispatchThreadID)
                 {
                     float3 pos = float3(dimension - 1, dimension - 1, dimension - 1);
                     particles[i].position = pos;
-                    particles[i].color = float4(0.25, 0.5, 1, 0.5);
                     if(++i == n_particle) return;
                 }
     }
@@ -87,11 +85,7 @@ void compute_hash_grid(uint3 id : SV_DispatchThreadID)
     uint original_value = 0;
     const int hash_grid_position = hash(get_cell(particles[id.x].position));
     InterlockedAdd(hash_grid_tracker[hash_grid_position], 1, original_value); /* 'original_value' is an output variable that will be set to the original value of dest */
-    if(original_value >= max_particles_per_grid)
-    {
-        particles[id.x].color = float4(0.25, 0.5, 1, 0.5);
-        return;
-    }
+    if(original_value >= max_particles_per_grid) return;
     hash_grid[hash_grid_position * max_particles_per_grid + original_value] = id.x;
 }
 

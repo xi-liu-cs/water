@@ -32,7 +32,6 @@ public class mesh_generator : MonoBehaviour
     public struct particle
     {
         public Vector3 position;
-        public Vector4 color;
     }
 
     /* void OnDrawGizmos()
@@ -99,7 +98,7 @@ public class mesh_generator : MonoBehaviour
         fluid_mesh_renderer.material = material;
     }
 
-    public void UpdateChunkMesh(Mesh mesh)
+    unsafe public void UpdateChunkMesh(Mesh mesh)
     {
         int n_voxel_per_axis = n_point_per_axis - 1;
         int numThreadsPerAxis = Mathf.CeilToInt (n_voxel_per_axis / (float) thread_group_size);

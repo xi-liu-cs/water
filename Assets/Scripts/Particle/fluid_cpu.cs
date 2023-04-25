@@ -38,7 +38,6 @@ public class fluid_cpu : MonoBehaviour
     public struct particle
     {
         public Vector3 position;
-        public Vector4 color;
     }
     
     int[] neighbor_list,
@@ -135,11 +134,7 @@ public class fluid_cpu : MonoBehaviour
                         for(int a = 0; a < intial_particles_per_grid; ++a)
                         {
                             Vector3 pos = grid_pos - new Vector3(grid_size_over_2, grid_size_over_2, grid_size_over_2) - new Vector3(UnityEngine.Random.Range(0f, grid_size_over_2), UnityEngine.Random.Range(0f, grid_size_over_2), UnityEngine.Random.Range(0f, grid_size_over_2));
-                            particles[i] = new particle
-                            {
-                                position = pos,
-                                color = new Vector4(0.3f, 0.5f, 1f, 0.5f)
-                            };
+                            particles[i] = new particle{position = pos};
                             density[i] = -1;
                             pressure[i] = 0;
                             force[i] = Vector3.zero;

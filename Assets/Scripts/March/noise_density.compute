@@ -6,7 +6,6 @@
 struct particle
 {
     float3 position;
-    float4 color;
 };
 
 static const int n = 8,

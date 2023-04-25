@@ -6,7 +6,6 @@ static const int n_thread = 8;
 struct particle
 {
     float3 position;
-    float4 color;
 };
 
 struct tri
