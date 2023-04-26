@@ -35,7 +35,7 @@ public class fluid_gpu : MonoBehaviour
     triangle[] march_triangles;
 
     [Header("fluid")]
-    public int n_particle = 800000, /* max = 1000000 */
+    public int n_particle = 700000, /* max = 1000000 */
     max_particles_per_grid = 12,
     intial_particles_per_grid = 5;
     public Vector3Int dimension;

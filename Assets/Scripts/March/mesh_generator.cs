@@ -112,10 +112,6 @@ public class mesh_generator : MonoBehaviour
         voxel_density_buffer.GetData(a);
         Debug.Log("voxel");
         for(int i = 0; i < 100; ++i) Debug.Log(a[i]); */
-        float[] a = new float[100];
-        voxel_density_buffer.GetData(a);
-        Debug.Log("voxel");
-        for(int i = 0; i < 100; ++i) Debug.Log(a[i]);
 
         triangle_buffer.SetCounterValue (0);
         shader.Dispatch (0, numThreadsPerAxis, numThreadsPerAxis, numThreadsPerAxis);
@@ -125,7 +121,6 @@ public class mesh_generator : MonoBehaviour
         int numTris = triCountArray[0];
         tri[] tris = new tri[numTris];
         triangle_buffer.GetData(tris, 0, 0, numTris);
-        Debug.Log("triangle count = " + numTris);
         /* Debug.Log("triangle count = " + numTris);
         for(int i = 0; i < numTris; ++i)
         {
