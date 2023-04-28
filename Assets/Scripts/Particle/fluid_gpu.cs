@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using Unity.Mathematics;
 using Random = UnityEngine.Random;
 
 public class fluid_gpu : MonoBehaviour
@@ -11,19 +12,20 @@ public class fluid_gpu : MonoBehaviour
     public Mesh particle_mesh,
     fluid_mesh;
     public Material material;
-    public float mass = 1f,
-    viscosity_coefficient = 0.01f,
-    particle_size = 8f,
-    radius = 8f, /* h, smoothing length */
-    grid_size = 8f, /* 4 * radius */
-    gas_constant = 2000f,
-    dt = 0.0008f,
-    rest_density = 9f,
-    damping = -1f;
-    public Vector3 position_offset = new Vector3(-140, -230, -60),
-    velocity_initial = new Vector3(0, 10, 0);
-    public float[] g = {0f, -9.81f, 0f},
-    bound = {-160, 140, -250, -150, -100, 100};
+    public float mass = 1f;
+    public float viscosity_coefficient = 0.01f;
+    public float particle_size = 8f;
+    public float radius = 8f; /* h, smoothing length */
+    public float grid_size = 8f; /* 4 * radius */
+    public float gas_constant = 2000f;
+    public float dt = 0.0008f;
+    public float rest_density = 9f;
+    public float damping = -1f;
+    
+    public Vector3 position_offset = new Vector3(-140, -230, -60);
+    public Vector3 velocity_initial = new Vector3(0, 10, 0);
+    public float[] g = {0f, -9.81f, 0f};
+    public float[] bound = {-160, 140, -250, -150, -100, 100};
     [HideInInspector]
     public float radius2,
     radius3,
@@ -92,37 +94,51 @@ public class fluid_gpu : MonoBehaviour
     Vector3[] velocity,
     force;
 
-    public ComputeBuffer particle_buffer,
-    arg_buffer,
-    neighbor_list_buffer,
-    neighbor_tracker_buffer,
-    hash_grid_buffer,
-    hash_grid_tracker_buffer,
-    density_buffer,
-    pressure_buffer,
-    velocity_buffer,
-    force_buffer,
-    bound_buffer,
-    point_buffer,
-    noise_density_buffer,
-    triangle_buffer,
-    triangle_count_buffer,
-    int_debug_buffer,
-    float_debug_buffer;
+    [Header("== VARIABLES ==")]
+    float[] kernel_sums;
+
+    [Header("== COMPUTE BUFFERS ==")]
+    public ComputeBuffer particle_buffer;
+    public ComputeBuffer arg_buffer;
+    public ComputeBuffer neighbor_list_buffer;
+    public ComputeBuffer neighbor_tracker_buffer;
+    public ComputeBuffer hash_grid_buffer;
+    public ComputeBuffer hash_grid_tracker_buffer;
+    public ComputeBuffer density_buffer;
+    public ComputeBuffer pressure_buffer;
+    public ComputeBuffer velocity_buffer;
+    public ComputeBuffer force_buffer;
+    public ComputeBuffer bound_buffer;
+    public ComputeBuffer point_buffer;
+    public ComputeBuffer noise_density_buffer;
+    public ComputeBuffer triangle_buffer;
+    public ComputeBuffer triangle_count_buffer;
+    public ComputeBuffer int_debug_buffer;
+    public ComputeBuffer float_debug_buffer;
+    private ComputeBuffer kernel_sums_buffer;
 
     public ComputeShader compute_shader;
-    int clear_hash_grid_kernel,
-    compute_hash_grid_kernel,
-    compute_neighbor_list_kernel,
-    compute_density_pressure_kernel,
-    compute_force_kernel,
-    integrate_kernel,
-    compute_density_kernel,
-    march_kernel;
+
+    [Header("== KERNELS ==")]
+    int clear_hash_grid_kernel;
+    int compute_hash_grid_kernel;
+    int compute_neighbor_list_kernel;
+    int compute_sums_kernel;
+    int compute_density_pressure_kernel;
+    int compute_force_kernel;
+    int integrate_kernel;
+    int compute_density_kernel;
+    int march_kernel;
 
     public march_table table;
 
     public float max_density = 0;
+
+    public bool verbose_hash_grid = false;
+    public bool verbose_neighbors = false;
+    public bool verbose_density_pressure = false;
+    public bool verbose_force = false;
+    public bool verbose_integrate = true;
 
     void OnDrawGizmos() {
         Gizmos.color = Color.white;
@@ -174,53 +190,6 @@ public class fluid_gpu : MonoBehaviour
             Debug.Log(cpu[i]); */
     }
 
-    public void Update()
-    {
-        compute_shader.Dispatch(clear_hash_grid_kernel, dimension2, 1, 1);
-        compute_shader.Dispatch(compute_hash_grid_kernel, thread_group_size, 1, 1);
-        
-        uint[] temp_hash_grid = new uint[dimension3 * max_particles_per_grid];
-        uint[] temp_hash_grid_tracker = new uint[dimension3];
-        //Debug.Log($"Length of temp_hash_grid: {temp_hash_grid.Length}");
-        
-        hash_grid_buffer.GetData(temp_hash_grid);
-        hash_grid_tracker_buffer.GetData(temp_hash_grid_tracker);
-
-        string top = "";
-        string bottom = "";
-        for(int i = 0; i < dimension3 * max_particles_per_grid; i++) {
-            top += $"{i}\t|";
-            bottom += $"{temp_hash_grid[i]}\t|";
-        }
-        Debug.Log($"\n{top}\n{bottom}");
-
-        compute_shader.Dispatch(compute_neighbor_list_kernel, thread_group_size, 1, 1);
-        
-        int[] temp_neighbor_list = new int[n_particle * max_particles_per_grid * n];
-        neighbor_list_buffer.GetData(temp_neighbor_list);
-        top = "";
-        bottom = "";
-        for(int i = 0; i < n_particle * max_particles_per_grid * n; i++) {
-            top += $"{i}\t|";
-            bottom += $"{temp_neighbor_list[i]}\t|";
-        }
-        Debug.Log($"\n{top}\n{bottom}");
-        
-        return;
-        compute_shader.Dispatch(compute_density_pressure_kernel, thread_group_size, 1, 1);
-        /* density_buffer.GetData(density);
-        for(int i = 0; i < density.Length; ++i)
-            if(density[i] > max_density)
-                max_density = density[i];
-        Debug.Log("max den = " + max_density);
-        compute_shader.SetFloat("max_density_multiplier", 1 / max_density); */
-        compute_shader.Dispatch(compute_force_kernel, thread_group_size, 1, 1);
-        compute_shader.Dispatch(integrate_kernel, thread_group_size, 1, 1);
-
-        material.SetFloat(size_property, particle_size);
-        material.SetBuffer(particle_buffer_property, particle_buffer);
-        Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
-    }
 
     void debug_function()
     {
@@ -409,6 +378,7 @@ public class fluid_gpu : MonoBehaviour
         clear_hash_grid_kernel = compute_shader.FindKernel("clear_hash_grid");
         compute_hash_grid_kernel = compute_shader.FindKernel("compute_hash_grid");
         compute_neighbor_list_kernel = compute_shader.FindKernel("compute_neighbor_list");
+        compute_sums_kernel = compute_shader.FindKernel("compute_sums");
         compute_density_pressure_kernel = compute_shader.FindKernel("compute_density_pressure");
         compute_force_kernel = compute_shader.FindKernel("compute_force");
         integrate_kernel = compute_shader.FindKernel("integrate");
@@ -477,6 +447,9 @@ public class fluid_gpu : MonoBehaviour
         bound_buffer = new ComputeBuffer(n_bound, sizeof(float));
         bound_buffer.SetData(bound);
 
+        kernel_sums = new float[n_particle];
+        kernel_sums_buffer = new ComputeBuffer(n_particle, sizeof(float));
+
         /* triangle_buffer = new ComputeBuffer(n_particle, sizeof(triangle), ComputeBufferType.Append);
         triangle_count_buffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
         int_debug_buffer = new ComputeBuffer(n_debug, sizeof(int));
@@ -503,6 +476,13 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(compute_neighbor_list_kernel, "bound", bound_buffer);
         /* compute_shader.SetBuffer(compute_neighbor_list_kernel, "int_debug", int_debug_buffer); */
         
+        /*
+        compute_shader.SetBuffer(compute_sums_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(compute_sums_kernel, "neighbor_tracker", neighbor_tracker_buffer);
+        compute_shader.SetBuffer(compute_sums_kernel, "neighbor_list", neighbor_list_buffer);
+        compute_shader.SetBuffer(compute_sums_kernel, "kernel_sums", kernel_sums_buffer);
+        */
+
         compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_list", neighbor_list_buffer);
         compute_shader.SetBuffer(compute_density_pressure_kernel, "neighbor_tracker", neighbor_tracker_buffer);
         compute_shader.SetBuffer(compute_density_pressure_kernel, "particles", particle_buffer);
@@ -539,6 +519,113 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(march_kernel, "float_debug", float_debug_buffer); */
     }
 
+    public void Update()
+    {
+        string top = "";
+        string bottom = "";
+
+        compute_shader.Dispatch(clear_hash_grid_kernel, dimension2, 1, 1);
+        compute_shader.Dispatch(compute_hash_grid_kernel, thread_group_size, 1, 1);
+        
+        if (verbose_hash_grid) {
+            uint[] temp_hash_grid = new uint[dimension3 * max_particles_per_grid];
+            uint[] temp_hash_grid_tracker = new uint[dimension3];        
+            hash_grid_buffer.GetData(temp_hash_grid);
+            hash_grid_tracker_buffer.GetData(temp_hash_grid_tracker);
+            
+            for(int i = 0; i < dimension3 * max_particles_per_grid; i++) {
+                top += $"{i}\t|";
+                bottom += $"{temp_hash_grid[i]}\t|";
+            }
+            Debug.Log($"Hash Grid\n{top}\n{bottom}");
+        }
+
+        compute_shader.Dispatch(compute_neighbor_list_kernel, thread_group_size, 1, 1);
+        
+        if (verbose_neighbors) {
+            int[] temp_neighbor_list = new int[n_particle * max_particles_per_grid * n];
+            neighbor_list_buffer.GetData(temp_neighbor_list);
+            top = "";
+            bottom = "";
+            for(int i = 0; i < n_particle * max_particles_per_grid * n; i++) {
+                top += $"{i}\t|";
+                bottom += $"{temp_neighbor_list[i]}\t|";
+            }
+            Debug.Log($"Neighbor List\n{top}\n{bottom}");
+        }
+
+        /*
+        compute_shader.Dispatch(compute_sums_kernel,thread_group_size,1,1);
+        float[] temp_sums = new float[n_particle];
+        kernel_sums_buffer.GetData(temp_sums);
+        top = "";
+        bottom = "";
+        for(int i = 0; i < n_particle; i++) {
+            top += $"{i}\t|";
+            bottom += $"{temp_sums[i]}\t|";
+        }
+        Debug.Log($"Kernel Sums:\n{top}\n{bottom}");
+        */
+        
+        compute_shader.Dispatch(compute_density_pressure_kernel, thread_group_size, 1, 1);
+        if (verbose_density_pressure) {
+            float[] temp_densities = new float[n_particle];
+            float[] temp_pressures = new float[n_particle];
+            density_buffer.GetData(temp_densities);
+            top = "";
+            bottom = "";
+            for(int i = 0; i < n_particle; i++) {
+                top += $"{i}\t|";
+                bottom += $"{temp_densities[i]}\t|";
+            }
+            Debug.Log($"Densities:\n{top}\n{bottom}");
+            pressure_buffer.GetData(temp_pressures);
+            top = "";
+            bottom = "";
+            for(int i = 0; i < n_particle; i++) {
+                top += $"{i}\t|";
+                bottom += $"{temp_pressures[i]}\t|";
+            }
+            Debug.Log($"Pressures:\n{top}\n{bottom}");
+        }
+
+        /* density_buffer.GetData(density);
+        for(int i = 0; i < density.Length; ++i)
+            if(density[i] > max_density)
+                max_density = density[i];
+        Debug.Log("max den = " + max_density);
+        compute_shader.SetFloat("max_density_multiplier", 1 / max_density); */
+        compute_shader.Dispatch(compute_force_kernel, thread_group_size, 1, 1);
+        if (verbose_force) {
+            float3[] temp_forces = new float3[n_particle];
+            force_buffer.GetData(temp_forces);
+            top = "";
+            bottom = "";
+            for(int i = 0; i < n_particle; i++) {
+                top += $"{i}\t|";
+                bottom += $"{temp_forces[i]}\t|";
+            }
+            Debug.Log($"Forces:\n{top}\n{bottom}");
+        }
+
+        compute_shader.Dispatch(integrate_kernel, thread_group_size, 1, 1);
+        if (verbose_integrate) {
+            float[] temp_bounds = new float[n_bound];
+            bound_buffer.GetData(temp_bounds);
+            top = "";
+            bottom = "";
+            for(int i = 0; i < n_bound; i++) {
+                top += $"{i}\t|";
+                bottom += $"{temp_bounds[i]}\t|";
+            }
+            Debug.Log($"Bounds:\n{top}\n{bottom}");
+        }
+
+        material.SetFloat(size_property, particle_size);
+        material.SetBuffer(particle_buffer_property, particle_buffer);
+        Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
+    }
+
     void OnDestroy()
     {
         free();
@@ -557,6 +644,7 @@ public class fluid_gpu : MonoBehaviour
         velocity_buffer.Dispose();
         bound_buffer.Dispose();
         force_buffer.Dispose();
+        kernel_sums_buffer.Dispose();
         /* point_buffer.Dispose();
         triangle_buffer.Dispose();
         int_debug_buffer.Dispose();
