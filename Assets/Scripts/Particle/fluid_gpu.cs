@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class fluid_gpu : MonoBehaviour
 {
@@ -123,6 +124,23 @@ public class fluid_gpu : MonoBehaviour
 
     public float max_density = 0;
 
+    void OnDrawGizmos() {
+        Gizmos.color = Color.white;
+        Gizmos.DrawWireCube(Vector3.zero, new Vector3(
+            Mathf.Abs(bound[1]-bound[0]),
+            Mathf.Abs(bound[3]-bound[2]),
+            Mathf.Abs(bound[5]-bound[4])
+        ));
+
+        if(!Application.isPlaying) return;
+        Gizmos.color = Color.yellow;
+        particle[] tempParticles = new particle[n_particle];
+        particle_buffer.GetData(tempParticles);
+        for(int i = 0; i < n_particle; i++) {
+            Gizmos.DrawSphere(tempParticles[i].position, 0.25f);
+        }
+    }
+
     public void Awake()
     {
         dimension = new Vector3Int((int)((bound[1] - bound[0]) / grid_size), (int)((bound[3] - bound[2]) / grid_size), (int)((bound[5] - bound[4]) / grid_size));
@@ -157,10 +175,38 @@ public class fluid_gpu : MonoBehaviour
     }
 
     public void Update()
-    { 
+    {
         compute_shader.Dispatch(clear_hash_grid_kernel, dimension2, 1, 1);
         compute_shader.Dispatch(compute_hash_grid_kernel, thread_group_size, 1, 1);
+        
+        uint[] temp_hash_grid = new uint[dimension3 * max_particles_per_grid];
+        uint[] temp_hash_grid_tracker = new uint[dimension3];
+        //Debug.Log($"Length of temp_hash_grid: {temp_hash_grid.Length}");
+        
+        hash_grid_buffer.GetData(temp_hash_grid);
+        hash_grid_tracker_buffer.GetData(temp_hash_grid_tracker);
+
+        string top = "";
+        string bottom = "";
+        for(int i = 0; i < dimension3 * max_particles_per_grid; i++) {
+            top += $"{i}\t|";
+            bottom += $"{temp_hash_grid[i]}\t|";
+        }
+        Debug.Log($"\n{top}\n{bottom}");
+
         compute_shader.Dispatch(compute_neighbor_list_kernel, thread_group_size, 1, 1);
+        
+        int[] temp_neighbor_list = new int[n_particle * max_particles_per_grid * n];
+        neighbor_list_buffer.GetData(temp_neighbor_list);
+        top = "";
+        bottom = "";
+        for(int i = 0; i < n_particle * max_particles_per_grid * n; i++) {
+            top += $"{i}\t|";
+            bottom += $"{temp_neighbor_list[i]}\t|";
+        }
+        Debug.Log($"\n{top}\n{bottom}");
+        
+        return;
         compute_shader.Dispatch(compute_density_pressure_kernel, thread_group_size, 1, 1);
         /* density_buffer.GetData(density);
         for(int i = 0; i < density.Length; ++i)
@@ -174,49 +220,6 @@ public class fluid_gpu : MonoBehaviour
         material.SetFloat(size_property, particle_size);
         material.SetBuffer(particle_buffer_property, particle_buffer);
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
-
-        /* compute_shader.Dispatch(noise_density_kernel, thread_group_size, 1, 1);
-        compute_shader.Dispatch(compute_density_kernel, thread_group_size, 1, 1); */
-
-        /* int[] int_array_in_update_function = new int[n_debug];
-        hash_grid_buffer.GetData(int_array_in_update_function);
-        hash_grid_tracker_buffer.GetData(int_array_in_update_function);
-        neighbor_list_buffer.GetData(int_array_in_update_function);
-        neighbor_tracker_buffer.GetData(int_array_in_update_function);
-        density_buffer.GetData(int_array_in_update_function);
-        for(int i = 0; i < n_debug; ++i) Debug.Log(int_array_in_update_function[i]); */
-
-        /* int march_kernel_n_thread = 4,
-        march_kernel_group_size = (int)(Mathf.Pow(n_particle, 1.0f / 3.0f) / march_kernel_n_thread);
-        triangle_buffer.SetCounterValue(0);
-        compute_shader.Dispatch(march_kernel, march_kernel_group_size, march_kernel_group_size, march_kernel_group_size);
-        
-        ComputeBuffer.CopyCount(triangle_buffer, triangle_count_buffer, 0);
-        int[] triangle_count_array = {0};
-        triangle_count_buffer.GetData(triangle_count_array);
-        int n_triangle = triangle_count_array[0];
-
-        march_triangles = new triangle[n_triangle];
-        triangle_buffer.GetData(march_triangles, 0, 0, n_triangle);
-        Debug.Log("n_triangle " + n_triangle);
-        for(int i = 0; i < n_triangle; ++i)
-        {
-            Debug.Log(march_triangles[i].vertex_a);
-            Debug.Log(march_triangles[i].vertex_b);
-            Debug.Log(march_triangles[i].vertex_c);
-        }
-
-        int_debug = new int[n_debug];
-        int_debug_buffer.GetData(int_debug);
-        for(int i = 0; i < n_debug; ++i)
-            Debug.Log(String.Format("debug[{0}] = {1}", i, int_debug[i])); */
-        
-        /* debug_function(); */
-        
-        /* fluid_mesh = GetComponent<MeshFilter>().mesh;
-        fluid_mesh.vertices = points;
-        fluid_mesh.triangles = triangles;
-        Graphics.DrawMesh(fluid_mesh, Vector3.zero, Quaternion.identity, material, 0); */
     }
 
     void debug_function()
@@ -377,10 +380,19 @@ public class fluid_gpu : MonoBehaviour
                 for(int y = 0; y < dimension.y; ++y)
                     for(int z = 0; z < dimension.z; ++z)
                     {
-                        Vector3 grid_pos = new Vector3(bound[0] + x * grid_size, bound[2] + y * grid_size, bound[4] + z * grid_size);
+                        Vector3 grid_pos = new Vector3(
+                            bound[0] + x * grid_size, 
+                            bound[2] + y * grid_size, 
+                            bound[4] + z * grid_size
+                        );
                         for(int a = 0; a < intial_particles_per_grid; ++a)
                         {
                             Vector3 pos = grid_pos - new Vector3(grid_size_over_2, grid_size_over_2, grid_size_over_2) - new Vector3(UnityEngine.Random.Range(0f, grid_size_over_2), UnityEngine.Random.Range(0f, grid_size_over_2), UnityEngine.Random.Range(0f, grid_size_over_2));
+                            //Vector3 pos = new Vector3(
+                            //    Random.Range(bound[0],bound[1]),
+                            //    Random.Range(bound[2],bound[3]),
+                            //    Random.Range(bound[4],bound[5])
+                            //);
                             particles[i] = new particle{position = pos};
                             density[i] = -1;
                             pressure[i] = 0;
@@ -407,8 +419,10 @@ public class fluid_gpu : MonoBehaviour
     void compute_shader_init()
     {
         compute_shader.SetInt("n", 8);
+        compute_shader.SetInt("n_particle", n_particle);
         compute_shader.SetFloat("grid_size", grid_size);
         compute_shader.SetInt("max_particles_per_grid", max_particles_per_grid);
+        compute_shader.SetInt("total_number_of_cells", dimension3);
         compute_shader.SetFloat("radius", radius);
         compute_shader.SetFloat("radius2", radius2);
         compute_shader.SetFloat("radius3", radius3);
