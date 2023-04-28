@@ -1784,18 +1784,18 @@ MonoBehaviour:
   - -9
   - 0
   bound:
-  - -20
-  - 20
-  - -20
-  - 20
-  - -20
-  - 20
+  - -2
+  - 2
+  - -2
+  - 2
+  - -2
+  - 2
   radius2: 0
   radius3: 0
   radius4: 0
   radius5: 0
   mass2: 0
-  n_particle: 100
+  n_particle: 3
   max_particles_per_grid: 12
   intial_particles_per_grid: 5
   dimension: {x: 0, y: 0, z: 0}
