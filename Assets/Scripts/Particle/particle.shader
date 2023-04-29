@@ -28,6 +28,10 @@ Shader "Instanced/particle"
 		struct particle
 		{
 			float3 position;
+			int3 grid_indices;
+			int projected_index;
+			uint offset;
+			int index;
 		};
 
 		#ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED

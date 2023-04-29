@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 705507994}
-  m_IndirectSpecularColor: {r: 0.42281035, g: 0.49228835, b: 0.5848911, a: 1}
+  m_IndirectSpecularColor: {r: 0.42281044, g: 0.4922884, b: 0.5848912, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -1770,10 +1770,10 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   mass: 1
   viscosity_coefficient: 0.25
-  particle_size: 3
+  particle_size: 20
   radius: 1
-  grid_size: 3
-  gas_constant: 2000
+  grid_size: 1
+  gas_constant: 1
   dt: 0.0008
   rest_density: 2
   damping: -0.5
@@ -1784,31 +1784,33 @@ MonoBehaviour:
   - -9.81
   - 0
   bound:
-  - -100
-  - 100
-  - -100
-  - 100
-  - -100
-  - 100
+  - -160
+  - 160
+  - -160
+  - 160
+  - -160
+  - 160
   radius2: 0
   radius3: 0
   radius4: 0
   radius5: 0
   mass2: 0
-  n_particle: 5000
-  max_particles_per_grid: 500
+  n_particle: 3000
+  max_particles_per_grid: 10
   intial_particles_per_grid: 5
   dimension: {x: 0, y: 0, z: 0}
   dimension_array: 
   n_point_per_axis: 89
   isolevel: 0
-  compute_shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
+  compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
   max_density: 0
   verbose_hash_grid: 0
   verbose_neighbors: 0
   verbose_density_pressure: 0
   verbose_force: 0
   verbose_integrate: 0
+  verbose_velocity: 0
+  verbose_prefix_sums: 0
 --- !u!1 &203458315
 GameObject:
   m_ObjectHideFlags: 0
@@ -23128,6 +23130,8 @@ MonoBehaviour:
   verbose_density_pressure: 0
   verbose_force: 1
   verbose_integrate: 1
+  verbose_velocity: 0
+  verbose_prefix_sums: 0
 --- !u!4 &1297943046
 Transform:
   m_ObjectHideFlags: 0
@@ -29972,6 +29976,37 @@ Transform:
   m_Father: {fileID: 1944129685}
   m_RootOrder: 18
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1705393042
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1705393043}
+  m_Layer: 0
+  m_Name: GameObject
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1705393043
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1705393042}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -16.9, y: -0.06737208, z: -1.097676}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 15
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1712015279
 GameObject:
   m_ObjectHideFlags: 0
@@ -36035,6 +36070,8 @@ MonoBehaviour:
   verbose_density_pressure: 0
   verbose_force: 1
   verbose_integrate: 1
+  verbose_velocity: 0
+  verbose_prefix_sums: 0
 --- !u!4 &1925688883
 Transform:
   m_ObjectHideFlags: 0

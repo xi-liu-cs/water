@@ -6,79 +6,176 @@
 #pragma kernel compute_force
 #pragma kernel integrate
 
-struct particle
-{
-    float3 position;
-};
+// == VARIABLES ==
+float grid_size;                                // float CellSize                               -- VERIFIED
+int3 dimension;                                 // int Dimensions                               -- VERIFIED
+uint max_particles_per_grid;                    // int maximumParticlesPerCell;                 -- UINT VS INT
+float radius;                                   // float radius;                                -- VERIFIED
+float radius2;                                  // float radius2;                               -- VERIFIED
+float radius3;                                  // float radius3;                               -- VERIFIED
+float radius4;                                  // float radius4;                               -- VERIFIED
+float radius5;                                  // float radius5;                               -- VERIFIED
+float mass;                                     // float mass;                                  -- VERIFIED
+float mass2;                                    // float mass2;                                 -- VERIFIED
+float gas_constant;                             // float gasConstant;                           -- VERIFIED
+float rest_density;                             // float restDensity;                           -- VERIFIED
+float viscosity_coefficient;                    // float viscosityCoefficient;                  -- VERIFIED
+float damping;                                  // float damping;                               -- VERIFIED
+float dt;                                       // float dt;                                    -- VERIFIED
+float epsilon;                                  // float epsilon;                               -- VERIFIED
+float3 g;                                       // float3 g;                                    -- VERIFIED
+float pi;                                       // float pi;                                    -- VERIFIED
+uint n;                                         // 8                                            -- HARD-CODED IN ORIGINAL SCRIPT
 
-RWStructuredBuffer<particle> particles;
-RWStructuredBuffer<float> density,
-pressure,
-bound;
-RWStructuredBuffer<float3> force,
-velocity;
-RWStructuredBuffer<int> neighbor_list, /* neighbors of a particle at particle_index * max_particles_per_grid * 8 */
-neighbor_tracker; /* number of neighors does each particle have */
-RWStructuredBuffer<uint> hash_grid, /* aligned at particle_index * max_particles_per_grid * 8' + hash_grid_tracker[particle_index] */
-hash_grid_tracker; /* number of particles at each grid */
-RWStructuredBuffer<float> kernel_sums;
-
-float grid_size,
-radius,
-radius2,
-radius3,
-radius4,
-radius5,
-mass,
-mass2,
-gas_constant,
-rest_density,
-viscosity_coefficient,
-damping,
-dt,
-epsilon,
-e,
-pi;
-uint n,
-n_particle,
-max_particles_per_grid;
-int3 dimension;
+float e;
+uint n_particle;
 float4 time;
-float3 g;
 uint total_number_of_cells;
 
-int3 get_cell(float3 position)
-{
+// == STRUCTS ==
+struct particle {
+    float3 position;
+    int projected_index;
+    uint offset;
+};
+
+// == BUFFERS ==
+RWStructuredBuffer<particle> particles;         // RWStructuredBuffer<Particle> _particles;     -- VERIFIED
+RWStructuredBuffer<int> neighbor_list;          // RWStructuredBuffer<int> _neighbourList;      -- VERIFIED
+//neighbors of a particle at particle_index * max_particles_per_grid * 8  
+RWStructuredBuffer<int> neighbor_tracker;       // RWStructuredBuffer<int> _neighbourTracker;    -- VERIFIED
+// number of neighors does each particle have
+RWStructuredBuffer<uint> hash_grid;             // RWStructuredBuffer<uint> _hashGrid;          -- VERIFIED
+// aligned at particle_index * max_particles_per_grid * 8' + hash_grid_tracker[particle_index]
+RWStructuredBuffer<uint> hash_grid_tracker;     // RWStructuredBuffer<uint> _hashGridTracker;   -- VERIFIED
+// number of particles at each grid
+RWStructuredBuffer<float> density;              // RWStructuredBuffer<float> _densities;        -- VERIFIED
+RWStructuredBuffer<float> pressure;             // RWStructuredBuffer<float> _pressures;        -- VERIFIED
+RWStructuredBuffer<float3> velocity;            // RWStructuredBuffer<float3> _velocities;      -- VERIFIED
+RWStructuredBuffer<float3> force;               // RWStructuredBuffer<float3> _forces;          -- VERIFIED
+RWStructuredBuffer<float> bound;
+RWStructuredBuffer<float> kernel_sums;
+
+
+// int3 GetCell -- VERIFIED
+int3 get_cell(float3 position) {
+    // ORIGINAL:        return int3(position.x / CellSize, position.y / CellSize, position.z / CellSize);
     return int3((position.x - bound[0]) / grid_size, (position.y - bound[2]) / grid_size, (position.z - bound[4]) / grid_size);
 }
 
-int hash(int3 cell)
-{
+// int Hash -- VERIFIED
+int hash(int3 cell) {
+    // ORIGINAL:
+    /*
+    return cell.x + Dimensions * (cell.y + Dimensions * cell.z);
+    */
+
     return cell.x + dimension.x * (cell.y + dimension.y * cell.z);
 }
 
+// void ClearHashGrid -- VERIFIED
 [numthreads(100, 1, 1)]
-void clear_hash_grid(uint3 id : SV_DispatchThreadID)
-{
+void clear_hash_grid(uint3 id : SV_DispatchThreadID) {
     if (id.x >= total_number_of_cells) return;
     hash_grid_tracker[id.x] = 0;
-
 }
 
+// void RecalculateHashGrid
 [numthreads(100, 1, 1)]
-void compute_hash_grid(uint3 id : SV_DispatchThreadID)
-{
+void compute_hash_grid(uint3 id : SV_DispatchThreadID) {
+    // ORIGINAL:
+    /*
+    int previousCount = 0;
+    const int cellHash = Hash(GetCell(_particles[id.x].Position));
+    InterlockedAdd(_hashGridTracker[cellHash], 1, previousCount);
+    if (previousCount >= maximumParticlesPerCell)
+    {
+        _particles[id.x].Color = float4(255, 0, 0, 255);
+        return;
+    }
+    // _particles[id.x].Color = float4(255, 255, 255, 255);
+    _hashGrid[cellHash * maximumParticlesPerCell + previousCount] = id.x;
+    */
+
     if (id.x >= n_particle) return;
-    uint original_value = 0;
-    const int hash_grid_position = hash(get_cell(particles[id.x].position));
-    if(hash_grid_tracker[hash_grid_position] + 1 > max_particles_per_grid) return;
-    InterlockedAdd(hash_grid_tracker[hash_grid_position], 1, original_value); /* 'original_value' is an output variable that will be set to the original value of dest */
-    if(original_value >= max_particles_per_grid) return;
-    hash_grid[hash_grid_position * max_particles_per_grid + original_value] = id.x;
+    particle p = particles[id.x];
+    const int hash_grid_position = hash(get_cell(p.position));
+    //if(hash_grid_tracker[hash_grid_position] + 1 > max_particles_per_grid) return;
+    InterlockedAdd(hash_grid_tracker[hash_grid_position], 1, p.offset); /* 'original_value' is an output variable that will be set to the original value of dest */
+    p.projected_index = hash_grid_position;
+    particles[id.x] = p;
+    if(p.offset >= max_particles_per_grid) return;
+    hash_grid[hash_grid_position * max_particles_per_grid + p.offset] = id.x;
 }
 
-void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8])
-{
+void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8]) {
+    // ORIGINAL:
+    /*
+    int3 nearbyBucketIndices[8];
+    for (int i = 0; i < 8; i++)
+    {
+        nearbyBucketIndices[i] = originIndex;
+    }
+
+    if (( originIndex.x + 0.5f ) * CellSize <= position.x)
+    {
+        nearbyBucketIndices[4].x += 1;
+        nearbyBucketIndices[5].x += 1;
+        nearbyBucketIndices[6].x += 1;
+        nearbyBucketIndices[7].x += 1;
+    }
+    else
+    {
+        nearbyBucketIndices[4].x -= 1;
+        nearbyBucketIndices[5].x -= 1;
+        nearbyBucketIndices[6].x -= 1;
+        nearbyBucketIndices[7].x -= 1;
+    }
+
+    if (( originIndex.y + 0.5f ) * CellSize <= position.y)
+    {
+        nearbyBucketIndices[2].y += 1;
+        nearbyBucketIndices[3].y += 1;
+        nearbyBucketIndices[6].y += 1;
+        nearbyBucketIndices[7].y += 1;
+    }
+    else
+    {
+        nearbyBucketIndices[2].y -= 1;
+        nearbyBucketIndices[3].y -= 1;
+        nearbyBucketIndices[6].y -= 1;
+        nearbyBucketIndices[7].y -= 1;
+    }
+
+    if (( originIndex.z + 0.5f ) * CellSize <= position.z)
+    {
+        nearbyBucketIndices[1].z += 1;
+        nearbyBucketIndices[3].z += 1;
+        nearbyBucketIndices[5].z += 1;
+        nearbyBucketIndices[7].z += 1;
+    }
+    else
+    {
+        nearbyBucketIndices[1].z -= 1;
+        nearbyBucketIndices[3].z -= 1;
+        nearbyBucketIndices[5].z -= 1;
+        nearbyBucketIndices[7].z -= 1;
+    }
+
+    for (int j = 0; j < 8; j++)
+    {
+        int3 cell = nearbyBucketIndices[j];
+        if (cell.x < 0 || cell.x >= Dimensions || cell.y < 0 || cell.y >= Dimensions || cell.z < 0 || cell.z >= Dimensions)
+        {
+            nearbyKeys[j] = -1;
+        }
+        else
+        {
+            nearbyKeys[j] = Hash(nearbyBucketIndices[j]);
+        }
+    }
+    */
+
     int3 neighbor_index[8];
     for(uint i = 0; i < n; ++i)
         neighbor_index[i] = origin_index;
@@ -135,8 +232,7 @@ void set_neighbor_key(int3 origin_index, float3 position, out int neighbor_key[8
 }
 
 [numthreads(100, 1, 1)]
-void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
-{
+void compute_neighbor_list(uint3 id : SV_DispatchThreadID) {
     if (id.x >= n_particle) return;
     neighbor_tracker[id.x] = 0;
     const int3 g = get_cell(particles[id.x].position);
@@ -149,6 +245,7 @@ void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
         for(uint j = 0; j < particle_in_grid; ++j)
         {
             const uint potential_neighbor = hash_grid[grids[i] * max_particles_per_grid + j];
+            if (potential_neighbor == -1) continue;
             if(potential_neighbor == id.x) continue;
             const float3 v = particles[potential_neighbor].position - particles[id.x].position;
             if(dot(v, v) < radius2)
@@ -157,8 +254,7 @@ void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
     }
 }
 
-float std_kernel(float distance_square)
-{
+float std_kernel(float distance_square) {
     float x = 1.0 - distance_square / radius2;
     return 315.0 / (64.0 * pi * radius3) * x * x * x;
 }
@@ -168,20 +264,17 @@ float std_kernel_2(float s) {
     return max(0,a*a*a);
 }
 
-float spiky_kernel_first_derivative(float distance)
-{
+float spiky_kernel_first_derivative(float distance) {
     float x = 1.0 - distance / radius;
     return -45.0 / (pi * radius4) * x * x;
 }
 
-float spiky_kernel_second_derivative(float distance)
-{
+float spiky_kernel_second_derivative(float distance) {
     float x = 1.0 - distance / radius;
     return 90.0 / (pi * radius5) * x;
 }
 
-float3 spiky_kernel_gradient(float distance, float3 direction_from_center)
-{
+float3 spiky_kernel_gradient(float distance, float3 direction_from_center) {
     return spiky_kernel_first_derivative(distance) * direction_from_center;
 }
 
@@ -201,8 +294,7 @@ void compute_sums(uint3 id : SV_DispatchThreadID) {
 }
 
 [numthreads(100, 1, 1)]
-void compute_density_pressure(uint3 id : SV_DispatchThreadID)
-{
+void compute_density_pressure(uint3 id : SV_DispatchThreadID) {
     if (id.x >= n_particle) return;    
     float3 origin = particles[id.x].position;
     float sum = 0;
@@ -225,8 +317,7 @@ void compute_density_pressure(uint3 id : SV_DispatchThreadID)
 } */
 
 [numthreads(100, 1, 1)]
-void compute_force(uint3 id : SV_DispatchThreadID)
-{
+void compute_force(uint3 id : SV_DispatchThreadID) {
     if (id.x >= n_particle) return;
     float3 newF = float3(0, 0, 0);
     const float particle_density2 = density[id.x] * density[id.x];
@@ -255,8 +346,7 @@ void compute_force(uint3 id : SV_DispatchThreadID)
 }
 
 [numthreads(100, 1, 1)]
-void integrate(uint3 id : SV_DispatchThreadID)
-{
+void integrate(uint3 id : SV_DispatchThreadID) {
     if (id.x >= n_particle) return;
     particle p = particles[id.x];
     velocity[id.x] += dt * force[id.x] / mass;
@@ -271,9 +361,9 @@ void integrate(uint3 id : SV_DispatchThreadID)
         v.x *= damping;
         p.position.x = bound[0] + epsilon;
     }
-    else if(particles[id.x].position.x > bound[1] - epsilon - 1.0) {
+    else if(particles[id.x].position.x > bound[1] - epsilon) {
         v.x *= damping;
-        p.position.x = bound[1] - epsilon - 1.0;
+        p.position.x = bound[1] - epsilon;
     }
 
     if(particles[id.x].position.y < bound[2] + epsilon)
@@ -281,7 +371,7 @@ void integrate(uint3 id : SV_DispatchThreadID)
         v.y *= damping;
         p.position.y = bound[2] + epsilon;
     }
-    else if(particles[id.x].position.y > bound[3] - epsilon - 1.0) 
+    else if(particles[id.x].position.y > bound[3] - epsilon) 
     {
         v.y *= damping;
         p.position.y = bound[3] - epsilon - 1.0;
@@ -291,10 +381,10 @@ void integrate(uint3 id : SV_DispatchThreadID)
         v.z *= damping;
         p.position.z = bound[4] + epsilon;
     }
-    else if(particles[id.x].position.z > bound[5] - epsilon - 1.0) 
+    else if(particles[id.x].position.z > bound[5] - epsilon) 
     {
         v.z *= damping;
-        p.position.z = bound[5] - epsilon - 1.0;
+        p.position.z = bound[5] - epsilon;
     }
 
     velocity[id.x] = v;
@@ -306,16 +396,14 @@ static const int n_thread = 100;
 float max_density_multiplier;
 
 [numthreads(n_thread, 1, 1)]
-void compute_density(int3 id : SV_DispatchThreadID)
-{
+void compute_density(int3 id : SV_DispatchThreadID) {
     density[id.x] *= max_density_multiplier;
 }
 
 #include "march_table.compute"
 #pragma kernel march
 
-struct tri
-{
+struct tri {
     float3 vertex_a,
     vertex_b,
     vertex_c;

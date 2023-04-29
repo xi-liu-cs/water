@@ -1,0 +1,364 @@
+#include "../Noise/noise.cginc"
+
+#define _BLOCK_SIZE 512
+
+// == VARIABLES ==
+float grid_size;                                // float CellSize                               -- VERIFIED
+int3 dimension;                                 // int Dimensions                               -- VERIFIED
+uint max_particles_per_grid;                    // int maximumParticlesPerCell;                 -- UINT VS INT
+float radius;                                   // float radius;                                -- VERIFIED
+float radius2;                                  // float radius2;                               -- VERIFIED
+float radius3;                                  // float radius3;                               -- VERIFIED
+float radius4;                                  // float radius4;                               -- VERIFIED
+float radius5;                                  // float radius5;                               -- VERIFIED
+float mass;                                     // float mass;                                  -- VERIFIED
+float mass2;                                    // float mass2;                                 -- VERIFIED
+float gas_constant;                             // float gasConstant;                           -- VERIFIED
+float rest_density;                             // float restDensity;                           -- VERIFIED
+float viscosity_coefficient;                    // float viscosityCoefficient;                  -- VERIFIED
+float damping;                                  // float damping;                               -- VERIFIED
+float dt;                                       // float dt;                                    -- VERIFIED
+float epsilon;                                  // float epsilon;                               -- VERIFIED
+float3 g;                                       // float3 g;                                    -- VERIFIED
+float pi;                                       // float pi;                                    -- VERIFIED
+uint n;                                         // 8                                            -- HARD-CODED IN ORIGINAL SCRIPT
+
+float e;
+uint n_particle;
+float4 time;
+uint total_number_of_cells;
+uint numBlocks;
+uint d;
+int randomSeed;
+int state;
+
+// == STRUCTS ==
+struct particle {
+    float3 position;
+    int3 grid_indices;
+    int projected_index;
+    uint offset;
+    int index;
+};
+
+// == BUFFERS ==
+RWStructuredBuffer<particle> particles;         // RWStructuredBuffer<Particle> _particles;     -- VERIFIED
+RWStructuredBuffer<int> neighbor_list;          // RWStructuredBuffer<int> _neighbourList;      -- VERIFIED
+//neighbors of a particle at particle_index * max_particles_per_grid * 8  
+RWStructuredBuffer<int> neighbor_tracker;       // RWStructuredBuffer<int> _neighbourTracker;    -- VERIFIED
+// number of neighors does each particle have
+RWStructuredBuffer<uint> hash_grid;             // RWStructuredBuffer<uint> _hashGrid;          -- VERIFIED
+// aligned at particle_index * max_particles_per_grid * 8' + hash_grid_tracker[particle_index]
+RWStructuredBuffer<uint> hash_grid_tracker;     // RWStructuredBuffer<uint> _hashGridTracker;   -- VERIFIED
+// number of particles at each grid
+RWStructuredBuffer<float> density;              // RWStructuredBuffer<float> _densities;        -- VERIFIED
+RWStructuredBuffer<float> pressure;             // RWStructuredBuffer<float> _pressures;        -- VERIFIED
+RWStructuredBuffer<float3> velocity;            // RWStructuredBuffer<float3> _velocities;      -- VERIFIED
+RWStructuredBuffer<float3> force;               // RWStructuredBuffer<float3> _forces;          -- VERIFIED
+RWStructuredBuffer<float> bound;
+RWStructuredBuffer<float> kernel_sums;
+
+RWStructuredBuffer<int> grid;
+RWStructuredBuffer<int> gridOffsetBufferIn;
+RWStructuredBuffer<int> gridOffsetBuffer;
+RWStructuredBuffer<int> gridSumsBuffer;
+RWStructuredBuffer<int> gridSumsBufferIn;
+RWStructuredBuffer<particle> rearrangedParticles;
+
+
+// int3 GetCell -- VERIFIED
+int3 get_cell(float3 position) {
+    // ORIGINAL:        return int3(position.x / CellSize, position.y / CellSize, position.z / CellSize);
+    return int3((position.x - bound[0]) / grid_size, (position.y - bound[2]) / grid_size, (position.z - bound[4]) / grid_size);
+}
+int3 GetGridXYZIndices(float3 position) {
+    return int3(
+        floor((position[0] - bound[0]) / grid_size),
+        floor((position[1] - bound[2]) / grid_size),
+        floor((position[2] - bound[4]) / grid_size)
+    );
+}
+
+// int Hash -- VERIFIED
+int hash(int3 cell) {
+    return cell.x + dimension.x * (cell.y + dimension.y * cell.z);
+}
+int GetProjectedGridIndexFromXYZ(int3 xyz) {
+    return xyz.x + (dimension.x * xyz.y) + (dimension.x * dimension.y * xyz.z);
+}
+
+#pragma kernel GenerateGrid
+[numthreads(_BLOCK_SIZE,1,1)]
+void GenerateGrid(uint3 id : SV_DispatchThreadID) {
+  if (id.x >= total_number_of_cells) return;
+  grid[id.x] = 0;
+}
+
+// Basic random generation
+float wangHash() {
+  state = (state ^ 61) ^(state >> 16);
+  state *= 9;
+  state = state ^(state >> 4);
+  state *= 0x27d4eb2d;
+  state = state ^(state >> 15);
+  return state / 4294967296.0;
+}
+
+float randRange(float a, float b) {
+  return wangHash() * (b - a) + a;
+}
+
+#pragma kernel GenerateParticles
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void GenerateParticles(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= n_particle) return;
+    
+    state = randomSeed + id.x;
+    /*float3 position = float3(
+        randRange(float(bound[0]), float(bound[1])), 
+        randRange(float(bound[2]), float(bound[3])), 
+        randRange(float(bound[4]), float(bound[5]))
+    );
+    */
+    float3 position = float3(float(bound[1]-1),float(bound[3]-1),float(bound[5]-1)) - float3(
+        randRange(float(0),float(0.01)),
+        randRange(float(0),float(0.01)),
+        randRange(float(0),float(0.01))
+    );
+    int3 grid_indices = GetGridXYZIndices(position);
+    int projected_index = GetProjectedGridIndexFromXYZ(grid_indices);
+    particles[id.x].position = position;
+    particles[id.x].grid_indices = grid_indices;
+    particles[id.x].projected_index = projected_index;
+    particles[id.x].index = id.x;
+    density[id.x] = -1;
+    pressure[id.x] = 0;
+    force[id.x] = float3(0,0,0);
+    velocity[id.x] = float3(0,-50,0);
+}
+
+#pragma kernel ClearGrid
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void ClearGrid(uint3 id : SV_DispatchThreadID) {
+    if (id.x > total_number_of_cells) return;
+    grid[id.x] = 0;
+}
+
+#pragma kernel UpdateGridCellCounts
+[numthreads(_BLOCK_SIZE,1,1)]
+void UpdateGridCellCounts(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= n_particle) return;
+    particle p = particles[id.x];
+    int3 grid_indices = GetGridXYZIndices(p.position);
+    int projected_index = GetProjectedGridIndexFromXYZ(grid_indices);
+    p.grid_indices = grid_indices;
+    p.projected_index = projected_index;
+    InterlockedAdd(grid[projected_index], 1, p.offset);
+    particles[id.x] = p;
+}
+
+#pragma kernel PrefixSum
+groupshared int temp[_BLOCK_SIZE * 2];
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void PrefixSum(uint projectedCellID : SV_DispatchThreadID, uint threadID : SV_GroupThreadID, uint groupID : SV_GroupID) {
+    int pout = 0;
+    int pin = 1;
+    // Our input is `grid`
+    temp[threadID] = gridOffsetBufferIn[projectedCellID];
+    GroupMemoryBarrierWithGroupSync();
+
+    [unroll]
+    for(uint offset = 1; offset < _BLOCK_SIZE; offset *= 2) {
+        pout = 1 - pout;
+        pin = 1 - pin;
+        if (threadID >= offset) {
+            temp[pout * _BLOCK_SIZE + threadID] = temp[pin * _BLOCK_SIZE + threadID] + temp[pin * _BLOCK_SIZE + threadID - offset];
+        } else {
+            temp[pout * _BLOCK_SIZE + threadID] = temp[pin * _BLOCK_SIZE + threadID];
+        }
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (projectedCellID >= total_number_of_cells) return;
+
+    // We output to `gridOffsetBuffer`
+    gridOffsetBuffer[projectedCellID] = temp[pout * _BLOCK_SIZE + threadID];
+    if (threadID == 0) {
+        // We output to `gridSumsBuffer2`
+        gridSumsBuffer[groupID] = temp[pout * _BLOCK_SIZE + _BLOCK_SIZE - 1];
+    }
+}
+
+#pragma kernel SumBlocks
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void SumBlocks(uint3 id : SV_DISPATCHTHREADID) {
+  if (id.x >= numBlocks) return;
+  uint k = id.x;
+  if (k < d) gridSumsBuffer[k] = gridSumsBufferIn[k];
+  else gridSumsBuffer[k] = gridSumsBufferIn[k] + gridSumsBufferIn[k - d];
+}
+
+#pragma kernel AddSums
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void AddSums(uint projectedGridIndex : SV_DispatchThreadID, uint groupID : SV_GroupID) {
+  if (groupID == 0 || projectedGridIndex > total_number_of_cells) return;
+  // Output to `gridOffsetBuffer`
+  gridOffsetBuffer[projectedGridIndex] += gridSumsBufferIn[groupID - 1];
+}
+
+#pragma kernel RearrangeParticles
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void RearrangeParticles(uint3 id : SV_DispatchThreadID) {
+  if (id.x >= n_particle) return;
+  
+  int projectedGridIndex = particles[id.x].projected_index;
+  int cellOffset = particles[id.x].offset;
+  int index = gridOffsetBuffer[projectedGridIndex] - 1 - cellOffset;
+  rearrangedParticles[index] = particles[id.x];
+}
+
+float std_kernel(float distance_square) {
+    float x = float(1) - min(distance_square / radius2, float(1));
+    return float(315) / (float(64) * pi * radius3) * x * x * x;
+}
+
+float spiky_kernel_first_derivative(float distance) {
+    float x = float(1) - min(distance / radius,float(1));
+    return float(-45) / (pi * radius4) * x * x;
+}
+
+float spiky_kernel_second_derivative(float distance) {
+    float x = float(1) - min(distance / radius,float(1));
+    return float(90) / (pi * radius5) * x;
+}
+
+float3 spiky_kernel_gradient(float distance, float3 direction_from_center) {
+    return spiky_kernel_first_derivative(distance) * direction_from_center;
+}
+
+#pragma kernel ComputeDensityPressure
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= n_particle) return;
+    
+    particle p = particles[id.x];
+    float3 origin = p.position;
+    float sum = 0;
+
+    int zStep = dimension.x * dimension.y;
+
+    for (int z = p.projected_index - zStep; z <= p.projected_index + zStep; z += zStep) {
+        for (int y = z - dimension.x; y <= z + dimension.x; y += dimension.x) {
+            int start = gridOffsetBuffer[y - 1];
+            int end = gridOffsetBuffer[y + 1];
+
+            for (int i = start; i < end; i++) {
+                particle otherP = rearrangedParticles[i];
+                if (otherP.index == p.index) continue;
+                float3 diff = origin - otherP.position;
+                float distance_square = dot(diff, diff);
+                sum += std_kernel(distance_square);
+            }
+        }
+    }
+
+    density[id.x] = sum * mass + float(0.000001);
+    pressure[id.x] = gas_constant * (density[id.x] - rest_density);
+}
+
+/* [numthreads(100, 1, 1)]
+void compute_density_pressure(uint3 id : SV_DispatchThreadID)
+{
+    density[id.x] = abs(16 * snoise(particles[id.x].position));
+    pressure[id.x] = gas_constant * (density[id.x] - rest_density);
+} */
+
+#pragma kernel ComputeForce
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void ComputeForce(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= n_particle) return;
+
+    particle p = particles[id.x];
+    float3 newF = float3(0, 0, 0);
+    const float particle_density2 = density[id.x] * density[id.x];
+    int zStep = dimension.x * dimension.y;
+    for (int z = p.projected_index - zStep; z <= p.projected_index + zStep; z += zStep) {
+        for (int y = z - dimension.x; y <= z + dimension.x; y += dimension.x) {
+            int start = gridOffsetBuffer[y - 1];
+            int end = gridOffsetBuffer[y + 1];
+            for (int i = start; i < end; i++) {
+                particle otherP = rearrangedParticles[i];
+                if (otherP.index == p.index) continue;
+                const float distance = length(p.position - otherP.position);
+                if(distance > 0.0) {
+                    const float3 direction = (p.position - otherP.position) / distance;
+                    newF -= 
+                        mass2 
+                        * ( 
+                            pressure[id.x] / particle_density2 
+                            + 
+                            pressure[otherP.index] / (
+                                density[otherP.index] * density[otherP.index]
+                            )
+                        ) 
+                        * spiky_kernel_gradient(distance, direction); /* compute pressure gradient force */
+                    newF += 
+                        viscosity_coefficient 
+                        * mass2 
+                        * (velocity[otherP.index] - velocity[id.x]) 
+                        / density[otherP.index] 
+                        * spiky_kernel_second_derivative(distance);
+                }
+            }
+        }
+    }
+    force[id.x] = newF + g;
+}
+
+#pragma kernel Integrate
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void Integrate(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= n_particle) return;
+
+    particle p = particles[id.x];
+    float3 v = velocity[id.x];
+
+    v += dt * force[id.x] / mass;
+    p.position += dt * velocity[id.x];
+    
+    particles[id.x] = p;
+    velocity[id.x] = v;
+
+    p = particles[id.x];
+    v = velocity[id.x];
+
+    if(particles[id.x].position.x < bound[0] + epsilon) {
+        v.x *= damping;
+        p.position.x = bound[0] + epsilon;
+    }
+    else if(particles[id.x].position.x > bound[1] - epsilon - 1.0) {
+        v.x *= damping;
+        p.position.x = bound[1] - epsilon - 1.0;
+    }
+
+    if(particles[id.x].position.y < bound[2] + epsilon) {
+        v.y *= damping;
+        p.position.y = bound[2] + epsilon;
+    }
+    else if(particles[id.x].position.y > bound[3] - epsilon - 1.0) {
+        v.y *= damping;
+        p.position.y = bound[3] - epsilon - 1.0;
+    }
+
+    if(particles[id.x].position.z < bound[4] + epsilon) {
+        v.z *= damping;
+        p.position.z = bound[4] + epsilon;
+    }
+    else if(particles[id.x].position.z > bound[5] - epsilon - 1.0) {
+        v.z *= damping;
+        p.position.z = bound[5] - epsilon - 1.0;
+    }
+
+    velocity[id.x] = v;
+    particles[id.x] = p;
+}
