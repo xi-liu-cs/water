@@ -49,6 +49,7 @@ public class fluid_gpu : MonoBehaviour
     int generate_grid_kernel;
     int generate_particles_kernel;
     int clear_grid_kernel;
+    int reset_num_neighbors_kernel;
     int update_grid_kernel;
     int prefix_sum_kernel;
     int sum_blocks_kernel;
@@ -171,13 +172,13 @@ public class fluid_gpu : MonoBehaviour
     public ComputeBuffer triangle_count_buffer;
     public ComputeBuffer int_debug_buffer;
     public ComputeBuffer float_debug_buffer;
-    private ComputeBuffer kernel_sums_buffer;
 
     private ComputeBuffer gridBuffer;
     private ComputeBuffer gridOffsetBuffer;
     private ComputeBuffer gridSumsBuffer1;
     private ComputeBuffer gridSumsBuffer2;
     private ComputeBuffer rearrangedParticlesBuffer;
+    private ComputeBuffer numNeighborsBuffer;
 
     public march_table table;
 
@@ -265,13 +266,17 @@ public class fluid_gpu : MonoBehaviour
         radius4 = radius3 * coreRadius;
         radius5 = radius4 * coreRadius;
         mass2 = particleMass * particleMass;
-        thread_group_size = numParticles / dimension.x;
+        //thread_group_size = numParticles / dimension.x;
+
+        Debug.Log($"{numCellsPerAxis[0]},{numCellsPerAxis[1]},{numCellsPerAxis[2]}");
+        Debug.Log($"{numGridCells}");
     }
 
     void InitializeKernels() {
         generate_grid_kernel = compute_shader.FindKernel("GenerateGrid");
         generate_particles_kernel = compute_shader.FindKernel("GenerateParticles");
         clear_grid_kernel = compute_shader.FindKernel("ClearGrid");
+        reset_num_neighbors_kernel = compute_shader.FindKernel("ResetNumNeighbors");
         update_grid_kernel = compute_shader.FindKernel("UpdateGridCellCounts");
         prefix_sum_kernel = compute_shader.FindKernel("PrefixSum");
         sum_blocks_kernel = compute_shader.FindKernel("SumBlocks");
@@ -287,7 +292,7 @@ public class fluid_gpu : MonoBehaviour
         // == WORLD CONFIGURATIONS ==
         compute_shader.SetFloat("gridCellSize", gridCellSize);
         compute_shader.SetInts("numCellsPerAxis", numCellsPerAxis);
-        compute_shader.SetInt("total_number_of_cells", dimension3);
+        compute_shader.SetInt("total_number_of_cells", numGridCells);
         compute_shader.SetFloats("origin", origin);
         compute_shader.SetFloats("bounds", bounds);
         compute_shader.SetFloats("outerBounds", outerBounds);
@@ -337,13 +342,16 @@ public class fluid_gpu : MonoBehaviour
         pressure_buffer = new ComputeBuffer(numParticles, sizeof(float));
         velocity_buffer = new ComputeBuffer(numParticles, 3 * sizeof(float));
         force_buffer = new ComputeBuffer(numParticles, 3 * sizeof(float));
-        gridBuffer = new ComputeBuffer(dimension3, sizeof(int));
-        gridOffsetBuffer = new ComputeBuffer(dimension3, sizeof(int));
+        gridBuffer = new ComputeBuffer(numGridCells, sizeof(int));
+        gridOffsetBuffer = new ComputeBuffer(numGridCells, sizeof(int));
         gridSumsBuffer1 = new ComputeBuffer(numBlocks, sizeof(int));
         gridSumsBuffer2 = new ComputeBuffer(numBlocks, sizeof(int));
         rearrangedParticlesBuffer = new ComputeBuffer(numParticles, sizeof(float)*3 + sizeof(int)*7);
+        numNeighborsBuffer = new ComputeBuffer(numParticles, sizeof(int));
 
         compute_shader.SetBuffer(generate_grid_kernel, "grid", gridBuffer);
+
+        compute_shader.SetBuffer(reset_num_neighbors_kernel, "numNeighbors", numNeighborsBuffer);
 
         compute_shader.SetBuffer(generate_particles_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(generate_particles_kernel, "density", density_buffer);
@@ -369,6 +377,7 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(count_num_neighbors_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(count_num_neighbors_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
         compute_shader.SetBuffer(count_num_neighbors_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        compute_shader.SetBuffer(count_num_neighbors_kernel, "numNeighbors", numNeighborsBuffer);
 
         compute_shader.SetBuffer(compute_density_pressure_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(compute_density_pressure_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
@@ -587,6 +596,7 @@ public class fluid_gpu : MonoBehaviour
         string bottom = "";
 
         compute_shader.Dispatch(clear_grid_kernel, numBlocks,1,1);
+        compute_shader.Dispatch(reset_num_neighbors_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
         compute_shader.Dispatch(update_grid_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
 
         if (verbose_grid) {
@@ -676,9 +686,17 @@ public class fluid_gpu : MonoBehaviour
                 bottom += $"{temp_particles[k].numNeighbors}\t|";
             }
             Debug.Log("NUM PARTICLE NEIGHBORS:\n"+top+"\n"+bottom);
+            int[] temp_num_neighbors = new int[numParticles];
+            numNeighborsBuffer.GetData(temp_num_neighbors);
+            top = "";
+            bottom="";
+            for(int k = 0; k < numParticles; k++) {
+                top += $"{k}\t|";
+                bottom += $"{temp_num_neighbors[k]}\t|";
+            }
+            Debug.Log("NUM PARTICLE NEIGHBORS 2:\n"+top+"\n"+bottom);
         }
 
-        return;
         compute_shader.Dispatch(compute_density_pressure_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_density_pressure) {
             float[] temp_densities = new float[numParticles];

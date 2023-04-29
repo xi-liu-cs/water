@@ -68,6 +68,7 @@ RWStructuredBuffer<int> gridOffsetBuffer;
 RWStructuredBuffer<int> gridSumsBuffer;
 RWStructuredBuffer<int> gridSumsBufferIn;
 RWStructuredBuffer<particle> rearrangedParticles;
+RWStructuredBuffer<int> numNeighbors;
 
 
 // int3 GetCell -- VERIFIED
@@ -147,6 +148,13 @@ void GenerateParticles(uint3 id : SV_DispatchThreadID) {
 void ClearGrid(uint3 id : SV_DispatchThreadID) {
     if (id.x > total_number_of_cells) return;
     grid[id.x] = 0;
+}
+
+#pragma kernel ResetNumNeighbors
+[numthreads(_BLOCK_SIZE,1,1)]
+void ResetNumNeighbors(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= numParticles) return;
+    numNeighbors[id.x] = 0;
 }
 
 #pragma kernel UpdateGridCellCounts
@@ -230,10 +238,10 @@ void CountNumNeighbors(uint3 id : SV_DispatchThreadID) {
     particle p = particles[id.x];
     int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
     for (int z = p.projected_index - zStep; z <= p.projected_index + zStep; z += zStep) {
-        for (int y = numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
-            int start = gridOffsetBuffer[y - 1];
+        for (int y = z - numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
+            int start = gridOffsetBuffer[y - 2];
             int end = gridOffsetBuffer[y + 1];
-
+            numNeighbors[id.x] += end - start;
             for (int i = start; i < end; i++) {
                 particle otherP = rearrangedParticles[i];
                 if (otherP.index == p.index) continue;
@@ -271,12 +279,11 @@ void ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
     particle p = particles[id.x];
     float3 origin = p.position;
     float sum = 0;
-
-    int zStep = dimension.x * dimension.y;
+    int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
 
     for (int z = p.projected_index - zStep; z <= p.projected_index + zStep; z += zStep) {
-        for (int y = z - dimension.x; y <= z + dimension.x; y += dimension.x) {
-            int start = gridOffsetBuffer[y - 1];
+        for (int y = z - numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
+            int start = gridOffsetBuffer[y - 2];
             int end = gridOffsetBuffer[y + 1];
 
             for (int i = start; i < end; i++) {
@@ -308,10 +315,10 @@ void ComputeForce(uint3 id : SV_DispatchThreadID) {
     particle p = particles[id.x];
     float3 newF = float3(0, 0, 0);
     const float particle_density2 = density[id.x] * density[id.x];
-    int zStep = dimension.x * dimension.y;
+    int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
     for (int z = p.projected_index - zStep; z <= p.projected_index + zStep; z += zStep) {
-        for (int y = z - dimension.x; y <= z + dimension.x; y += dimension.x) {
-            int start = gridOffsetBuffer[y - 1];
+        for (int y = z - numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
+            int start = gridOffsetBuffer[y - 2];
             int end = gridOffsetBuffer[y + 1];
             for (int i = start; i < end; i++) {
                 particle otherP = rearrangedParticles[i];

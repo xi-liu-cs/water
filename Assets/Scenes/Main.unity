@@ -1765,35 +1765,35 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c72b5ae534e4e4488e4a32386758410, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridCellSize: 0.5
+  gridCellSize: 20
   origin:
   - 0
   - 0
   - 0
   bounds:
-  - 2
-  - 2
-  - 2
-  bufferCells: 020000000200000002000000
+  - 200
+  - 200
+  - 200
+  bufferCells: 040000000400000004000000
   g:
   - 0
   - -9.81
   - 0
-  numParticles: 5
-  particleRenderRadius: 0.2
+  numParticles: 100
+  particleRenderRadius: 10
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  coreRadius: 1
+  coreRadius: 20
   particleMass: 1
   viscosity_coefficient: 0.25
   rest_density: 2
   damping: -0.5
   gas_constant: 2000
   compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
-  verbose_grid: 1
-  verbose_prefix_sums: 1
-  verbose_rearrange: 1
-  verbose_num_neighbors: 1
-  verbose_density_pressure: 0
+  verbose_grid: 0
+  verbose_prefix_sums: 0
+  verbose_rearrange: 0
+  verbose_num_neighbors: 0
+  verbose_density_pressure: 1
   verbose_force: 0
   verbose_integrate: 0
   verbose_velocity: 0
