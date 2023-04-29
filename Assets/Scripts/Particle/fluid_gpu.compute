@@ -35,7 +35,6 @@ rest_density,
 viscosity_coefficient,
 damping,
 dt,
-g,
 epsilon,
 e,
 pi;
@@ -43,6 +42,7 @@ uint n,
 n_particle,
 max_particles_per_grid;
 int3 dimension;
+float3 g;
 float4 time;
 
 int3 get_cell(float3 position)
