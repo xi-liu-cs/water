@@ -15,6 +15,8 @@ float radius2;                                  // float radius2;               
 float radius3;                                  // float radius3;                               -- VERIFIED
 float radius4;                                  // float radius4;                               -- VERIFIED
 float radius5;                                  // float radius5;                               -- VERIFIED
+float radius6;
+float radius9;
 float particleMass;                             // float mass;                                  -- VERIFIED
 float mass2;                                    // float mass2;                                 -- VERIFIED
 float gas_constant;                             // float gasConstant;                           -- VERIFIED
@@ -35,6 +37,7 @@ uint numBlocks;
 uint d;
 int randomSeed;
 int state;
+float particleRenderRadius;
 
 // == STRUCTS ==
 struct particle {
@@ -137,7 +140,7 @@ void GenerateParticles(uint3 id : SV_DispatchThreadID) {
     particles[id.x].grid_indices = grid_indices;
     particles[id.x].projected_index = projected_index;
     particles[id.x].index = id.x;
-    density[id.x] = -1;
+    density[id.x] = 0;
     pressure[id.x] = 0;
     force[id.x] = float3(0,0,0);
     velocity[id.x] = float3(0,-50,0);
@@ -241,11 +244,14 @@ void CountNumNeighbors(uint3 id : SV_DispatchThreadID) {
         for (int y = z - numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
             int start = gridOffsetBuffer[y - 2];
             int end = gridOffsetBuffer[y + 1];
-            numNeighbors[id.x] += end - start;
             for (int i = start; i < end; i++) {
                 particle otherP = rearrangedParticles[i];
                 if (otherP.index == p.index) continue;
-                p.numNeighbors += 1;
+                float dist = length(otherP.position - p.position) - (particleRenderRadius*2.0);
+                if (dist <= coreRadius && dist > 0) {
+                    p.numNeighbors += 1;
+                    numNeighbors[id.x] += 1;
+                }
             }
         }
     }
@@ -277,27 +283,44 @@ void ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
     
     particle p = particles[id.x];
+
     float3 origin = p.position;
-    float sum = 0;
-    int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
+    float _density = density[id.x];
+    float _pressure = pressure[id.x];
 
-    for (int z = p.projected_index - zStep; z <= p.projected_index + zStep; z += zStep) {
-        for (int y = z - numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
-            int start = gridOffsetBuffer[y - 2];
-            int end = gridOffsetBuffer[y + 1];
+        int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
+        for (int z = p.projected_index - zStep; z <= p.projected_index + zStep; z += zStep) {
+            for (int y = z - numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
+                int start = gridOffsetBuffer[y - 2];
+                int end = gridOffsetBuffer[y + 1];
 
-            for (int i = start; i < end; i++) {
-                particle otherP = rearrangedParticles[i];
-                if (otherP.index == p.index) continue;
-                float3 diff = origin - otherP.position;
-                float distance_square = dot(diff, diff);
-                sum += std_kernel(distance_square);
+                for (int i = start; i < end; i++) {
+                    particle otherP = rearrangedParticles[i];
+                    if (otherP.index == p.index) continue;
+                    
+                    float3 dir = otherP.position - origin;
+                    float dist = length(dir) - (particleRenderRadius*2.0);
+                    if (dist > coreRadius || dist <= 0) continue;
+                    
+                    float distDiff= coreRadius*coreRadius - dist*dist;
+                    _density += particleMass * (float(315)/(float(64)*pi*radius9)) * (distDiff * distDiff * distDiff);
+                    _pressure = gas_constant * (_density - rest_density);
+                    /*
+                    float3 diff = origin - otherP.position;
+                    float distance_square = dot(diff, diff);
+                    sum += std_kernel(distance_square);
+                    */
+                }
             }
-        }
+        
     }
 
+    density[id.x] = _density;
+    pressure[id.x] = _pressure;
+    /*
     density[id.x] = sum * particleMass + float(0.000001);
     pressure[id.x] = gas_constant * (density[id.x] - rest_density);
+    */
 }
 
 /* [numthreads(100, 1, 1)]
@@ -313,40 +336,51 @@ void ComputeForce(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
 
     particle p = particles[id.x];
-    float3 newF = float3(0, 0, 0);
-    const float particle_density2 = density[id.x] * density[id.x];
-    int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
-    for (int z = p.projected_index - zStep; z <= p.projected_index + zStep; z += zStep) {
-        for (int y = z - numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
-            int start = gridOffsetBuffer[y - 2];
-            int end = gridOffsetBuffer[y + 1];
-            for (int i = start; i < end; i++) {
-                particle otherP = rearrangedParticles[i];
-                if (otherP.index == p.index) continue;
-                const float distance = length(p.position - otherP.position);
-                if(distance > 0.0) {
-                    const float3 direction = (p.position - otherP.position) / distance;
-                    newF -= 
-                        mass2 
-                        * ( 
-                            pressure[id.x] / particle_density2 
-                            + 
-                            pressure[otherP.index] / (
-                                density[otherP.index] * density[otherP.index]
-                            )
-                        ) 
-                        * spiky_kernel_gradient(distance, direction); /* compute pressure gradient force */
-                    newF += 
-                        viscosity_coefficient 
-                        * mass2 
-                        * (velocity[otherP.index] - velocity[id.x]) 
-                        / density[otherP.index] 
-                        * spiky_kernel_second_derivative(distance);
+    
+    float3 forcePressure = float3(0,0,0);
+    float3 forceViscosity = float3(0,0,0);
+    float3 forceGravity = float3(
+        g[0] * density[id.x],
+        g[1] * density[id.x],
+        g[2] * density[id.x]
+    );
+
+        int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
+        for (int z = p.projected_index - zStep; z <= p.projected_index + zStep; z += zStep) {
+            for (int y = z - numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
+                int start = gridOffsetBuffer[y - 2];
+                int end = gridOffsetBuffer[y + 1];
+                for (int i = start; i < end; i++) {
+                    particle otherP = rearrangedParticles[i];
+                    if (otherP.index == p.index) continue;
+
+                    float3 dir = otherP.position - p.position;
+                    float dist = length(dir)-(particleRenderRadius*2.0);
+
+                    if (dist > coreRadius || dist <= 0) continue;
+
+                    float3 dirNormalized = float3(
+                        dir[0] / dist,
+                        dir[1] / dist,
+                        dir[2] / dist
+                    );
+                    forcePressure += float3(
+                        float(-1) * dirNormalized[0] * particleMass * (pressure[id.x] + pressure[otherP.index]) / (float(2) * density[otherP.index]) * (float(-45) / (pi * radius6)) * (coreRadius - dist),
+                        float(-1) * dirNormalized[1] * particleMass * (pressure[id.x] + pressure[otherP.index]) / (float(2) * density[otherP.index]) * (float(-45) / (pi * radius6)) * (coreRadius - dist),
+                        float(-1) * dirNormalized[2] * particleMass * (pressure[id.x] + pressure[otherP.index]) / (float(2) * density[otherP.index]) * (float(-45) / (pi * radius6)) * (coreRadius - dist)
+                    );
+                    forceViscosity += float3(
+                        viscosity_coefficient * particleMass * (velocity[otherP.index][0] - velocity[id.x][0]) / density[otherP.index] * (float(45) / (pi * radius6)) * (coreRadius - dist),
+                        viscosity_coefficient * particleMass * (velocity[otherP.index][1] - velocity[id.x][1]) / density[otherP.index] * (float(45) / (pi * radius6)) * (coreRadius - dist),
+                        viscosity_coefficient * particleMass * (velocity[otherP.index][2] - velocity[id.x][2]) / density[otherP.index] * (float(45) / (pi * radius6)) * (coreRadius - dist)
+                    );
                 }
             }
-        }
     }
-    force[id.x] = newF + g;
+    force[id.x] = forcePressure 
+        + forceViscosity  
+        + forceGravity;
+    //force[id.x] = newF + g;
 }
 
 #pragma kernel Integrate
@@ -357,8 +391,8 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
     particle p = particles[id.x];
     float3 v = velocity[id.x];
 
-    v += dt * force[id.x] / particleMass;
-    p.position += dt * velocity[id.x];
+    v += dt * force[id.x] / density[id.x];
+    p.position += dt * v;
     
     particles[id.x] = p;
     velocity[id.x] = v;
@@ -366,31 +400,31 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
     p = particles[id.x];
     v = velocity[id.x];
 
-    if(particles[id.x].position.x < -bounds[0]/2.0 + epsilon) {
+    if(particles[id.x].position.x - particleRenderRadius < -bounds[0]/2.0 + epsilon) {
         v.x *= damping;
-        p.position.x = -bounds[0]/2.0 + epsilon;
+        p.position.x = -bounds[0]/2.0 + particleRenderRadius + epsilon;
     }
-    else if(particles[id.x].position.x > bounds[0]/2.0 - epsilon - 1.0) {
+    else if(particles[id.x].position.x + particleRenderRadius > bounds[0]/2.0 - epsilon) {
         v.x *= damping;
-        p.position.x = bounds[0]/2.0 - epsilon - 1.0;
+        p.position.x = bounds[0]/2.0 - particleRenderRadius - epsilon;
     }
 
-    if(particles[id.x].position.y < -bounds[1]/2.0 + epsilon) {
+    if(particles[id.x].position.y - particleRenderRadius < -bounds[1]/2.0 + epsilon) {
         v.y *= damping;
-        p.position.y = -bounds[1]/2.0 + epsilon;
+        p.position.y = -bounds[1]/2.0 + particleRenderRadius + epsilon;
     }
-    else if(particles[id.x].position.y > bounds[1]/2.0 - epsilon - 1.0) {
+    else if(particles[id.x].position.y + particleRenderRadius > bounds[1]/2.0 - epsilon) {
         v.y *= damping;
-        p.position.y = bounds[1]/2.0 - epsilon - 1.0;
+        p.position.y = bounds[1]/2.0 - particleRenderRadius - epsilon;
     }
 
-    if(particles[id.x].position.z < -bounds[2]/2.0 + epsilon) {
+    if(particles[id.x].position.z - particleRenderRadius < -bounds[2]/2.0 + epsilon) {
         v.z *= damping;
-        p.position.z = -bounds[2]/2.0 + epsilon;
+        p.position.z = -bounds[2]/2.0 + particleRenderRadius + epsilon;
     }
-    else if(particles[id.x].position.z > bounds[2]/2.0 - epsilon - 1.0) {
+    else if(particles[id.x].position.z + particleRenderRadius > bounds[2]/2.0 - epsilon) {
         v.z *= damping;
-        p.position.z = bounds[2]/2.0 - epsilon - 1.0;
+        p.position.z = bounds[2]/2.0 - particleRenderRadius - epsilon;
     }
 
     velocity[id.x] = v;
