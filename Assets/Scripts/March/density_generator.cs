@@ -59,11 +59,11 @@ public abstract class density_generator : MonoBehaviour
         int n_point = n_point_per_axis * n_point_per_axis * n_point_per_axis;
         int numThreadsPerAxis = Mathf.CeilToInt (n_point_per_axis / (float) thread_group_size);
         /* particle_buffer.SetData(particles); */
-        densityShader.SetFloat("mass", fluid_cs.mass);
-        densityShader.SetFloat("radius", fluid_cs.radius);
+        densityShader.SetFloat("mass", fluid_cs.particleMass);
+        densityShader.SetFloat("radius", fluid_cs.coreRadius);
         densityShader.SetFloat("radius2", fluid_cs.radius2);
         densityShader.SetFloat("radius3", fluid_cs.radius3);
-        densityShader.SetFloat("particle_size", fluid_cs.particle_size);
+        densityShader.SetFloat("particle_size", fluid_cs.particleRenderRadius);
         densityShader.SetFloat("boundsSize", boundsSize);
         densityShader.SetFloat("sphere_radius", sphere_radius);
         densityShader.SetFloat("pi", Mathf.PI);
@@ -73,7 +73,7 @@ public abstract class density_generator : MonoBehaviour
         densityShader.SetVector ("offset", new Vector4(offset.x, offset.y, offset.z));
         densityShader.SetFloat ("spacing", spacing);
         densityShader.SetVector("worldSize", worldBounds);
-        densityShader.SetFloat("grid_size", fluid_cs.grid_size);
+        densityShader.SetFloat("grid_size", fluid_cs.gridCellSize);
         densityShader.SetInts("dimension", fluid_cs.dimension_array);
         densityShader.SetInt("max_particles_per_cube", max_particles_per_cube);
 

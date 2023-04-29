@@ -1,17 +1,21 @@
 #include "../Noise/noise.cginc"
 
-#define _BLOCK_SIZE 512
+#define _BLOCK_SIZE 256
 
 // == VARIABLES ==
-float grid_size;                                // float CellSize                               -- VERIFIED
+float gridCellSize;                             // float CellSize                               -- VERIFIED
+int3 numCellsPerAxis;
+float3 origin;
 int3 dimension;                                 // int Dimensions                               -- VERIFIED
+float3 bounds;
+float3 outerBounds;
 uint max_particles_per_grid;                    // int maximumParticlesPerCell;                 -- UINT VS INT
-float radius;                                   // float radius;                                -- VERIFIED
+float coreRadius;                               // float radius;                                -- VERIFIED
 float radius2;                                  // float radius2;                               -- VERIFIED
 float radius3;                                  // float radius3;                               -- VERIFIED
 float radius4;                                  // float radius4;                               -- VERIFIED
 float radius5;                                  // float radius5;                               -- VERIFIED
-float mass;                                     // float mass;                                  -- VERIFIED
+float particleMass;                             // float mass;                                  -- VERIFIED
 float mass2;                                    // float mass2;                                 -- VERIFIED
 float gas_constant;                             // float gasConstant;                           -- VERIFIED
 float rest_density;                             // float restDensity;                           -- VERIFIED
@@ -24,7 +28,7 @@ float pi;                                       // float pi;                    
 uint n;                                         // 8                                            -- HARD-CODED IN ORIGINAL SCRIPT
 
 float e;
-uint n_particle;
+uint numParticles;
 float4 time;
 uint total_number_of_cells;
 uint numBlocks;
@@ -39,6 +43,7 @@ struct particle {
     int projected_index;
     uint offset;
     int index;
+    int numNeighbors;
 };
 
 // == BUFFERS ==
@@ -55,7 +60,6 @@ RWStructuredBuffer<float> density;              // RWStructuredBuffer<float> _de
 RWStructuredBuffer<float> pressure;             // RWStructuredBuffer<float> _pressures;        -- VERIFIED
 RWStructuredBuffer<float3> velocity;            // RWStructuredBuffer<float3> _velocities;      -- VERIFIED
 RWStructuredBuffer<float3> force;               // RWStructuredBuffer<float3> _forces;          -- VERIFIED
-RWStructuredBuffer<float> bound;
 RWStructuredBuffer<float> kernel_sums;
 
 RWStructuredBuffer<int> grid;
@@ -67,24 +71,17 @@ RWStructuredBuffer<particle> rearrangedParticles;
 
 
 // int3 GetCell -- VERIFIED
-int3 get_cell(float3 position) {
-    // ORIGINAL:        return int3(position.x / CellSize, position.y / CellSize, position.z / CellSize);
-    return int3((position.x - bound[0]) / grid_size, (position.y - bound[2]) / grid_size, (position.z - bound[4]) / grid_size);
-}
 int3 GetGridXYZIndices(float3 position) {
     return int3(
-        floor((position[0] - bound[0]) / grid_size),
-        floor((position[1] - bound[2]) / grid_size),
-        floor((position[2] - bound[4]) / grid_size)
+        floor((position[0] - (origin[0] - (numCellsPerAxis[0] * gridCellSize)/2.0))/gridCellSize),
+        floor((position[1] - (origin[1] - (numCellsPerAxis[1] * gridCellSize)/2.0))/gridCellSize),
+        floor((position[2] - (origin[2] - (numCellsPerAxis[2] * gridCellSize)/2.0))/gridCellSize)
     );
 }
 
 // int Hash -- VERIFIED
-int hash(int3 cell) {
-    return cell.x + dimension.x * (cell.y + dimension.y * cell.z);
-}
 int GetProjectedGridIndexFromXYZ(int3 xyz) {
-    return xyz.x + (dimension.x * xyz.y) + (dimension.x * dimension.y * xyz.z);
+    return xyz.x + (numCellsPerAxis[0] * xyz.y) + (numCellsPerAxis[0] * numCellsPerAxis[1] * xyz.z);
 }
 
 #pragma kernel GenerateGrid
@@ -111,7 +108,7 @@ float randRange(float a, float b) {
 #pragma kernel GenerateParticles
 [numthreads(_BLOCK_SIZE, 1, 1)]
 void GenerateParticles(uint3 id : SV_DispatchThreadID) {
-    if (id.x >= n_particle) return;
+    if (id.x >= numParticles) return;
     
     state = randomSeed + id.x;
     /*float3 position = float3(
@@ -120,11 +117,19 @@ void GenerateParticles(uint3 id : SV_DispatchThreadID) {
         randRange(float(bound[4]), float(bound[5]))
     );
     */
-    float3 position = float3(float(bound[1]-1),float(bound[3]-1),float(bound[5]-1)) - float3(
-        randRange(float(0),float(0.01)),
-        randRange(float(0),float(0.01)),
-        randRange(float(0),float(0.01))
-    );
+    float3 position = 
+        origin 
+        //+ float3(float(bounds[0]/2.0-1),float(bounds[1]/2.0-1),float(bounds[2]/2.0-1)) 
+        + float3(
+            randRange(float(-bounds[0]/2.0), float(bounds[0]/2.0)), 
+            randRange(float(-bounds[1]/2.0), float(bounds[1]/2.0)), 
+            randRange(float(-bounds[2]/2.0), float(bounds[2]/2.0))
+        )
+        - float3(
+            randRange(float(0),float(0.01)),
+            randRange(float(0),float(0.01)),
+            randRange(float(0),float(0.01))
+        );
     int3 grid_indices = GetGridXYZIndices(position);
     int projected_index = GetProjectedGridIndexFromXYZ(grid_indices);
     particles[id.x].position = position;
@@ -147,13 +152,14 @@ void ClearGrid(uint3 id : SV_DispatchThreadID) {
 #pragma kernel UpdateGridCellCounts
 [numthreads(_BLOCK_SIZE,1,1)]
 void UpdateGridCellCounts(uint3 id : SV_DispatchThreadID) {
-    if (id.x >= n_particle) return;
+    if (id.x >= numParticles) return;
     particle p = particles[id.x];
     int3 grid_indices = GetGridXYZIndices(p.position);
     int projected_index = GetProjectedGridIndexFromXYZ(grid_indices);
     p.grid_indices = grid_indices;
     p.projected_index = projected_index;
     InterlockedAdd(grid[projected_index], 1, p.offset);
+    p.numNeighbors = 0;
     particles[id.x] = p;
 }
 
@@ -209,7 +215,7 @@ void AddSums(uint projectedGridIndex : SV_DispatchThreadID, uint groupID : SV_Gr
 #pragma kernel RearrangeParticles
 [numthreads(_BLOCK_SIZE, 1, 1)]
 void RearrangeParticles(uint3 id : SV_DispatchThreadID) {
-  if (id.x >= n_particle) return;
+  if (id.x >= numParticles) return;
   
   int projectedGridIndex = particles[id.x].projected_index;
   int cellOffset = particles[id.x].offset;
@@ -217,18 +223,39 @@ void RearrangeParticles(uint3 id : SV_DispatchThreadID) {
   rearrangedParticles[index] = particles[id.x];
 }
 
+#pragma kernel CountNumNeighbors
+[numthreads(_BLOCK_SIZE,1,1)]
+void CountNumNeighbors(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= numParticles) return;
+    particle p = particles[id.x];
+    int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
+    for (int z = p.projected_index - zStep; z <= p.projected_index + zStep; z += zStep) {
+        for (int y = numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
+            int start = gridOffsetBuffer[y - 1];
+            int end = gridOffsetBuffer[y + 1];
+
+            for (int i = start; i < end; i++) {
+                particle otherP = rearrangedParticles[i];
+                if (otherP.index == p.index) continue;
+                p.numNeighbors += 1;
+            }
+        }
+    }
+    particles[id.x] = p;
+}
+
 float std_kernel(float distance_square) {
-    float x = float(1) - min(distance_square / radius2, float(1));
+    float x = float(1) - distance_square / radius2;
     return float(315) / (float(64) * pi * radius3) * x * x * x;
 }
 
 float spiky_kernel_first_derivative(float distance) {
-    float x = float(1) - min(distance / radius,float(1));
+    float x = float(1) - distance / coreRadius;
     return float(-45) / (pi * radius4) * x * x;
 }
 
 float spiky_kernel_second_derivative(float distance) {
-    float x = float(1) - min(distance / radius,float(1));
+    float x = float(1) - distance / coreRadius;
     return float(90) / (pi * radius5) * x;
 }
 
@@ -239,7 +266,7 @@ float3 spiky_kernel_gradient(float distance, float3 direction_from_center) {
 #pragma kernel ComputeDensityPressure
 [numthreads(_BLOCK_SIZE, 1, 1)]
 void ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
-    if (id.x >= n_particle) return;
+    if (id.x >= numParticles) return;
     
     particle p = particles[id.x];
     float3 origin = p.position;
@@ -262,7 +289,7 @@ void ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
         }
     }
 
-    density[id.x] = sum * mass + float(0.000001);
+    density[id.x] = sum * particleMass + float(0.000001);
     pressure[id.x] = gas_constant * (density[id.x] - rest_density);
 }
 
@@ -276,7 +303,7 @@ void compute_density_pressure(uint3 id : SV_DispatchThreadID)
 #pragma kernel ComputeForce
 [numthreads(_BLOCK_SIZE, 1, 1)]
 void ComputeForce(uint3 id : SV_DispatchThreadID) {
-    if (id.x >= n_particle) return;
+    if (id.x >= numParticles) return;
 
     particle p = particles[id.x];
     float3 newF = float3(0, 0, 0);
@@ -318,12 +345,12 @@ void ComputeForce(uint3 id : SV_DispatchThreadID) {
 #pragma kernel Integrate
 [numthreads(_BLOCK_SIZE, 1, 1)]
 void Integrate(uint3 id : SV_DispatchThreadID) {
-    if (id.x >= n_particle) return;
+    if (id.x >= numParticles) return;
 
     particle p = particles[id.x];
     float3 v = velocity[id.x];
 
-    v += dt * force[id.x] / mass;
+    v += dt * force[id.x] / particleMass;
     p.position += dt * velocity[id.x];
     
     particles[id.x] = p;
@@ -332,31 +359,31 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
     p = particles[id.x];
     v = velocity[id.x];
 
-    if(particles[id.x].position.x < bound[0] + epsilon) {
+    if(particles[id.x].position.x < -bounds[0]/2.0 + epsilon) {
         v.x *= damping;
-        p.position.x = bound[0] + epsilon;
+        p.position.x = -bounds[0]/2.0 + epsilon;
     }
-    else if(particles[id.x].position.x > bound[1] - epsilon - 1.0) {
+    else if(particles[id.x].position.x > bounds[0]/2.0 - epsilon - 1.0) {
         v.x *= damping;
-        p.position.x = bound[1] - epsilon - 1.0;
+        p.position.x = bounds[0]/2.0 - epsilon - 1.0;
     }
 
-    if(particles[id.x].position.y < bound[2] + epsilon) {
+    if(particles[id.x].position.y < -bounds[1]/2.0 + epsilon) {
         v.y *= damping;
-        p.position.y = bound[2] + epsilon;
+        p.position.y = -bounds[1]/2.0 + epsilon;
     }
-    else if(particles[id.x].position.y > bound[3] - epsilon - 1.0) {
+    else if(particles[id.x].position.y > bounds[1]/2.0 - epsilon - 1.0) {
         v.y *= damping;
-        p.position.y = bound[3] - epsilon - 1.0;
+        p.position.y = bounds[1]/2.0 - epsilon - 1.0;
     }
 
-    if(particles[id.x].position.z < bound[4] + epsilon) {
+    if(particles[id.x].position.z < -bounds[2]/2.0 + epsilon) {
         v.z *= damping;
-        p.position.z = bound[4] + epsilon;
+        p.position.z = -bounds[2]/2.0 + epsilon;
     }
-    else if(particles[id.x].position.z > bound[5] - epsilon - 1.0) {
+    else if(particles[id.x].position.z > bounds[2]/2.0 - epsilon - 1.0) {
         v.z *= damping;
-        p.position.z = bound[5] - epsilon - 1.0;
+        p.position.z = bounds[2]/2.0 - epsilon - 1.0;
     }
 
     velocity[id.x] = v;

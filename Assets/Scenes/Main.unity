@@ -1765,52 +1765,62 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c72b5ae534e4e4488e4a32386758410, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  fluid_mesh: {fileID: 0}
-  material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
-  mass: 1
-  viscosity_coefficient: 0.25
-  particle_size: 20
-  radius: 1
-  grid_size: 1
-  gas_constant: 1
-  dt: 0.0008
-  rest_density: 2
-  damping: -0.5
-  position_offset: {x: 0, y: 0, z: 0}
-  velocity_initial: {x: 0, y: 0, z: 0}
+  gridCellSize: 1
+  origin:
+  - 0
+  - 0
+  - 0
+  bounds:
+  - 2
+  - 2
+  - 2
+  bufferCells: 020000000200000002000000
   g:
   - 0
   - -9.81
   - 0
+  numParticles: 5
+  particleRenderRadius: 0.2
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  coreRadius: 1
+  particleMass: 1
+  viscosity_coefficient: 0.25
+  rest_density: 2
+  damping: -0.5
+  gas_constant: 2000
+  compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
+  verbose_grid: 1
+  verbose_prefix_sums: 1
+  verbose_rearrange: 1
+  verbose_num_neighbors: 1
+  verbose_density_pressure: 0
+  verbose_force: 0
+  verbose_integrate: 0
+  verbose_velocity: 0
+  fluid_mesh: {fileID: 0}
+  material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
+  dt: 0.0008
+  position_offset: {x: 0, y: 0, z: 0}
+  velocity_initial: {x: 0, y: 0, z: 0}
   bound:
-  - -160
-  - 160
-  - -160
-  - 160
-  - -160
-  - 160
+  - -10
+  - 10
+  - -10
+  - 10
+  - -10
+  - 10
   radius2: 0
   radius3: 0
   radius4: 0
   radius5: 0
   mass2: 0
-  n_particle: 3000
   max_particles_per_grid: 10
   intial_particles_per_grid: 5
   dimension: {x: 0, y: 0, z: 0}
   dimension_array: 
   n_point_per_axis: 89
   isolevel: 0
-  compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
   max_density: 0
-  verbose_hash_grid: 0
-  verbose_neighbors: 0
-  verbose_density_pressure: 0
-  verbose_force: 0
-  verbose_integrate: 0
-  verbose_velocity: 0
-  verbose_prefix_sums: 0
 --- !u!1 &203458315
 GameObject:
   m_ObjectHideFlags: 0
@@ -23086,24 +23096,40 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c72b5ae534e4e4488e4a32386758410, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  fluid_mesh: {fileID: 0}
-  material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
-  mass: 1
-  viscosity_coefficient: 0.01
-  particle_size: 8
-  radius: 2
-  grid_size: 8
-  gas_constant: 2000
-  dt: 0.0008
-  rest_density: 9
-  damping: -0.1
-  position_offset: {x: 0, y: 0, z: 0}
-  velocity_initial: {x: 0, y: 0, z: 0}
+  gridCellSize: 1
+  origin:
+  - 0
+  - 0
+  - 0
+  bounds: []
+  bufferCells: 0a0000000a0000000a000000
   g:
   - 0
   - -9
   - 0
+  numParticles: 32
+  particleRenderRadius: 8
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  coreRadius: 8
+  particleMass: 1
+  viscosity_coefficient: 0.01
+  rest_density: 9
+  damping: -0.1
+  gas_constant: 2000
+  compute_shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
+  verbose_grid: 0
+  verbose_prefix_sums: 0
+  verbose_rearrange: 0
+  verbose_num_neighbors: 0
+  verbose_density_pressure: 0
+  verbose_force: 1
+  verbose_integrate: 1
+  verbose_velocity: 0
+  fluid_mesh: {fileID: 0}
+  material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
+  dt: 0.0008
+  position_offset: {x: 0, y: 0, z: 0}
+  velocity_initial: {x: 0, y: 0, z: 0}
   bound:
   - -150
   - 150
@@ -23116,22 +23142,13 @@ MonoBehaviour:
   radius4: 0
   radius5: 0
   mass2: 0
-  n_particle: 130
   max_particles_per_grid: 500
   intial_particles_per_grid: 5
   dimension: {x: 0, y: 0, z: 0}
   dimension_array: 
   n_point_per_axis: 50
   isolevel: 8
-  compute_shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
   max_density: 0
-  verbose_hash_grid: 0
-  verbose_neighbors: 0
-  verbose_density_pressure: 0
-  verbose_force: 1
-  verbose_integrate: 1
-  verbose_velocity: 0
-  verbose_prefix_sums: 0
 --- !u!4 &1297943046
 Transform:
   m_ObjectHideFlags: 0
@@ -36026,24 +36043,40 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c72b5ae534e4e4488e4a32386758410, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  fluid_mesh: {fileID: 0}
-  material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
-  mass: 1
-  viscosity_coefficient: 0.01
-  particle_size: 8
-  radius: 2
-  grid_size: 8
-  gas_constant: 2000
-  dt: 0.0008
-  rest_density: 9
-  damping: -0.9
-  position_offset: {x: 0, y: 0, z: 0}
-  velocity_initial: {x: 0, y: 0, z: 0}
+  gridCellSize: 1
+  origin:
+  - 0
+  - 0
+  - 0
+  bounds: []
+  bufferCells: 0a0000000a0000000a000000
   g:
   - 0
   - -9
   - 0
+  numParticles: 32
+  particleRenderRadius: 8
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  coreRadius: 8
+  particleMass: 1
+  viscosity_coefficient: 0.01
+  rest_density: 9
+  damping: -0.9
+  gas_constant: 2000
+  compute_shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
+  verbose_grid: 0
+  verbose_prefix_sums: 0
+  verbose_rearrange: 0
+  verbose_num_neighbors: 0
+  verbose_density_pressure: 0
+  verbose_force: 1
+  verbose_integrate: 1
+  verbose_velocity: 0
+  fluid_mesh: {fileID: 0}
+  material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
+  dt: 0.0008
+  position_offset: {x: 0, y: 0, z: 0}
+  velocity_initial: {x: 0, y: 0, z: 0}
   bound:
   - -150
   - 150
@@ -36056,22 +36089,13 @@ MonoBehaviour:
   radius4: 0
   radius5: 0
   mass2: 0
-  n_particle: 130000
   max_particles_per_grid: 500
   intial_particles_per_grid: 5
   dimension: {x: 0, y: 0, z: 0}
   dimension_array: 
   n_point_per_axis: 50
   isolevel: 8
-  compute_shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
   max_density: 0
-  verbose_hash_grid: 0
-  verbose_neighbors: 0
-  verbose_density_pressure: 0
-  verbose_force: 1
-  verbose_integrate: 1
-  verbose_velocity: 0
-  verbose_prefix_sums: 0
 --- !u!4 &1925688883
 Transform:
   m_ObjectHideFlags: 0

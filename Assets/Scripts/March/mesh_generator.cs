@@ -51,7 +51,7 @@ public class mesh_generator : MonoBehaviour
         fluid_cs.Awake();
         particle_buffer = fluid_cs.particle_buffer;
         n_point_per_axis = fluid_cs.n_point_per_axis;
-        n_particle = fluid_cs.n_particle;
+        n_particle = fluid_cs.numParticles;
         gameObject.transform.position = new Vector3(0, 0, 0);
         fluid_mesh_filter = gameObject.GetComponent<MeshFilter>();
         if(fluid_mesh_filter == null)
@@ -93,7 +93,7 @@ public class mesh_generator : MonoBehaviour
         shader.SetBuffer(0, "voxel_density", voxel_density_buffer);
         shader.SetBuffer(0, "particles", fluid_cs.particle_buffer);
         shader.SetBuffer(0, "points", point_buffer);
-        material.SetFloat(size_property, fluid_cs.particle_size);
+        material.SetFloat(size_property, fluid_cs.particleRenderRadius);
         material.SetBuffer(particle_buffer_property, fluid_cs.particle_buffer);
         fluid_mesh_renderer.material = material;
     }
