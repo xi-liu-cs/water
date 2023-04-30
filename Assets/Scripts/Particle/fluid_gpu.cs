@@ -257,25 +257,6 @@ public class fluid_gpu : MonoBehaviour
 
         compute_shader.Dispatch(generate_grid_kernel, numBlocks,1,1);
         compute_shader.Dispatch(generate_particles_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
-        /*
-        Particle[] temp_particles = new Particle[numParticles];
-        particle_buffer.GetData(temp_particles);
-        string top = "";
-        string bottom = "";
-        for(int i = 0; i < numParticles; i++) {
-            top += $"{i}\t|";
-            bottom += $"{temp_particles[i].index}\t|";
-        }
-        Debug.Log($"Particle Indexes:\n{top}\n{bottom}");
-        */
-
-        /* Debug.Log("group_size " + thread_group_size);
-        compute_shader.Dispatch(noise_density_kernel, thread_group_size, thread_group_size, thread_group_size);
-        Vector4[] cpu = new Vector4[numParticles];
-        point_buffer.GetData(cpu);
-        Debug.Log("cpu");
-        for(int i = 0; i < cpu.Length; ++i)
-            Debug.Log(cpu[i]); */
     }
 
     private void InitializeVariables() {
@@ -306,7 +287,6 @@ public class fluid_gpu : MonoBehaviour
         radius4 = radius3 * smoothingRadius;
         radius5 = radius4 * smoothingRadius;
         mass2 = particleMass * particleMass;
-        //thread_group_size = numParticles / dimension.x;
 
         Debug.Log($"{numCellsPerAxis[0]},{numCellsPerAxis[1]},{numCellsPerAxis[2]}");
         Debug.Log($"{numGridCells}");
@@ -326,7 +306,6 @@ public class fluid_gpu : MonoBehaviour
         compute_density_pressure_kernel = compute_shader.FindKernel("ComputeDensityPressure");
         compute_force_kernel = compute_shader.FindKernel("ComputeForce");
         integrate_kernel = compute_shader.FindKernel("Integrate");
-        compute_collisions_kernel = compute_shader.FindKernel("ComputeCollisions");
         dampen_by_bounds_kernel = compute_shader.FindKernel("DampenByBounds");
     }
 
@@ -444,13 +423,7 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(integrate_kernel, "force", force_buffer);
         compute_shader.SetBuffer(integrate_kernel, "density", density_buffer);
         compute_shader.SetBuffer(integrate_kernel, "storedVelocities", storedVelocitiesBuffer);
-
-        compute_shader.SetBuffer(compute_collisions_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(compute_collisions_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        compute_shader.SetBuffer(compute_collisions_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        compute_shader.SetBuffer(compute_collisions_kernel, "velocity", velocity_buffer);
-        compute_shader.SetBuffer(compute_collisions_kernel, "storedVelocities", storedVelocitiesBuffer);
-
+        
         compute_shader.SetBuffer(dampen_by_bounds_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(dampen_by_bounds_kernel, "velocity", velocity_buffer);
     }
@@ -808,21 +781,6 @@ public class fluid_gpu : MonoBehaviour
             }
             Debug.Log($"Velocities:\n{top}\n{bottom}");
         }
-
-        /*
-        compute_shader.Dispatch(compute_collisions_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
-        if (verbose_collisions) {
-            float3[] temp_velocities = new float3[numParticles];
-            velocity_buffer.GetData(temp_velocities);
-            top = "";
-            bottom = "";
-            for(int i = 0; i < numParticles; i++) {
-                top += $"{i}\t|";
-                bottom += $"{temp_velocities[i]}\t|";
-            }
-            Debug.Log($"Velocities After Collisions:\n{top}\n{bottom}");
-        }
-        */
 
         compute_shader.Dispatch(dampen_by_bounds_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
 

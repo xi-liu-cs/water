@@ -63,7 +63,6 @@ RWStructuredBuffer<float> density;              // RWStructuredBuffer<float> _de
 RWStructuredBuffer<float> pressure;             // RWStructuredBuffer<float> _pressures;        -- VERIFIED
 RWStructuredBuffer<float3> velocity;            // RWStructuredBuffer<float3> _velocities;      -- VERIFIED
 RWStructuredBuffer<float3> force;               // RWStructuredBuffer<float3> _forces;          -- VERIFIED
-RWStructuredBuffer<float> kernel_sums;
 
 RWStructuredBuffer<int> grid;
 RWStructuredBuffer<int> gridOffsetBufferIn;
@@ -258,25 +257,6 @@ void CountNumNeighbors(uint3 id : SV_DispatchThreadID) {
     particles[id.x] = p;
 }
 
-float std_kernel(float distance_square) {
-    float x = float(1) - distance_square / radius2;
-    return float(315) / (float(64) * pi * radius3) * x * x * x;
-}
-
-float spiky_kernel_first_derivative(float distance) {
-    float x = float(1) - distance / smoothingRadius;
-    return float(-45) / (pi * radius4) * x * x;
-}
-
-float spiky_kernel_second_derivative(float distance) {
-    float x = float(1) - distance / smoothingRadius;
-    return float(90) / (pi * radius5) * x;
-}
-
-float3 spiky_kernel_gradient(float distance, float3 direction_from_center) {
-    return spiky_kernel_first_derivative(distance) * direction_from_center;
-}
-
 float DensityKernel(float h, float r) {
     float diff = h*h - r*r;
     return (315.0 / (64.0 * pi * radius9)) * diff * diff * diff;
@@ -349,6 +329,7 @@ float3 GetPressureForce(particle currentParticle, particle neighborParticle, flo
     // otherwise, return empty float3
     return float3(0,0,0);
 }
+
 float ViscosityKernel(float h, float r) {
     return (45.0 / (pi * radius6)) * (h * r);
 }
@@ -417,42 +398,6 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
     particles[id.x] = p;
     velocity[id.x] = v;
     storedVelocities[id.x] = v;
-}
-
-#pragma kernel ComputeCollisions
-[numthreads(_BLOCK_SIZE,1,1)]
-void ComputeCollisions(uint3 id : SV_DispatchThreadID) {
-    if (id.x >= numParticles) return;
-    particle p = particles[id.x];
-    float3 newVel = float3(0,0,0);
-    int numCollisions = 0;
-    int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
-    for (int z = p.projected_index - zStep; z <= p.projected_index + zStep; z += zStep) {
-        for (int y = z - numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
-            int start = gridOffsetBuffer[y - 2];
-            int end = gridOffsetBuffer[y + 1];
-            for (int i = start; i < end; i++) {
-                // Get the other particle
-                particle otherP = rearrangedParticles[i];
-                // Skip if we encountered each other
-                if (otherP.index == p.index) continue;
-                // To check for collision, we look at the rendered radius this time.
-                // Calculate the distances between the centers
-                float dist = distance(otherP.position, p.position) + 0.01;
-                float3 dirAway = p.position - otherP.position;
-                if (length(dirAway) == 0.0) dirAway = float3(0,1,0);
-                else dirAway /= length(dirAway);
-                // If the distances between centers is less than the radii of the two particles added, then we got a collision
-                if (dist <= particleRenderRadius*2.0) {
-                    // We'll just do elastic collision. AKA switch the velocities around. This presumes particles are of same mass.
-                    newVel += storedVelocities[otherP.index];
-                    p.position += dirAway * (particleRenderRadius - (dist - particleRenderRadius));
-                    numCollisions += 1;
-                }
-            }
-        }
-    }
-    if (numCollisions > 0) velocity[id.x] = newVel / float(numCollisions);
 }
 
 #pragma kernel DampenByBounds
