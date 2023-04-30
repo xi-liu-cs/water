@@ -1772,17 +1772,17 @@ MonoBehaviour:
   - 0
   bounds:
   - 2
-  - 5
-  - 2
+  - 4
+  - 4
   bufferCells: 040000000400000004000000
   g:
   - 0
   - -9.81
   - 0
-  numParticles: 10000
+  numParticles: 5000
   particleRenderSize: 0.2
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  coreRadius: 10
+  coreRadius: 0.2
   particleMass: 1
   viscosity_coefficient: 0.25
   rest_density: 2

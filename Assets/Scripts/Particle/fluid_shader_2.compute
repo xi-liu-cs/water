@@ -299,10 +299,11 @@ void ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
                     if (otherP.index == p.index) continue;
                     
                     float3 dir = otherP.position - origin;
-                    float dist = length(dir) - (particleRenderRadius*2.0);
+                    float dirLength = length(dir);
+                    float dist = dirLength - (particleRenderRadius*2.0);
                     if (dist > coreRadius || dist <= 0) continue;
                     
-                    float distDiff= coreRadius*coreRadius - dist*dist;
+                    float distDiff= coreRadius*coreRadius - dirLength*dirLength;
                     _density += particleMass * (float(315)/(float(64)*pi*radius9)) * (distDiff * distDiff * distDiff);
                     _pressure = gas_constant * (_density - rest_density);
                     /*
@@ -355,19 +356,14 @@ void ComputeForce(uint3 id : SV_DispatchThreadID) {
                     if (otherP.index == p.index) continue;
 
                     float3 dir = otherP.position - p.position;
-                    float dist = length(dir)-(particleRenderRadius*2.0);
-
+                    float dirLength = length(dir);
+                    float dist = dirLength - (particleRenderRadius*2.0);
                     if (dist > coreRadius || dist <= 0) continue;
-
-                    float3 dirNormalized = float3(
-                        dir[0] / dist,
-                        dir[1] / dist,
-                        dir[2] / dist
-                    );
-                    forcePressure += float3(
-                        float(-1) * dirNormalized[0] * particleMass * (pressure[id.x] + pressure[otherP.index]) / (float(2) * density[otherP.index]) * (float(-45) / (pi * radius6)) * (coreRadius - dist),
-                        float(-1) * dirNormalized[1] * particleMass * (pressure[id.x] + pressure[otherP.index]) / (float(2) * density[otherP.index]) * (float(-45) / (pi * radius6)) * (coreRadius - dist),
-                        float(-1) * dirNormalized[2] * particleMass * (pressure[id.x] + pressure[otherP.index]) / (float(2) * density[otherP.index]) * (float(-45) / (pi * radius6)) * (coreRadius - dist)
+                    float3 dirNormalized = dir / dirLength;
+                    forcePressure -= float3(
+                        dirNormalized[0] * particleMass * (pressure[id.x] + pressure[otherP.index]) / (float(2) * density[otherP.index]) * (float(-45) / (pi * radius6)) * (coreRadius - dist),
+                        dirNormalized[1] * particleMass * (pressure[id.x] + pressure[otherP.index]) / (float(2) * density[otherP.index]) * (float(-45) / (pi * radius6)) * (coreRadius - dist),
+                        dirNormalized[2] * particleMass * (pressure[id.x] + pressure[otherP.index]) / (float(2) * density[otherP.index]) * (float(-45) / (pi * radius6)) * (coreRadius - dist)
                     );
                     forceViscosity += float3(
                         viscosity_coefficient * particleMass * (velocity[otherP.index][0] - velocity[id.x][0]) / density[otherP.index] * (float(45) / (pi * radius6)) * (coreRadius - dist),

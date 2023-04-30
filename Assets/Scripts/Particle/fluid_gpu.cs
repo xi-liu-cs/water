@@ -84,6 +84,7 @@ public class fluid_gpu : MonoBehaviour
 
 
 
+
     [Header("particle")]
     public Mesh fluid_mesh;
     public Material material;
@@ -694,10 +695,12 @@ public class fluid_gpu : MonoBehaviour
             top = "";
             bottom="";
             for(int k = 0; k < numParticles; k++) {
+                if (temp_particles[k].numNeighbors == 0) continue;
                 top += $"{k}\t|";
                 bottom += $"{temp_particles[k].numNeighbors}\t|";
             }
             Debug.Log("NUM PARTICLE NEIGHBORS:\n"+top+"\n"+bottom);
+            /*
             int[] temp_num_neighbors = new int[numParticles];
             numNeighborsBuffer.GetData(temp_num_neighbors);
             top = "";
@@ -707,6 +710,7 @@ public class fluid_gpu : MonoBehaviour
                 bottom += $"{temp_num_neighbors[k]}\t|";
             }
             Debug.Log("NUM PARTICLE NEIGHBORS 2:\n"+top+"\n"+bottom);
+            */
         }
 
         compute_shader.Dispatch(compute_density_pressure_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
@@ -751,11 +755,6 @@ public class fluid_gpu : MonoBehaviour
             top = "";
             bottom = "";
             for(int i = 0; i < numParticles; i++) {
-                if (
-                    Mathf.Abs(temp_velocities[i][0]) < Mathf.Infinity
-                    && Mathf.Abs(temp_velocities[i][1]) < Mathf.Infinity
-                    && Mathf.Abs(temp_velocities[i][2]) < Mathf.Infinity
-                ) continue;
                 top += $"{i}\t|";
                 bottom += $"{temp_velocities[i]}\t|";
             }
