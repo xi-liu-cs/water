@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using Unity.Mathematics;
 using Random = UnityEngine.Random;
+using UnityEditor;
 
 public class fluid_gpu : MonoBehaviour
 {
@@ -38,6 +39,7 @@ public class fluid_gpu : MonoBehaviour
     public Mesh particle_mesh;
 
     [Header("== FLUID MECHANICS ==")]
+    public float dt = 0.0008f;
     public float smoothingRadius = 8f;   /* h, smoothing length */
     public float particleMass = 1f;
     public float viscosity_coefficient = 0.01f;
@@ -47,7 +49,7 @@ public class fluid_gpu : MonoBehaviour
 
     [Header("== GPU SETTINGS ==")]
     public ComputeShader compute_shader;
-    const int _BLOCK_SIZE = 256;
+    const int _BLOCK_SIZE = 1024;
     private int numBlocks;
     // -- Header Indices --
     int generate_grid_kernel;
@@ -73,6 +75,9 @@ public class fluid_gpu : MonoBehaviour
 
     [Header("== DEBUG CONFIGURATIONS ==")]
     public bool show_gizmos = false;
+    public bool show_velocities = false;
+    public bool show_forces = false;
+    public Color gizmos_particle_color = Color.blue;
     public bool verbose_grid = false;
     public bool verbose_prefix_sums = false;
     public bool verbose_rearrange = false;
@@ -91,7 +96,6 @@ public class fluid_gpu : MonoBehaviour
     public Mesh fluid_mesh;
     public Material material;
     //public float grid_size = 8f; /* 4 * smoothingRadius */
-    public float dt = 0.0008f;
     
     public Vector3 position_offset = new Vector3(-140, -230, -60);
     public Vector3 velocity_initial = new Vector3(0, 10, 0);
@@ -208,22 +212,39 @@ public class fluid_gpu : MonoBehaviour
         Vector3 gridCellSize3D = new Vector3(gridCellSize, gridCellSize, gridCellSize);
         Particle[] temp_particles = new Particle[numParticles];
         particle_buffer.GetData(temp_particles);
+        int[] temp_num_neighbors = new int[numParticles];
+        numNeighborsBuffer.GetData(temp_num_neighbors);
         float3[] temp_forces_array = new float3[numParticles];
         force_buffer.GetData(temp_forces_array);
         float3[] temp_velocities_array = new float3[numParticles];
         velocity_buffer.GetData(temp_velocities_array);
-        for(int i = 0; i < numParticles; i++) {
-            Gizmos.color = Color.blue;
+        for(int i = 1; i < numParticles; i++) {
+            Gizmos.color = gizmos_particle_color;
             Gizmos.DrawSphere(temp_particles[i].position, particleRenderRadius);
-            /*
             Gizmos.color = gridColor;
             Gizmos.DrawCube(GetGridCellWorldPositionFromXYZIndices(temp_particles[i].grid_indices), gridCellSize3D);
-            */
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_forces_array[i]);
-            Gizmos.color = Color.blue;
-            Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_velocities_array[i]);
+            if (show_forces) {
+                Gizmos.color = Color.green;
+                Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_forces_array[i]);
+            }
+            if (show_velocities) {
+                Gizmos.color = Color.blue;
+                Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_velocities_array[i]);
+            }
         }
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawSphere(temp_particles[0].position, particleRenderRadius);
+        Gizmos.color = gridColor;
+        Gizmos.DrawCube(GetGridCellWorldPositionFromXYZIndices(temp_particles[0].grid_indices), gridCellSize3D);
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(temp_particles[0].position, smoothingRadius);
+        Vector3 handlePos = new Vector3(
+            temp_particles[0].position[0],
+            temp_particles[0].position[1] + particleRenderSize*2f,
+            temp_particles[0].position[2] + particleRenderSize*2f
+        );
+        Handles.Label(handlePos, temp_num_neighbors[0].ToString());
+
     }
 
     public void Awake() {
@@ -627,7 +648,8 @@ public class fluid_gpu : MonoBehaviour
 
     public void Update() {
 
-        compute_shader.SetFloat("dt", Time.deltaTime);
+        if (dt > 0) compute_shader.SetFloat("dt", dt);
+        else compute_shader.SetFloat("dt", Time.deltaTime);
         compute_shader.SetFloat("particleRenderRadius", particleRenderRadius);
         compute_shader.SetFloats("g", g);
 
@@ -919,11 +941,12 @@ public class fluid_gpu : MonoBehaviour
             Debug.Log($"Bounds:\n{top}\n{bottom}");
         }
         */
-        /*
+        
+        if (show_gizmos) return;
         material.SetFloat(size_property, particleRenderSize);
         material.SetBuffer(particle_buffer_property, particle_buffer);
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
-        */
+        
     }
 
     void OnDestroy()
