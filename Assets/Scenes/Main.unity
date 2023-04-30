@@ -1779,24 +1779,25 @@ MonoBehaviour:
   - 0
   - -9.81
   - 0
-  numParticles: 5000
-  particleRenderSize: 0.2
+  numParticles: 10
+  particleRenderSize: 0.4
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  coreRadius: 0.2
+  smoothingRadius: 1
   particleMass: 1
   viscosity_coefficient: 0.25
   rest_density: 2
   damping: -0.5
-  gas_constant: 2000
+  gas_constant: 10
   compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
-  show_gizmos: 0
+  show_gizmos: 1
   verbose_grid: 0
   verbose_prefix_sums: 0
   verbose_rearrange: 0
-  verbose_num_neighbors: 0
+  verbose_num_neighbors: 1
   verbose_density_pressure: 0
   verbose_force: 0
   verbose_velocity: 0
+  verbose_collisions: 0
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   dt: 0.0008
@@ -23110,7 +23111,7 @@ MonoBehaviour:
   numParticles: 32
   particleRenderSize: 8
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  coreRadius: 8
+  smoothingRadius: 8
   particleMass: 1
   viscosity_coefficient: 0.01
   rest_density: 9
@@ -23125,6 +23126,7 @@ MonoBehaviour:
   verbose_density_pressure: 0
   verbose_force: 1
   verbose_velocity: 0
+  verbose_collisions: 0
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   dt: 0.0008
@@ -36057,7 +36059,7 @@ MonoBehaviour:
   numParticles: 32
   particleRenderSize: 8
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  coreRadius: 8
+  smoothingRadius: 8
   particleMass: 1
   viscosity_coefficient: 0.01
   rest_density: 9
@@ -36072,6 +36074,7 @@ MonoBehaviour:
   verbose_density_pressure: 0
   verbose_force: 1
   verbose_velocity: 0
+  verbose_collisions: 0
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   dt: 0.0008

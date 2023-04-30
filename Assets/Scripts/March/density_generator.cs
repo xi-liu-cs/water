@@ -60,7 +60,7 @@ public abstract class density_generator : MonoBehaviour
         int numThreadsPerAxis = Mathf.CeilToInt (n_point_per_axis / (float) thread_group_size);
         /* particle_buffer.SetData(particles); */
         densityShader.SetFloat("mass", fluid_cs.particleMass);
-        densityShader.SetFloat("radius", fluid_cs.coreRadius);
+        densityShader.SetFloat("radius", fluid_cs.smoothingRadius);
         densityShader.SetFloat("radius2", fluid_cs.radius2);
         densityShader.SetFloat("radius3", fluid_cs.radius3);
         densityShader.SetFloat("particle_size", fluid_cs.particleRenderRadius);

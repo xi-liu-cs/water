@@ -59,7 +59,7 @@ sealed class NoiseFieldVisualizer : MonoBehaviour
         _volumeCompute.SetFloat("grid_size", fluid_cs.gridCellSize);
         _volumeCompute.SetBuffer(noise_field_visualizer_kernel, "bound", fluid_cs.bound_buffer);
         _volumeCompute.SetFloat("mass", fluid_cs.particleMass);
-        _volumeCompute.SetFloat("radius", fluid_cs.coreRadius);
+        _volumeCompute.SetFloat("radius", fluid_cs.smoothingRadius);
         _volumeCompute.SetFloat("radius2", fluid_cs.radius2);
         _volumeCompute.SetFloat("radius3", fluid_cs.radius3);
         _volumeCompute.SetFloat("pi", Mathf.PI);

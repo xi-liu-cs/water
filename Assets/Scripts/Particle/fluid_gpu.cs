@@ -38,7 +38,7 @@ public class fluid_gpu : MonoBehaviour
     public Mesh particle_mesh;
 
     [Header("== FLUID MECHANICS ==")]
-    public float coreRadius = 8f;   /* h, smoothing length */
+    public float smoothingRadius = 8f;   /* h, smoothing length */
     public float particleMass = 1f;
     public float viscosity_coefficient = 0.01f;
     public float rest_density = 9f;
@@ -63,6 +63,8 @@ public class fluid_gpu : MonoBehaviour
     int compute_density_pressure_kernel;
     int compute_force_kernel;
     int integrate_kernel;
+    int compute_collisions_kernel;
+    int dampen_by_bounds_kernel;
     // int clear_hash_grid_kernel;
     // int compute_hash_grid_kernel;
     // int compute_neighbor_list_kernel;
@@ -79,7 +81,7 @@ public class fluid_gpu : MonoBehaviour
     public bool verbose_density_pressure = false;
     public bool verbose_force = false;
     public bool verbose_velocity = false;
-
+    public bool verbose_collisions = false;
 
 
 
@@ -88,7 +90,7 @@ public class fluid_gpu : MonoBehaviour
     [Header("particle")]
     public Mesh fluid_mesh;
     public Material material;
-    //public float grid_size = 8f; /* 4 * coreRadius */
+    //public float grid_size = 8f; /* 4 * smoothingRadius */
     public float dt = 0.0008f;
     
     public Vector3 position_offset = new Vector3(-140, -230, -60);
@@ -184,6 +186,7 @@ public class fluid_gpu : MonoBehaviour
     private ComputeBuffer gridSumsBuffer2;
     private ComputeBuffer rearrangedParticlesBuffer;
     private ComputeBuffer numNeighborsBuffer;
+    private ComputeBuffer storedVelocitiesBuffer;
 
     public march_table table;
 
@@ -205,11 +208,21 @@ public class fluid_gpu : MonoBehaviour
         Vector3 gridCellSize3D = new Vector3(gridCellSize, gridCellSize, gridCellSize);
         Particle[] temp_particles = new Particle[numParticles];
         particle_buffer.GetData(temp_particles);
+        float3[] temp_forces_array = new float3[numParticles];
+        force_buffer.GetData(temp_forces_array);
+        float3[] temp_velocities_array = new float3[numParticles];
+        velocity_buffer.GetData(temp_velocities_array);
         for(int i = 0; i < numParticles; i++) {
             Gizmos.color = Color.blue;
             Gizmos.DrawSphere(temp_particles[i].position, particleRenderRadius);
+            /*
             Gizmos.color = gridColor;
             Gizmos.DrawCube(GetGridCellWorldPositionFromXYZIndices(temp_particles[i].grid_indices), gridCellSize3D);
+            */
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_forces_array[i]);
+            Gizmos.color = Color.blue;
+            Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_velocities_array[i]);
         }
     }
 
@@ -267,10 +280,10 @@ public class fluid_gpu : MonoBehaviour
         dimension2 = dimension.x * dimension.y;
         dimension3 = dimension2 * dimension.z;
         table = new march_table();
-        radius2 = coreRadius * coreRadius;
-        radius3 = radius2 * coreRadius;
-        radius4 = radius3 * coreRadius;
-        radius5 = radius4 * coreRadius;
+        radius2 = smoothingRadius * smoothingRadius;
+        radius3 = radius2 * smoothingRadius;
+        radius4 = radius3 * smoothingRadius;
+        radius5 = radius4 * smoothingRadius;
         mass2 = particleMass * particleMass;
         //thread_group_size = numParticles / dimension.x;
 
@@ -292,6 +305,8 @@ public class fluid_gpu : MonoBehaviour
         compute_density_pressure_kernel = compute_shader.FindKernel("ComputeDensityPressure");
         compute_force_kernel = compute_shader.FindKernel("ComputeForce");
         integrate_kernel = compute_shader.FindKernel("Integrate");
+        compute_collisions_kernel = compute_shader.FindKernel("ComputeCollisions");
+        dampen_by_bounds_kernel = compute_shader.FindKernel("DampenByBounds");
     }
 
     void InitializeShaderVariables() {
@@ -309,12 +324,12 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetFloat("particleRenderRadius", particleRenderRadius);
 
         // == FLUID MECHANICS ==
-        compute_shader.SetFloat("coreRadius", coreRadius);
+        compute_shader.SetFloat("smoothingRadius", smoothingRadius);
         compute_shader.SetFloat("radius2", radius2);
         compute_shader.SetFloat("radius3", radius3);
         compute_shader.SetFloat("radius4", radius4);
         compute_shader.SetFloat("radius5", radius5);
-        compute_shader.SetFloat("radius6", radius5 * coreRadius);
+        compute_shader.SetFloat("radius6", radius5 * smoothingRadius);
         compute_shader.SetFloat("radius9", radius5 * radius4);
         compute_shader.SetFloat("particleMass", particleMass);
         compute_shader.SetFloat("mass2", mass2);
@@ -357,6 +372,7 @@ public class fluid_gpu : MonoBehaviour
         gridSumsBuffer2 = new ComputeBuffer(numBlocks, sizeof(int));
         rearrangedParticlesBuffer = new ComputeBuffer(numParticles, sizeof(float)*3 + sizeof(int)*7);
         numNeighborsBuffer = new ComputeBuffer(numParticles, sizeof(int));
+        storedVelocitiesBuffer = new ComputeBuffer(numParticles, sizeof(float)*3);
 
         compute_shader.SetBuffer(generate_grid_kernel, "grid", gridBuffer);
 
@@ -406,6 +422,16 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(integrate_kernel, "velocity", velocity_buffer);
         compute_shader.SetBuffer(integrate_kernel, "force", force_buffer);
         compute_shader.SetBuffer(integrate_kernel, "density", density_buffer);
+        compute_shader.SetBuffer(integrate_kernel, "storedVelocities", storedVelocitiesBuffer);
+
+        compute_shader.SetBuffer(compute_collisions_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(compute_collisions_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
+        compute_shader.SetBuffer(compute_collisions_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        compute_shader.SetBuffer(compute_collisions_kernel, "velocity", velocity_buffer);
+        compute_shader.SetBuffer(compute_collisions_kernel, "storedVelocities", storedVelocitiesBuffer);
+
+        compute_shader.SetBuffer(dampen_by_bounds_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(dampen_by_bounds_kernel, "velocity", velocity_buffer);
     }
 
     int calculate_cube_index(grid_cell cell)
@@ -762,6 +788,23 @@ public class fluid_gpu : MonoBehaviour
         }
 
         /*
+        compute_shader.Dispatch(compute_collisions_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        if (verbose_collisions) {
+            float3[] temp_velocities = new float3[numParticles];
+            velocity_buffer.GetData(temp_velocities);
+            top = "";
+            bottom = "";
+            for(int i = 0; i < numParticles; i++) {
+                top += $"{i}\t|";
+                bottom += $"{temp_velocities[i]}\t|";
+            }
+            Debug.Log($"Velocities After Collisions:\n{top}\n{bottom}");
+        }
+        */
+
+        compute_shader.Dispatch(dampen_by_bounds_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+
+        /*
         if (verbose_hash_grid) {
             uint[] temp_hash_grid = new uint[dimension3 * max_particles_per_grid];
             uint[] temp_hash_grid_tracker = new uint[dimension3];        
@@ -876,10 +919,11 @@ public class fluid_gpu : MonoBehaviour
             Debug.Log($"Bounds:\n{top}\n{bottom}");
         }
         */
-
+        /*
         material.SetFloat(size_property, particleRenderSize);
         material.SetBuffer(particle_buffer_property, particle_buffer);
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
+        */
     }
 
     void OnDestroy()
@@ -906,6 +950,7 @@ public class fluid_gpu : MonoBehaviour
         gridSumsBuffer2.Dispose();
         rearrangedParticlesBuffer.Dispose();
         numNeighborsBuffer.Dispose();
+        storedVelocitiesBuffer.Dispose();
         /* point_buffer.Dispose();
         triangle_buffer.Dispose();
         int_debug_buffer.Dispose();
