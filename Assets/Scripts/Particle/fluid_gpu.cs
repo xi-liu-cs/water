@@ -44,7 +44,7 @@ public class fluid_gpu : MonoBehaviour
     public int[] dimension_array;
 
     [Header("voxel")]
-    public int n_point_per_axis = 50; /* z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x, x ^ 3 + x ^ 2 + x = n_particle, (x = 50, n_particle = 130000) */
+    public int n_point_per_axis = 89; /* z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x, x ^ 3 + x ^ 2 + x = n_particle, (x = 50, n_particle = 130000) */
     public float isolevel = 8;
 
     public struct particle
