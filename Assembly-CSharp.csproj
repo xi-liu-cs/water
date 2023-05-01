@@ -110,6 +110,7 @@
      <None Include="Assets\Scripts\Particle\march_table.compute" />
      <None Include="Assets\Scripts\March Fluid\march.compute" />
      <None Include="Assets\Scripts\March\march.compute" />
+     <None Include="Assets\Scripts\March\ray.shader" />
      <None Include="Assets\Scripts\Terrain\terrain_small.shader" />
      <None Include="Assets\Style\Resources\TextureToSRGBTensor.compute" />
      <None Include="Assets\Scripts\Cave\Compute\NoiseDensity.compute" />
