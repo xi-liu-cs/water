@@ -6,8 +6,8 @@ Shader "custom/ray"
     }
     SubShader
     {
-        Tags {"RenderType" = "Opaque"}
-        LOD 100
+        Tags {"Queue" = "Transparent" "RenderType" = "Transparent"} // "RenderType" = "Opaque"
+        LOD 200
 
         Pass
         {
@@ -17,6 +17,7 @@ Shader "custom/ray"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fog
+            #pragma Standard addshadow fullforwardshadows alpha:fade
 
             struct appdata
             {

@@ -12,7 +12,7 @@ public class mesh_generator : MonoBehaviour
     public float isolevel;
     public float boundsSize = 1;
     public Vector3 offset = Vector3.zero;
-    public int n_point_per_axis = 50;
+    public int n_point_per_axis = 84;
     Mesh fluid;
     MeshFilter fluid_mesh_filter;
     MeshRenderer fluid_mesh_renderer;

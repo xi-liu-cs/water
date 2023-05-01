@@ -11,7 +11,7 @@ Shader "Instanced/water"
 	}
 	SubShader
 	{
-		Tags {"Queue" = "Transparent" "RenderType" = "Transparent" }
+		Tags {"Queue" = "Transparent" "RenderType" = "Transparent"}
 		LOD 200
 
 		CGPROGRAM

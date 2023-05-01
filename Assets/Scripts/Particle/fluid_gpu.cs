@@ -22,7 +22,7 @@ public class fluid_gpu : MonoBehaviour
     public Vector3 position_offset = new Vector3(-140, -230, -60),
     velocity_initial = new Vector3(0, 10, 0);
     public float[] g = {0f, -9.81f, 0f},
-    bound = {-160, 140, -250, -150, -100, 100};
+    bound = {-100, 100, -250, -230, 0, 100}; /* {-160, 140, -250, -150, -100, 100} */
     [HideInInspector]
     public float radius2,
     radius3,
@@ -35,7 +35,7 @@ public class fluid_gpu : MonoBehaviour
     triangle[] march_triangles;
 
     [Header("fluid")]
-    public int n_particle = 700000, /* max = 1000000 */
+    public int n_particle = 600000, /* max = 1000000 */
     max_particles_per_grid = 12,
     intial_particles_per_grid = 5;
     public Vector3Int dimension;
@@ -44,8 +44,8 @@ public class fluid_gpu : MonoBehaviour
     public int[] dimension_array;
 
     [Header("voxel")]
-    public int n_point_per_axis = 89; /* z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x, x ^ 3 + x ^ 2 + x = n_particle, (x = 50, n_particle = 130000) */
-    public float isolevel = 8;
+    public int n_point_per_axis = 84; /* z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x, x ^ 3 + x ^ 2 + x = n_particle, (x = 50, n_particle = 130000) */
+    public float isolevel = 0;
 
     public struct particle
     {
@@ -125,6 +125,7 @@ public class fluid_gpu : MonoBehaviour
 
     public void Awake()
     {
+        n_point_per_axis = (int)Mathf.Pow(n_particle, 1.0f / 3.0f);
         dimension = new Vector3Int((int)((bound[1] - bound[0]) / grid_size), (int)((bound[3] - bound[2]) / grid_size), (int)((bound[5] - bound[4]) / grid_size));
         dimension_array = new int[]{dimension.x, dimension.y, dimension.z};
         dimension2 = dimension.x * dimension.y;

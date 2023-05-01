@@ -412,3 +412,36 @@ void compute_density(int3 id : SV_DispatchThreadID)
     points[cube_corner_index] = cube_corner_pos;
     voxel_density[cube_corner_index] = length(cube_corner_pos - average_particle_pos) - particle_size;
 }
+
+/* [numthreads(n_thread, n_thread, n_thread)]
+void compute_density(int3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_point_per_axis || id.y >= n_point_per_axis || id.z >= n_point_per_axis)
+        return;
+    int index = hash(id.x, id.y, id.z);
+    float3 pos = float3(bound[0], bound[2], bound[4]) + id * grid_size;
+    points[index] = pos + float3(20, -250, 100);
+    voxel_density[index] = sphere_radius - length(pos + offset);
+} */
+
+/* [numthreads(n_thread, n_thread, n_thread)]
+void compute_density(int3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_point_per_axis || id.y >= n_point_per_axis || id.z >= n_point_per_axis)
+        return;
+    int index = hash(id.x, id.y, id.z);
+    float3 pos = float3(bound[0], bound[2], bound[4]) + id * grid_size;
+    points[index] = pos;
+    voxel_density[index] = sphere_radius - length(pos + offset) + 200;
+} */
+
+/* [numthreads(n_thread, n_thread, n_thread)]
+void compute_density(int3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_point_per_axis || id.y >= n_point_per_axis || id.z >= n_point_per_axis)
+        return;
+    int index = hash(id.x, id.y, id.z);
+    float3 pos = id * grid_size;
+    points[index] = pos;
+    voxel_density[index] = (sphere_radius - length(pos + offset)) / 50 + 1;
+} */
