@@ -43,7 +43,7 @@ sealed class NoiseFieldVisualizer : MonoBehaviour
         /* _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float)); */
         noise_field_visualizer_kernel = _volumeCompute.FindKernel("NoiseFieldGenerator");
         /* _voxelBuffer = fluid_cs.noise_density_buffer; */
-        _dimension = fluid_cs.dimension;
+        _dimension = fluid_cs.numCellsPerAxis;
         _gridScale = 1f;
         _voxelBuffer = fluid_cs.density_buffer;
         _builder = new MeshBuilder(_dimension, _triangleBudget, _builderCompute, material);

@@ -203,10 +203,6 @@ MonoBehaviour:
   fluid_cs: {fileID: 1297943045}
   sphere_radius: 50
   max_particles_per_cube: 10
-  n_voxel: 0
-  clear_cube_corner_neighbor_tracker_kernel: 0
-  compute_neighbor_list_kernel: 0
-  compute_density_kernel: 0
   seed: 1
   numOctaves: 8
   lacunarity: 2
@@ -432,7 +428,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &56379758
 Transform:
   m_ObjectHideFlags: 0
@@ -461,17 +457,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   fluid_cs: {fileID: 193044022}
-  n_point_per_axis: 53
+  numPointsPerAxis: 50
+  numPoints: 0
+  numVoxelsPerAx: 0
+  numVoxels: 0
+  isolevel: 0
+  numTriangles: 0
   verbose_triangles: 0
   density_gen: {fileID: 1060349090}
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
   material: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
-  isolevel: 0
   boundsSize: 500
   offset: {x: 0, y: 0, z: 0}
-  n_point: 0
-  n_voxel_per_axis: 0
-  n_voxel: 0
 --- !u!64 &56379760
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -1051,7 +1048,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 10caace47bba37b4fb72f547ec599a6f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 3}
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   mass: 4
@@ -1737,7 +1734,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &193044021
 Transform:
   m_ObjectHideFlags: 0
@@ -1765,34 +1762,35 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c72b5ae534e4e4488e4a32386758410, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridCellSize: 0.125
+  gridCellSize: 0.0625
   origin:
   - 0
   - 0
   - 0
   bounds:
-  - 2
-  - 2
-  - 2
+  - 1
+  - 1
+  - 1
   bufferCells: 040000000400000004000000
   g:
   - 0
   - -0.2
   - 0
-  numParticles: 50000
-  particleRenderSize: 0.12
+  numParticles: 300
+  particleRenderSize: 0.06
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  dt: 0.01
-  smoothingRadius: 0.125
+  dt: 0.001
+  smoothingRadius: 0.0625
   particleMass: 0.2
   viscosity_coefficient: 3.5
   rest_density: 1000
   damping: -0.5
   gas_constant: 10
   compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
-  show_gizmos: 0
-  show_velocities: 0
-  show_forces: 0
+  show_particles: 0
+  show_grid_cells: 0
+  show_velocities: 1
+  show_forces: 1
   gizmos_particle_color: {r: 0, g: 0, b: 1, a: 0.05490196}
   verbose_grid: 0
   verbose_offsets: 0
@@ -1802,26 +1800,12 @@ MonoBehaviour:
   verbose_density_pressure: 0
   verbose_force: 0
   verbose_velocity: 0
-  verbose_collisions: 0
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   position_offset: {x: 0, y: 0, z: 0}
   velocity_initial: {x: 0, y: 0, z: 0}
-  bound:
-  - -10
-  - 10
-  - -10
-  - 10
-  - -10
-  - 10
-  radius2: 0
-  radius3: 0
-  radius4: 0
-  radius5: 0
-  mass2: 0
   max_particles_per_grid: 10
   intial_particles_per_grid: 5
-  dimension: {x: 0, y: 0, z: 0}
   dimension_array: 
   n_point_per_axis: 89
   isolevel: 0
@@ -2637,7 +2621,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 10caace47bba37b4fb72f547ec599a6f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 3}
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   mass: 4
@@ -8109,17 +8093,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   fluid_cs: {fileID: 1925688882}
-  n_point_per_axis: 50
+  numPointsPerAxis: 50
+  numPoints: 0
+  numVoxelsPerAx: 0
+  numVoxels: 0
+  isolevel: 0
+  numTriangles: 0
   verbose_triangles: 0
   density_gen: {fileID: 670494837}
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
-  isolevel: 0
   boundsSize: 500
   offset: {x: 0, y: 0, z: 0}
-  n_point: 0
-  n_voxel_per_axis: 0
-  n_voxel: 0
 --- !u!64 &503626321
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -13839,10 +13824,6 @@ MonoBehaviour:
   fluid_cs: {fileID: 1925688882}
   sphere_radius: 50
   max_particles_per_cube: 10
-  n_voxel: 0
-  clear_cube_corner_neighbor_tracker_kernel: 0
-  compute_neighbor_list_kernel: 0
-  compute_density_kernel: 0
   seed: 1
   numOctaves: 8
   lacunarity: 2
@@ -14872,7 +14853,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d285ff2d160f4ee4ea876be60677348c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 3}
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   mass: 1
@@ -21124,7 +21105,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1060349089
 Transform:
   m_ObjectHideFlags: 0
@@ -21157,10 +21138,6 @@ MonoBehaviour:
   fluid_cs: {fileID: 193044022}
   sphere_radius: 50
   max_particles_per_cube: 10
-  n_voxel: 0
-  clear_cube_corner_neighbor_tracker_kernel: 0
-  compute_neighbor_list_kernel: 0
-  compute_density_kernel: 0
   seed: 1
   numOctaves: 8
   lacunarity: 2
@@ -22674,7 +22651,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d285ff2d160f4ee4ea876be60677348c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 3}
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   mass: 1
@@ -23188,7 +23165,7 @@ MonoBehaviour:
   - 0
   numParticles: 32
   particleRenderSize: 8
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 3}
   dt: 0.0008
   smoothingRadius: 8
   particleMass: 1
@@ -23197,7 +23174,8 @@ MonoBehaviour:
   damping: -0.1
   gas_constant: 2000
   compute_shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
-  show_gizmos: 0
+  show_particles: 0
+  show_grid_cells: 0
   show_velocities: 0
   show_forces: 0
   gizmos_particle_color: {r: 0, g: 0, b: 1, a: 1}
@@ -23209,26 +23187,12 @@ MonoBehaviour:
   verbose_density_pressure: 0
   verbose_force: 1
   verbose_velocity: 0
-  verbose_collisions: 0
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   position_offset: {x: 0, y: 0, z: 0}
   velocity_initial: {x: 0, y: 0, z: 0}
-  bound:
-  - -150
-  - 150
-  - -250
-  - -150
-  - -100
-  - 100
-  radius2: 0
-  radius3: 0
-  radius4: 0
-  radius5: 0
-  mass2: 0
   max_particles_per_grid: 500
   intial_particles_per_grid: 5
-  dimension: {x: 0, y: 0, z: 0}
   dimension_array: 
   n_point_per_axis: 50
   isolevel: 8
@@ -30543,7 +30507,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1740861793
 Transform:
   m_ObjectHideFlags: 0
@@ -36138,7 +36102,7 @@ MonoBehaviour:
   - 0
   numParticles: 32
   particleRenderSize: 8
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 3}
   dt: 0.0008
   smoothingRadius: 8
   particleMass: 1
@@ -36147,7 +36111,8 @@ MonoBehaviour:
   damping: -0.9
   gas_constant: 2000
   compute_shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
-  show_gizmos: 0
+  show_particles: 0
+  show_grid_cells: 0
   show_velocities: 0
   show_forces: 0
   gizmos_particle_color: {r: 0, g: 0, b: 1, a: 1}
@@ -36159,26 +36124,12 @@ MonoBehaviour:
   verbose_density_pressure: 0
   verbose_force: 1
   verbose_velocity: 0
-  verbose_collisions: 0
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   position_offset: {x: 0, y: 0, z: 0}
   velocity_initial: {x: 0, y: 0, z: 0}
-  bound:
-  - -150
-  - 150
-  - -250
-  - -150
-  - -100
-  - 100
-  radius2: 0
-  radius3: 0
-  radius4: 0
-  radius5: 0
-  mass2: 0
   max_particles_per_grid: 500
   intial_particles_per_grid: 5
-  dimension: {x: 0, y: 0, z: 0}
   dimension_array: 
   n_point_per_axis: 50
   isolevel: 8
@@ -36359,7 +36310,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d285ff2d160f4ee4ea876be60677348c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 3}
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   mass: 1
@@ -36605,7 +36556,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 10caace47bba37b4fb72f547ec599a6f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 3}
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   mass: 4
@@ -37216,17 +37167,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   fluid_cs: {fileID: 1297943045}
-  n_point_per_axis: 50
+  numPointsPerAxis: 50
+  numPoints: 0
+  numVoxelsPerAx: 0
+  numVoxels: 0
+  isolevel: 0
+  numTriangles: 0
   verbose_triangles: 0
   density_gen: {fileID: 8824180}
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
-  isolevel: 0
   boundsSize: 500
   offset: {x: -0.64, y: 0, z: 0}
-  n_point: 0
-  n_voxel_per_axis: 0
-  n_voxel: 0
 --- !u!64 &2083196112
 MeshCollider:
   m_ObjectHideFlags: 0

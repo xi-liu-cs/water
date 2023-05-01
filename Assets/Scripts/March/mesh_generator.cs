@@ -30,9 +30,13 @@ public class mesh_generator : MonoBehaviour
 
     [Header("== Triangle Configurations ==")]
     [Tooltip("How many points will we render across the cube grid, per axis?")]
-    public int n_point_per_axis = 50;
+    public int numPointsPerAxis = 50;
+    [ReadOnly, SerializeField] private int numPoints;
+    [ReadOnly, SerializeField] private int numVoxelsPerAx;
+    [ReadOnly] public int numVoxels;
+    public float isolevel;
     // read-only: the calculated number of triangles outputted by the marching cubes shader
-    private int numTriangles = 0;
+    [ReadOnly, SerializeField] private int numTriangles = 0;
     // read-only: the triangles outputted by the marching cubes shader
     private Triangle[] triangles = new Triangle[0];
 
@@ -44,7 +48,6 @@ public class mesh_generator : MonoBehaviour
     public density_generator density_gen;
     public ComputeShader shader;
     public Material material;
-    public float isolevel;
     public float boundsSize = 1;
     public Vector3 offset = Vector3.zero;
     Mesh fluid;
@@ -53,9 +56,6 @@ public class mesh_generator : MonoBehaviour
     public ComputeBuffer point_buffer;
     public ComputeBuffer triangle_count_buffer;
     public ComputeBuffer voxel_density_buffer;
-    public int n_point;
-    public int n_voxel_per_axis;
-    public int n_voxel;
 
     private int size_property;
     private int particle_buffer_property; 
@@ -64,18 +64,34 @@ public class mesh_generator : MonoBehaviour
         // Move to center of the world
         transform.position = Vector3.zero;
 
-        // Initialize Particles
-        fluid_cs.Initialize();
-
         // Initialize shader properties
         size_property = Shader.PropertyToID("size");
         particle_buffer_property = Shader.PropertyToID("particle_buffer");
 
         // Dunno what these do -_-
-        fluid_mesh_renderer = gameObject.GetComponent<MeshRenderer>();
+        fluid_mesh_renderer = GetComponent<MeshRenderer>();
         fluid = GetComponent<MeshFilter>().mesh;
-        CreateBuffers();
-        density_gen.Awake();
+
+        // Initialize Particles
+        fluid_cs.Initialize();
+
+        InitializeVariables();
+        InitializeShaderVariables();
+        InitializeBuffers();
+
+        // Initialize Density
+        density_gen.Initialize();
+    }
+
+    private void InitializeVariables() {
+        numPoints = numPointsPerAxis * numPointsPerAxis * numPointsPerAxis;
+        numVoxelsPerAx = numPointsPerAxis - 1;
+        numVoxels = numVoxelsPerAx * numVoxelsPerAx * numVoxelsPerAx;
+    }
+
+    private void InitializeShaderVariables() {
+        shader.SetInt("n_point_per_axis", numPointsPerAxis);
+        shader.SetFloat("isolevel", isolevel);
     }
     
 
@@ -87,22 +103,19 @@ public class mesh_generator : MonoBehaviour
         UpdateMesh(fluid);
     }
 
-    unsafe void CreateBuffers()
-    {
-        n_point = n_point_per_axis * n_point_per_axis * n_point_per_axis;
-        n_voxel_per_axis = n_point_per_axis - 1;
-        n_voxel = n_voxel_per_axis * n_voxel_per_axis * n_voxel_per_axis;
-        int maxTriangleCount = n_voxel * 5;
+    unsafe void InitializeBuffers() {
+        int maxTriangleCount = numVoxels * 5;
+
         triangle_buffer = new ComputeBuffer(maxTriangleCount, sizeof(Triangle), ComputeBufferType.Append);
-        triangle_count_buffer = new ComputeBuffer(1, sizeof (int), ComputeBufferType.Raw);
-        voxel_density_buffer = new ComputeBuffer(n_point, sizeof(float));
-        point_buffer = new ComputeBuffer(n_point, 3 * sizeof(float));
+        triangle_count_buffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
+        voxel_density_buffer = new ComputeBuffer(numPoints, sizeof(float));
+        point_buffer = new ComputeBuffer(numPoints, sizeof(float) * 3);
+
         shader.SetBuffer(0, "triangles", triangle_buffer);
-        shader.SetInt("n_point_per_axis", n_point_per_axis);
-        shader.SetFloat("isolevel", isolevel);
         shader.SetBuffer(0, "voxel_density", voxel_density_buffer);
         shader.SetBuffer(0, "particles", fluid_cs.particle_buffer);
         shader.SetBuffer(0, "points", point_buffer);
+        
         material.SetFloat(size_property, fluid_cs.particleRenderRadius);
         material.SetBuffer(particle_buffer_property, fluid_cs.particle_buffer);
         fluid_mesh_renderer.material = material;
@@ -110,13 +123,13 @@ public class mesh_generator : MonoBehaviour
 
     unsafe public void UpdateChunkMesh()
     {
-        int n_voxel_per_axis = n_point_per_axis - 1;
-        int numThreadsPerAxis = Mathf.CeilToInt (n_voxel_per_axis / (float) thread_group_size);
-        float pointSpacing = boundsSize / (n_point_per_axis - 1);
+        int numVoxelsPerAx = numPointsPerAxis - 1;
+        int numThreadsPerAxis = Mathf.CeilToInt (numVoxelsPerAx / (float) thread_group_size);
+        float pointSpacing = boundsSize / (numPointsPerAxis - 1);
         Vector3 coord = Vector3.zero;
         Vector3 center = - new Vector3(boundsSize, boundsSize, boundsSize) / 2 + coord * boundsSize + Vector3.one * boundsSize / 2;
         Vector3 worldBounds = new Vector3(boundsSize, boundsSize, boundsSize);
-        density_gen.generate(point_buffer, n_point_per_axis, boundsSize, worldBounds, center, offset, pointSpacing);
+        density_gen.generate(point_buffer, numPointsPerAxis, boundsSize, worldBounds, center, offset, pointSpacing);
         
         /* float[] a = new float[100];
         voxel_density_buffer.GetData(a);

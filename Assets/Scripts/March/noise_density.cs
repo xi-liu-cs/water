@@ -21,19 +21,19 @@ public class noise_density : density_generator
     public Vector4 shaderParams;
 
     public override ComputeBuffer generate(ComputeBuffer point_buffer, int n_point_per_axis, float boundsSize, Vector3 worldBounds, Vector3 center, Vector3 offset, float spacing) {
-        buffersToRelease = new List<ComputeBuffer> ();
+        buffersToRelease = new List<ComputeBuffer>();
 
         // Noise parameters
-        var prng = new System.Random (seed);
+        var prng = new System.Random(seed);
         var offsets = new Vector3[numOctaves];
         float offsetRange = 1000;
         for (int i = 0; i < numOctaves; i++) {
             offsets[i] = new Vector3 ((float) prng.NextDouble () * 2 - 1, (float) prng.NextDouble () * 2 - 1, (float) prng.NextDouble () * 2 - 1) * offsetRange;
         }
 
-        var offsetsBuffer = new ComputeBuffer (offsets.Length, sizeof (float) * 3);
-        offsetsBuffer.SetData (offsets);
-        buffersToRelease.Add (offsetsBuffer);
+        var offsetsBuffer = new ComputeBuffer(offsets.Length, sizeof (float) * 3);
+        offsetsBuffer.SetData(offsets);
+        buffersToRelease.Add(offsetsBuffer);
 
         densityShader.SetVector ("center", new Vector4 (center.x, center.y, center.z));
         densityShader.SetInt ("octaves", Mathf.Max (1, numOctaves));

@@ -25,7 +25,8 @@ public class fluid_gpu : MonoBehaviour
     public float[] bounds = {50f, 50f, 50f};
     public int[] bufferCells = {10,10,10};
     private float[] outerBounds = {60f, 60f, 60f};
-    private int[] numCellsPerAxis;
+    private int[] _numCellsPerAxis;
+    public Vector3Int numCellsPerAxis { get => new Vector3Int(_numCellsPerAxis[0], _numCellsPerAxis[1], _numCellsPerAxis[2]); set {} }
     private int numGridCells;
     public float[] g = {0f, -9.81f, 0f};
 
@@ -41,7 +42,14 @@ public class fluid_gpu : MonoBehaviour
     [Header("== FLUID MECHANICS ==")]
     public float dt = 0.0008f;
     public float smoothingRadius = 8f;   /* h, smoothing length */
+    public float radius2 { get => Mathf.Pow(smoothingRadius, 2f); set {} }
+    public float radius3 { get => Mathf.Pow(smoothingRadius, 3f); set {} }
+    public float radius4 { get => Mathf.Pow(smoothingRadius, 4f); set {} }
+    public float radius5 { get => Mathf.Pow(smoothingRadius, 5f); set {} }
+    public float radius6 { get => Mathf.Pow(smoothingRadius, 6f); set {} }
+    public float radius9 { get => Mathf.Pow(smoothingRadius, 9f); set {} }
     public float particleMass = 1f;
+    public float particleMass2 { get => Mathf.Pow(particleMass,2f); set {} }
     public float viscosity_coefficient = 0.01f;
     public float rest_density = 9f;
     public float damping = -1f;
@@ -74,7 +82,8 @@ public class fluid_gpu : MonoBehaviour
     // int march_kernel;
 
     [Header("== DEBUG CONFIGURATIONS ==")]
-    public bool show_gizmos = false;
+    public bool show_particles = false;
+    public bool show_grid_cells = false;
     public bool show_velocities = false;
     public bool show_forces = false;
     public Color gizmos_particle_color = Color.blue;
@@ -84,11 +93,9 @@ public class fluid_gpu : MonoBehaviour
     public bool verbose_prefix_sums = false;
     public bool verbose_rearrange = false;
     public bool verbose_num_neighbors = false;
-    //public bool verbose_neighbors = false;
     public bool verbose_density_pressure = false;
     public bool verbose_force = false;
     public bool verbose_velocity = false;
-    public bool verbose_collisions = false;
 
 
 
@@ -101,13 +108,7 @@ public class fluid_gpu : MonoBehaviour
     
     public Vector3 position_offset = new Vector3(-140, -230, -60);
     public Vector3 velocity_initial = new Vector3(0, 10, 0);
-    public float[] bound = {-160, 140, -250, -150, -100, 100};
     [HideInInspector]
-    public float radius2,
-    radius3,
-    radius4,
-    radius5,
-    mass2;
     Vector3[] points;
     float[] noise_densities;
     int[] triangles;
@@ -116,7 +117,6 @@ public class fluid_gpu : MonoBehaviour
     [Header("fluid")]
     public int max_particles_per_grid = 12,
     intial_particles_per_grid = 5;
-    public Vector3Int dimension;
     int dimension2,
     dimension3;
     public int[] dimension_array;
@@ -206,7 +206,7 @@ public class fluid_gpu : MonoBehaviour
         Gizmos.color = Color.red;
         Gizmos.DrawSphere(_origin,0.1f);
 
-        if (!Application.isPlaying || !show_gizmos) return;
+        if (!Application.isPlaying) return;
 
         Vector4 gridColor = new Vector4(1f,0f,0f,0.25f);
         Vector3 gridCellSize3D = new Vector3(gridCellSize, gridCellSize, gridCellSize);
@@ -219,10 +219,14 @@ public class fluid_gpu : MonoBehaviour
         float3[] temp_velocities_array = new float3[numParticles];
         velocity_buffer.GetData(temp_velocities_array);
         for(int i = 1; i < numParticles; i++) {
-            Gizmos.color = gizmos_particle_color;
-            Gizmos.DrawSphere(temp_particles[i].position, particleRenderRadius);
-            Gizmos.color = gridColor;
-            Gizmos.DrawCube(GetGridCellWorldPositionFromXYZIndices(temp_particles[i].grid_indices), gridCellSize3D);
+            if (show_particles) {
+                Gizmos.color = gizmos_particle_color;
+                Gizmos.DrawSphere(temp_particles[i].position, particleRenderRadius);
+            }
+            if (show_grid_cells) {
+                Gizmos.color = gridColor;
+                Gizmos.DrawCube(GetGridCellWorldPositionFromXYZIndices(temp_particles[i].grid_indices), gridCellSize3D);
+            }
             if (show_forces) {
                 Gizmos.color = Color.green;
                 Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_forces_array[i]);
@@ -249,22 +253,22 @@ public class fluid_gpu : MonoBehaviour
 
     public Vector3Int GetGridXYZIndices(Vector3 position) {
         return new Vector3Int(
-            Mathf.FloorToInt((position.x - bound[0])/gridCellSize),
-            Mathf.FloorToInt((position.y - bound[2])/gridCellSize),
-            Mathf.FloorToInt((position.z - bound[4])/gridCellSize)
+            Mathf.FloorToInt((position.x - (origin[0] - (_numCellsPerAxis[0] * gridCellSize)/2f))/gridCellSize),
+            Mathf.FloorToInt((position.y - (origin[1] - (_numCellsPerAxis[1] * gridCellSize)/2f))/gridCellSize),
+            Mathf.FloorToInt((position.z - (origin[2] - (_numCellsPerAxis[2] * gridCellSize)/2f))/gridCellSize)
         );
     }
     public int GetProjectedGridIndexFromXYZ(int x, int y, int z) {
-        return x + (dimension_array[1] * y) + (dimension_array[1] * dimension_array[2] * z);
+        return x + (_numCellsPerAxis[0] * y) + (_numCellsPerAxis[0] * _numCellsPerAxis[1] * z);
     }
     public int GetProjectedGridIndexFromXYZ(Vector3Int xyz) {
-        return xyz.x + (dimension_array[1] * xyz.y) + (dimension_array[1] * dimension_array[2] * xyz.z);
+        return xyz.x + (_numCellsPerAxis[0] * xyz.y) + (_numCellsPerAxis[0] * _numCellsPerAxis[1] * xyz.z);
     }
     public Vector3 GetGridCellWorldPositionFromXYZIndices(int3 xyz) {
         return new Vector3(
-            (origin[0] - ((numCellsPerAxis[0] * gridCellSize)/2f)) + (xyz[0] * gridCellSize) + (gridCellSize/2f),
-            (origin[1] - ((numCellsPerAxis[1] * gridCellSize)/2f)) + (xyz[1] * gridCellSize) + (gridCellSize/2f),
-            (origin[2] - ((numCellsPerAxis[2] * gridCellSize)/2f)) + (xyz[2] * gridCellSize) + (gridCellSize/2f)
+            (origin[0] - ((_numCellsPerAxis[0] * gridCellSize)/2f)) + (xyz[0] * gridCellSize) + (gridCellSize/2f),
+            (origin[1] - ((_numCellsPerAxis[1] * gridCellSize)/2f)) + (xyz[1] * gridCellSize) + (gridCellSize/2f),
+            (origin[2] - ((_numCellsPerAxis[2] * gridCellSize)/2f)) + (xyz[2] * gridCellSize) + (gridCellSize/2f)
         );
     }
 
@@ -286,34 +290,25 @@ public class fluid_gpu : MonoBehaviour
 
     private void InitializeVariables() {
         // Calculate how many cells will fit within the provided dimensions
-        numCellsPerAxis = new int[3];
-        numCellsPerAxis[0] = Mathf.CeilToInt(bounds[0] / gridCellSize) + bufferCells[0];
-        numCellsPerAxis[1] = Mathf.CeilToInt(bounds[1] / gridCellSize) + bufferCells[1];
-        numCellsPerAxis[2] = Mathf.CeilToInt(bounds[2] / gridCellSize) + bufferCells[2];
+        _numCellsPerAxis = new int[3];
+        _numCellsPerAxis[0] = Mathf.CeilToInt(bounds[0] / gridCellSize) + bufferCells[0];
+        _numCellsPerAxis[1] = Mathf.CeilToInt(bounds[1] / gridCellSize) + bufferCells[1];
+        _numCellsPerAxis[2] = Mathf.CeilToInt(bounds[2] / gridCellSize) + bufferCells[2];
         // Re-Calculate the new bounds based on the number of cells per axis
-        outerBounds[0] = (float)numCellsPerAxis[0] * gridCellSize;
-        outerBounds[1] = (float)numCellsPerAxis[1] * gridCellSize;
-        outerBounds[2] = (float)numCellsPerAxis[2] * gridCellSize;
+        outerBounds[0] = (float)_numCellsPerAxis[0] * gridCellSize;
+        outerBounds[1] = (float)_numCellsPerAxis[1] * gridCellSize;
+        outerBounds[2] = (float)_numCellsPerAxis[2] * gridCellSize;
         // How many grid cells are there in total?
-        numGridCells = numCellsPerAxis[0] * numCellsPerAxis[1] * numCellsPerAxis[2];
+        numGridCells = _numCellsPerAxis[0] * _numCellsPerAxis[1] * _numCellsPerAxis[2];
 
         // == GPU SETTINGS ==
         numBlocks = Mathf.CeilToInt((float)numGridCells / (float)_BLOCK_SIZE);
 
         // == OLD SETTINGS ==
         grid_size_over_2 = (int)gridCellSize / 2;
-        dimension = new Vector3Int((int)((bound[1] - bound[0]) / gridCellSize), (int)((bound[3] - bound[2]) / gridCellSize), (int)((bound[5] - bound[4]) / gridCellSize));
-        dimension_array = new int[]{dimension.x, dimension.y, dimension.z};
-        dimension2 = dimension.x * dimension.y;
-        dimension3 = dimension2 * dimension.z;
         table = new march_table();
-        radius2 = smoothingRadius * smoothingRadius;
-        radius3 = radius2 * smoothingRadius;
-        radius4 = radius3 * smoothingRadius;
-        radius5 = radius4 * smoothingRadius;
-        mass2 = particleMass * particleMass;
 
-        Debug.Log($"Number of particle grid cells per axis: ({numCellsPerAxis[0]}, {numCellsPerAxis[1]}, {numCellsPerAxis[2]})");
+        Debug.Log($"Number of particle grid cells per axis: ({_numCellsPerAxis[0]}, {_numCellsPerAxis[1]}, {_numCellsPerAxis[2]})");
         Debug.Log($"Total # of particle grid cells: {numGridCells}");
     }
 
@@ -337,7 +332,7 @@ public class fluid_gpu : MonoBehaviour
     void InitializeShaderVariables() {
         // == WORLD CONFIGURATIONS ==
         compute_shader.SetFloat("gridCellSize", gridCellSize);
-        compute_shader.SetInts("numCellsPerAxis", numCellsPerAxis);
+        compute_shader.SetInts("numCellsPerAxis", _numCellsPerAxis);
         compute_shader.SetInt("total_number_of_cells", numGridCells);
         compute_shader.SetFloats("origin", origin);
         compute_shader.SetFloats("bounds", bounds);
@@ -347,22 +342,6 @@ public class fluid_gpu : MonoBehaviour
         // == PARTICLE CONFIGURATIONS ==
         compute_shader.SetInt("numParticles", numParticles);
         compute_shader.SetFloat("particleRenderRadius", particleRenderRadius);
-
-        // == FLUID MECHANICS ==
-        compute_shader.SetFloat("smoothingRadius", smoothingRadius);
-        compute_shader.SetFloat("radius2", radius2);
-        compute_shader.SetFloat("radius3", radius3);
-        compute_shader.SetFloat("radius4", radius4);
-        compute_shader.SetFloat("radius5", radius5);
-        compute_shader.SetFloat("radius6", radius5 * smoothingRadius);
-        compute_shader.SetFloat("radius9", radius5 * radius4);
-        compute_shader.SetFloat("particleMass", particleMass);
-        compute_shader.SetFloat("mass2", mass2);
-        compute_shader.SetFloat("gas_constant", gas_constant);
-        compute_shader.SetFloat("rest_density", rest_density);
-        compute_shader.SetFloat("viscosity_coefficient", viscosity_coefficient);
-        compute_shader.SetFloat("damping", damping);
-        compute_shader.SetInts("dimension", dimension_array);
 
         // == GPU SETTINGS
         compute_shader.SetInt("numBlocks", numBlocks);
@@ -379,6 +358,29 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetVector("time", Shader.GetGlobalVector("_Time"));
         compute_shader.SetInt("n_point_per_axis", n_point_per_axis);
         compute_shader.SetFloat("isolevel", isolevel);
+
+        // Update variables that may change over time due to modifying inspector values
+        UpdateShaderVariables();
+    }
+
+    public void UpdateShaderVariables(bool updateDT = false) {
+        // == FLUID MECHANICS ==
+        compute_shader.SetFloat("smoothingRadius", smoothingRadius);
+        compute_shader.SetFloat("radius6", radius6);
+        compute_shader.SetFloat("radius9", radius9);
+
+        compute_shader.SetFloat("particleMass", particleMass);
+        compute_shader.SetFloat("gas_constant", gas_constant);
+        compute_shader.SetFloat("rest_density", rest_density);
+        compute_shader.SetFloat("viscosity_coefficient", viscosity_coefficient);
+        compute_shader.SetFloat("damping", damping);
+
+        compute_shader.SetFloat("particleRenderRadius", particleRenderRadius);
+        compute_shader.SetFloats("g", g);
+        if (updateDT) {
+            if (dt > 0) compute_shader.SetFloat("dt", dt);
+            else compute_shader.SetFloat("dt", Time.deltaTime);
+        }
     }
 
     public unsafe void InitializeBuffers() {
@@ -569,10 +571,9 @@ public class fluid_gpu : MonoBehaviour
         force = new Vector3[numParticles];
         int i = 0;
         while(i < numParticles) {
-            for(int x = 0; x < dimension.x; ++x)
-                for(int y = 0; y < dimension.y; ++y)
-                    for(int z = 0; z < dimension.z; ++z)
-                    {
+            for(int x = 0; x < _numCellsPerAxis[0]; x++)
+                for(int y = 0; y < _numCellsPerAxis[1]; y++)
+                    for(int z = 0; z < _numCellsPerAxis[2]; z++) {
                         Vector3 grid_pos = new Vector3(
                             bound[0] + x * gridCellSize, 
                             bound[2] + y * gridCellSize, 
@@ -582,9 +583,9 @@ public class fluid_gpu : MonoBehaviour
                         {
                             //Vector3 pos = grid_pos - new Vector3(gridCellSize_over_2, gridCellSize_over_2, gridCellSize_over_2) - new Vector3(UnityEngine.Random.Range(0f, gridCellSize_over_2), UnityEngine.Random.Range(0f, gridCellSize_over_2), UnityEngine.Random.Range(0f, gridCellSize_over_2));
                             Vector3 pos = new Vector3(
-                                Random.Range(bound[0],bound[1]),
-                                Random.Range(bound[2],bound[3]),
-                                Random.Range(bound[4],bound[5])
+                                origin[0] + Random.Range(-bounds[0]/2f,bounds[0]/2f),
+                                origin[1] + Random.Range(-bounds[1]/2f,bounds[1]/2f),
+                                origin[2] + Random.Range(-bounds[2],bounds[2]/2f)
                             );
                             Vector3Int grid_indices = GetGridXYZIndices(pos);
                             int projected_index = GetProjectedGridIndexFromXYZ(grid_indices);
@@ -611,62 +612,23 @@ public class fluid_gpu : MonoBehaviour
 
     public void UpdateParticles() {
 
-        if (dt > 0) compute_shader.SetFloat("dt", dt);
-        else compute_shader.SetFloat("dt", Time.deltaTime);
-        compute_shader.SetFloat("particleRenderRadius", particleRenderRadius);
-        compute_shader.SetFloats("g", g);
+        UpdateShaderVariables(true);
 
         string top = "";
         string bottom = "";
-        int debug_num_grid_cells = Mathf.Min(200, numGridCells);
-        int debug_num_particles = Mathf.Min(200, numParticles);
+        int debugNumGridCells = Mathf.Min(1000, numGridCells);
+        int debugNumParticles = Mathf.Min(500, numParticles);
 
         compute_shader.Dispatch(clear_grid_kernel, numBlocks,1,1);
         compute_shader.Dispatch(reset_num_neighbors_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
         compute_shader.Dispatch(update_grid_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
 
         if (verbose_grid) {
-            int[] temp_grid = new int[debug_num_grid_cells];
-            gridBuffer.GetData(temp_grid);
-            for(int i = 0; i < debug_num_grid_cells; i++) {
-                top += $"{i}\t|";
-                bottom += $"{temp_grid[i]}\t|";
-            }
-            Debug.Log($"Grid\n{top}\n{bottom}");
-            Particle[] temp_particles = new Particle[debug_num_particles];
-            particle_buffer.GetData(temp_particles);
-            top = "";
-            bottom = "";
-            for(int i = 0; i < debug_num_particles; i++) {
-                top += $"{i}\t|";
-                bottom += $"{temp_particles[i].position}\t|";
-            }
-            Debug.Log($"Particles World Positions:\n{top}\n{bottom}");
-            top = "";
-            bottom = "";
-            for(int i = 0; i < debug_num_particles; i++) {
-                top += $"{i}\t|";
-                bottom += $"{temp_particles[i].grid_indices}\t|";
-            }
-            Debug.Log($"Particles Grid Indices:\n{top}\n{bottom}");
-            top = "";
-            bottom = "";
-            for(int i = 0; i < debug_num_particles; i++) {
-                top += $"{i}\t|";
-                bottom += $"{temp_particles[i].projected_index}\t|";
-            }
-            Debug.Log($"Particles Projected Indices:\n{top}\n{bottom}");
+            DebugBufferInt("Grid", debugNumGridCells, gridBuffer);
+            DebugBufferParticle("Particles", debugNumParticles, particle_buffer);
         }
         if (verbose_offsets) {
-            uint[] temp_offsets = new uint[debug_num_particles];
-            particleOffsetsBuffer.GetData(temp_offsets);
-            top = "";
-            bottom = "";
-            for(int i = 0; i < debug_num_particles; i++) {
-                top += $"{i}\t|";
-                bottom += $"{temp_offsets[i]}\t|";
-            }
-            Debug.Log($"Particle Offsets:\n{top}\n{bottom}");
+            DebugBufferInt("Particle Offsets", debugNumParticles, particleOffsetsBuffer);
         }
 
         compute_shader.Dispatch(prefix_sum_kernel, numBlocks, 1, 1);
@@ -680,102 +642,35 @@ public class fluid_gpu : MonoBehaviour
         }
         compute_shader.SetBuffer(add_sums_kernel, "gridSumsBufferIn", swap ? gridSumsBuffer1 : gridSumsBuffer2);
         compute_shader.Dispatch(add_sums_kernel, numBlocks, 1, 1);
+        
         if (verbose_prefix_sums) {
-            int[] temp_offset_grid = new int[debug_num_grid_cells];
-            gridOffsetBuffer.GetData(temp_offset_grid);
-            top = "";
-            bottom="";
-            for(int k = 0; k < debug_num_grid_cells; k++) {
-                top += $"{k}\t|";
-                bottom += $"{temp_offset_grid[k]}\t|";
-            }
-            Debug.Log("PREFIX SUMS:\n"+top+"\n"+bottom);
+            DebugBufferInt("Prefix Sums", debugNumGridCells, gridOffsetBuffer);
         }
 
         compute_shader.Dispatch(rearrange_particles_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_rearrange) {
-            Particle[] temp_rearranged = new Particle[debug_num_particles];
-            rearrangedParticlesBuffer.GetData(temp_rearranged);
-            top = "";
-            bottom="";
-            for(int k = 0; k < debug_num_particles; k++) {
-                top += $"{k}\t|";
-                bottom += $"{temp_rearranged[k].index}\t|";
-            }
-            Debug.Log("REARRANGED PARTICLES:\n"+top+"\n"+bottom);
+            DebugBufferParticle("Rearranged particle", debugNumParticles, rearrangedParticlesBuffer);
         }
 
         compute_shader.Dispatch(count_num_neighbors_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_num_neighbors) {
-            int[] temp_num_neighbors = new int[debug_num_particles];
-            numNeighborsBuffer.GetData(temp_num_neighbors);
-            top = "";
-            bottom="";
-            for(int k = 0; k < debug_num_particles; k++) {
-                if (temp_num_neighbors[k] == 0) continue;
-                top += $"{k}\t|";
-                bottom += $"{temp_num_neighbors[k]}\t|";
-            }
-            Debug.Log("NUM PARTICLE NEIGHBORS:\n"+top+"\n"+bottom);
-            /*
-            int[] temp_num_neighbors = new int[numParticles];
-            numNeighborsBuffer.GetData(temp_num_neighbors);
-            top = "";
-            bottom="";
-            for(int k = 0; k < numParticles; k++) {
-                top += $"{k}\t|";
-                bottom += $"{temp_num_neighbors[k]}\t|";
-            }
-            Debug.Log("NUM PARTICLE NEIGHBORS 2:\n"+top+"\n"+bottom);
-            */
+            DebugBufferInt("Num Neighbors",debugNumParticles,numNeighborsBuffer);
         }
 
         compute_shader.Dispatch(compute_density_pressure_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_density_pressure) {
-            float[] temp_densities = new float[debug_num_particles];
-            float[] temp_pressures = new float[debug_num_particles];
-            density_buffer.GetData(temp_densities);
-            top = "";
-            bottom = "";
-            for(int i = 0; i < debug_num_particles; i++) {
-                top += $"{i}\t|";
-                bottom += $"{temp_densities[i]}\t|";
-            }
-            Debug.Log($"Densities:\n{top}\n{bottom}");
-            pressure_buffer.GetData(temp_pressures);
-            top = "";
-            bottom = "";
-            for(int i = 0; i < debug_num_particles; i++) {
-                top += $"{i}\t|";
-                bottom += $"{temp_pressures[i]}\t|";
-            }
-            Debug.Log($"Pressures:\n{top}\n{bottom}");
+            DebugBufferFloat("Densities",debugNumParticles,density_buffer);
+            DebugBufferFloat("Pressures",debugNumParticles,pressure_buffer);
         }
 
         compute_shader.Dispatch(compute_force_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_force) {
-            float3[] temp_forces = new float3[debug_num_particles];
-            force_buffer.GetData(temp_forces);
-            top = "";
-            bottom = "";
-            for(int i = 0; i < debug_num_particles; i++) {
-                top += $"{i}\t|";
-                bottom += $"{temp_forces[i]}\t|";
-            }
-            Debug.Log($"Forces:\n{top}\n{bottom}");
+            DebugBufferFloat3("Forces",debugNumParticles,force_buffer);
         }
 
         compute_shader.Dispatch(integrate_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_velocity) {
-            float3[] temp_velocities = new float3[debug_num_particles];
-            velocity_buffer.GetData(temp_velocities);
-            top = "";
-            bottom = "";
-            for(int i = 0; i < debug_num_particles; i++) {
-                top += $"{i}\t|";
-                bottom += $"{temp_velocities[i]}\t|";
-            }
-            Debug.Log($"Velocities:\n{top}\n{bottom}");
+            DebugBufferFloat3("Velocities",debugNumParticles,velocity_buffer);
         }
 
         compute_shader.Dispatch(dampen_by_bounds_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
@@ -896,7 +791,6 @@ public class fluid_gpu : MonoBehaviour
         }
         */
         
-        if (show_gizmos) return;
         material.SetFloat(size_property, particleRenderSize);
         material.SetBuffer(particle_buffer_property, particle_buffer);
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
@@ -917,5 +811,57 @@ public class fluid_gpu : MonoBehaviour
         gridSumsBuffer2.Dispose();
         rearrangedParticlesBuffer.Dispose();
         numNeighborsBuffer.Dispose();
+    }
+    
+    private void DebugBufferInt(string debugText, int debugSize, ComputeBuffer b) {
+        int[] temp = new int[debugSize];
+        b.GetData(temp);
+        string top = "", bottom = "";
+        for(int i = 0; i < debugSize; i++) {
+            top += $"{i}\t|";
+            bottom += $"{temp[i]}\t|";
+        }
+        Debug.Log($"{debugText}:\n{top}\n{bottom}");
+        temp = null;
+    }
+    private void DebugBufferFloat(string debugText, int debugSize, ComputeBuffer b) {
+        float[] temp = new float[debugSize];
+        b.GetData(temp);
+        string top = "", bottom = "";
+        for(int i = 0; i < debugSize; i++) {
+            top += $"{i}\t|";
+            bottom += $"{temp[i]}\t|";
+        }
+        Debug.Log($"{debugText}:\n{top}\n{bottom}");
+        temp = null;
+    }
+    private void DebugBufferFloat3(string debugText, int debugSize, ComputeBuffer b) {
+        float3[] temp = new float3[debugSize];
+        b.GetData(temp);
+        string top = "", bottom = "";
+        for(int i = 0; i < debugSize; i++) {
+            top += $"{i}\t|";
+            bottom += $"{temp[i]}\t|";
+        }
+        Debug.Log($"{debugText}:\n{top}\n{bottom}");
+        temp = null;
+    }
+    private void DebugBufferParticle(string debugText, int debugSize, ComputeBuffer b) {
+        Particle[] temp = new Particle[debugSize];
+        b.GetData(temp);
+        string top = "";
+        string indexBottom = "", positionBottom = "", indicesBottom = "", projectedBottom = "";
+        for(int i = 0; i < debugSize; i++) {
+            top += $"{i}\t|";
+            indexBottom += $"{temp[i].index}\t|";
+            positionBottom += $"{temp[i].position}\t|";
+            indicesBottom += $"{temp[i].grid_indices}\t|";
+            projectedBottom += $"{temp[i].projected_index}\t|";
+        }
+        Debug.Log($"{debugText} indexes:\n{top}\n{indexBottom}");
+        Debug.Log($"{debugText} positions:\n{top}\n{positionBottom}");
+        Debug.Log($"{debugText} indices:\n{top}\n{indicesBottom}");
+        Debug.Log($"{debugText} projected grid index:\n{top}\n{projectedBottom}");
+        temp = null;
     }
 }

@@ -11,10 +11,6 @@ float3 bounds;
 float3 outerBounds;
 uint max_particles_per_grid;                    // int maximumParticlesPerCell;                 -- UINT VS INT
 float smoothingRadius;                               // float radius;                                -- VERIFIED
-float radius2;                                  // float radius2;                               -- VERIFIED
-float radius3;                                  // float radius3;                               -- VERIFIED
-float radius4;                                  // float radius4;                               -- VERIFIED
-float radius5;                                  // float radius5;                               -- VERIFIED
 float radius6;
 float radius9;
 float particleMass;                             // float mass;                                  -- VERIFIED

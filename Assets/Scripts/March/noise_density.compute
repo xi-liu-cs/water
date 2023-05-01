@@ -1,22 +1,22 @@
-﻿#pragma kernel clear_cube_corner_neighbor_tracker
+#pragma kernel clear_cube_corner_neighbor_tracker
 #pragma kernel compute_neighbor_list
 #pragma kernel compute_density
 #include "noise.compute"
 
-struct particle
-{
+// Copied from `fluid_shader_2.compute`
+struct particle {
     float3 position;
+    int3 grid_indices;
+    int projected_index;
+    int index;
 };
 
 static const int n = 8,
-n_thread = 8,
-max_particles_per_grid;
+n_thread = 8;
 
 StructuredBuffer<float3> offsets;
 int n_point_per_axis;
 float boundsSize;
-float3 center;
-float3 offset;
 float spacing;
 float3 worldSize;
 int octaves;
@@ -29,25 +29,25 @@ float weightMultiplier;
 bool closeEdges;
 float hardFloor;
 float hardFloorWeight;
-float mass,
-radius,
-radius2,
-radius3,
-pi,
-particle_size,
-sphere_radius;
+
+// World constants
+float pi;
+static const float e = 2.7182818284590452353602874713527; // Euler's constant
+
+// Retrieved from `fluid_gpu.cs`
+float gridCellSize;
+float radius;
+float radius2;
+float radius3;
+float particleRenderRadius;
+float3 bounds;
+
+float sphere_radius;
+float4 params;
+
 RWStructuredBuffer<particle> particles;
 RWStructuredBuffer<float> voxel_density;
 RWStructuredBuffer<float3> points;
-RWStructuredBuffer<int> neighbor_list,
-neighbor_tracker;
-
-float3 bounds;
-float gridCellSize;
-int3 dimension;
-float4 params;
-
-static const float e = 2.7182818284590452353602874713527;
 
 RWStructuredBuffer<int> cube_corner_neighbor_list,
 cube_corner_neighbor_tracker;
@@ -177,5 +177,5 @@ void compute_density(int3 id : SV_DispatchThreadID) {
         average_particle_pos += weight_i * particles[neighbor_index].position;
     }
     points[cube_corner_index] = cube_corner_pos;
-    voxel_density[cube_corner_index] = length(cube_corner_pos - average_particle_pos) - particle_size;
+    voxel_density[cube_corner_index] = length(cube_corner_pos - average_particle_pos) - particleRenderRadius;
 }
