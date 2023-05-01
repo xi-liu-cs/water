@@ -2,79 +2,89 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(MeshRenderer))]
 public class mesh_generator : MonoBehaviour
 {
+    struct Triangle {
+        public Vector3 a;
+        public Vector3 b;
+        public Vector3 c;
+
+        public Vector3 this [int i] {
+            get {
+                switch (i) {
+                    case 0:
+                        return a;
+                    case 1:
+                        return b;
+                    default:
+                        return c;
+                }
+            }
+        }
+    }
+
+    [Header("== Particle Configurations ==")]
+    [Tooltip("Reference to the script that handles all particles")]
+    public fluid_gpu fluid_cs;
+
+    [Header("== Triangle Configurations ==")]
+    [Tooltip("How many points will we render across the cube grid, per axis?")]
+    public int n_point_per_axis = 50;
+    // read-only: the calculated number of triangles outputted by the marching cubes shader
+    private int numTriangles = 0;
+    // read-only: the triangles outputted by the marching cubes shader
+    private Triangle[] triangles = new Triangle[0];
+
+    [Header("Debug Configurations")]
+    [Tooltip("When active, prints out details about the triangles outputted by teh marching cubes shader")]
+    public bool verbose_triangles = false;
+
     const int thread_group_size = 8;
     public density_generator density_gen;
     public ComputeShader shader;
-    public fluid_gpu fluid_cs;
     public Material material;
     public float isolevel;
     public float boundsSize = 1;
     public Vector3 offset = Vector3.zero;
-    public int n_point_per_axis = 50;
     Mesh fluid;
-    MeshFilter fluid_mesh_filter;
     MeshRenderer fluid_mesh_renderer;
-    public ComputeBuffer triangle_buffer,
-    point_buffer,
-    triangle_count_buffer,
-    voxel_density_buffer,
-    particle_buffer;
-    public int n_point,
-    n_particle,
-    n_voxel_per_axis,
-    n_voxel;
+    public ComputeBuffer triangle_buffer;
+    public ComputeBuffer point_buffer;
+    public ComputeBuffer triangle_count_buffer;
+    public ComputeBuffer voxel_density_buffer;
+    public int n_point;
+    public int n_voxel_per_axis;
+    public int n_voxel;
 
-    int size_property = Shader.PropertyToID("size"),
-    particle_buffer_property = Shader.PropertyToID("particle_buffer");
-    
-    public struct particle
-    {
-        public Vector3 position;
-    }
+    private int size_property;
+    private int particle_buffer_property; 
 
-    /* void OnDrawGizmos()
-    {
-        if(Application.isPlaying)
-        {
-            Gizmos.color = Color.yellow;
-            particle[] debug_particles = new particle[n_particle];
-            particle_buffer.GetData(debug_particles);
-            for(int i = 0; i < debug_particles.Length; ++i)
-                Gizmos.DrawSphere(debug_particles[i].position, 1f);
-        }
-    } */
+    private void Awake() {
+        // Move to center of the world
+        transform.position = Vector3.zero;
 
-    void Awake()
-    {
-        fluid_cs.Awake();
-        particle_buffer = fluid_cs.particle_buffer;
-        n_point_per_axis = fluid_cs.n_point_per_axis;
-        n_particle = fluid_cs.numParticles;
-        gameObject.transform.position = new Vector3(0, 0, 0);
-        fluid_mesh_filter = gameObject.GetComponent<MeshFilter>();
-        if(fluid_mesh_filter == null)
-        {
-            gameObject.AddComponent<MeshFilter>();
-            fluid_mesh_filter = gameObject.GetComponent<MeshFilter>();
-        }
+        // Initialize Particles
+        fluid_cs.Initialize();
+
+        // Initialize shader properties
+        size_property = Shader.PropertyToID("size");
+        particle_buffer_property = Shader.PropertyToID("particle_buffer");
+
+        // Dunno what these do -_-
         fluid_mesh_renderer = gameObject.GetComponent<MeshRenderer>();
-        if(fluid_mesh_renderer == null)
-        {
-            gameObject.AddComponent<MeshRenderer>();
-            fluid_mesh_renderer = gameObject.GetComponent<MeshRenderer>();
-        }
         fluid = GetComponent<MeshFilter>().mesh;
         CreateBuffers();
         density_gen.Awake();
     }
     
 
-    void Update()
-    {
-        fluid_cs.Update();
-        UpdateChunkMesh(fluid);
+    void Update() {
+        // Tell our particle manager to update the particles
+        fluid_cs.UpdateParticles();
+        
+        UpdateChunkMesh();
+        UpdateMesh(fluid);
     }
 
     unsafe void CreateBuffers()
@@ -83,7 +93,7 @@ public class mesh_generator : MonoBehaviour
         n_voxel_per_axis = n_point_per_axis - 1;
         n_voxel = n_voxel_per_axis * n_voxel_per_axis * n_voxel_per_axis;
         int maxTriangleCount = n_voxel * 5;
-        triangle_buffer = new ComputeBuffer(maxTriangleCount, sizeof(tri), ComputeBufferType.Append);
+        triangle_buffer = new ComputeBuffer(maxTriangleCount, sizeof(Triangle), ComputeBufferType.Append);
         triangle_count_buffer = new ComputeBuffer(1, sizeof (int), ComputeBufferType.Raw);
         voxel_density_buffer = new ComputeBuffer(n_point, sizeof(float));
         point_buffer = new ComputeBuffer(n_point, 3 * sizeof(float));
@@ -98,7 +108,7 @@ public class mesh_generator : MonoBehaviour
         fluid_mesh_renderer.material = material;
     }
 
-    unsafe public void UpdateChunkMesh(Mesh mesh)
+    unsafe public void UpdateChunkMesh()
     {
         int n_voxel_per_axis = n_point_per_axis - 1;
         int numThreadsPerAxis = Mathf.CeilToInt (n_voxel_per_axis / (float) thread_group_size);
@@ -113,32 +123,31 @@ public class mesh_generator : MonoBehaviour
         Debug.Log("voxel");
         for(int i = 0; i < 100; ++i) Debug.Log(a[i]); */
 
-        triangle_buffer.SetCounterValue (0);
+        triangle_buffer.SetCounterValue(0);
         shader.Dispatch (0, numThreadsPerAxis, numThreadsPerAxis, numThreadsPerAxis);
         ComputeBuffer.CopyCount (triangle_buffer, triangle_count_buffer, 0);
         int[] triCountArray = { 0 };
         triangle_count_buffer.GetData (triCountArray);
-        int numTris = triCountArray[0];
-        tri[] tris = new tri[numTris];
-        triangle_buffer.GetData(tris, 0, 0, numTris);
-        /* Debug.Log("triangle count = " + numTris);
-        for(int i = 0; i < numTris; ++i)
-        {
-            Debug.Log(tris[i].a);
-            Debug.Log(tris[i].b);
-            Debug.Log(tris[i].c);
-        } */
+        numTriangles = triCountArray[0];
+        triangles = new Triangle[numTriangles];
+        triangle_buffer.GetData(triangles, 0, 0, numTriangles);
+        if (verbose_triangles) {
+            Debug.Log($"Triangle count: {numTriangles}");
+            for(int i = 0; i < numTriangles; i++) {
+                Debug.Log($"a: {triangles[i].a} | b: {triangles[i].b} | c: {triangles[i].c}");
+            }
+        }
+    }
 
+    private void UpdateMesh(Mesh mesh) {
         mesh.Clear();
-        var vertices = new Vector3[numTris * 3];
-        var meshTriangles = new int[numTris * 3];
+        var vertices = new Vector3[numTriangles * 3];
+        var meshTriangles = new int[numTriangles * 3];
 
-        for(int i = 0; i < numTris; ++i)
-        {
-            for(int j = 0; j < 3; ++j)
-            {
+        for(int i = 0; i < numTriangles; i++) {
+            for(int j = 0; j < 3; j++) {
                 meshTriangles[i * 3 + j] = i * 3 + j; /* assign index */
-                vertices[i * 3 + j] = tris[i][j];
+                vertices[i * 3 + j] = triangles[i][j];
             }
         }
         mesh.vertices = vertices;
@@ -153,36 +162,11 @@ public class mesh_generator : MonoBehaviour
 
     void OnDestroy()
     {
-        particle_buffer.Release();
+        //particle_buffer.Release();
         voxel_density_buffer.Release();
-        if(triangle_buffer != null)
-        {
+        if(triangle_buffer != null) {
             triangle_buffer.Release();
             triangle_count_buffer.Release();
-            particle_buffer.Release();
-        }
-    }
-
-    struct tri
-    {
-        public Vector3 a;
-        public Vector3 b;
-        public Vector3 c;
-
-        public Vector3 this [int i]
-        {
-            get
-            {
-                switch (i)
-                {
-                    case 0:
-                        return a;
-                    case 1:
-                        return b;
-                    default:
-                        return c;
-                }
-            }
         }
     }
 }

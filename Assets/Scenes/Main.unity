@@ -460,16 +460,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157b8bb05ae94d84480e7d4dd6beadcc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  fluid_cs: {fileID: 193044022}
+  n_point_per_axis: 53
+  verbose_triangles: 0
   density_gen: {fileID: 1060349090}
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
-  fluid_cs: {fileID: 193044022}
   material: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
   isolevel: 0
   boundsSize: 500
   offset: {x: 0, y: 0, z: 0}
-  n_point_per_axis: 53
   n_point: 0
-  n_particle: 0
   n_voxel_per_axis: 0
   n_voxel: 0
 --- !u!64 &56379760
@@ -1765,25 +1765,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c72b5ae534e4e4488e4a32386758410, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridCellSize: 0.0625
+  gridCellSize: 0.125
   origin:
   - 0
   - 0
   - 0
   bounds:
-  - 4
-  - 10
-  - 4
+  - 2
+  - 2
+  - 2
   bufferCells: 040000000400000004000000
   g:
   - 0
   - -0.2
   - 0
-  numParticles: 200000
-  particleRenderSize: 0.06
+  numParticles: 50000
+  particleRenderSize: 0.12
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  dt: -1
-  smoothingRadius: 0.0625
+  dt: 0.01
+  smoothingRadius: 0.125
   particleMass: 0.2
   viscosity_coefficient: 3.5
   rest_density: 1000
@@ -1795,6 +1795,7 @@ MonoBehaviour:
   show_forces: 0
   gizmos_particle_color: {r: 0, g: 0, b: 1, a: 0.05490196}
   verbose_grid: 0
+  verbose_offsets: 0
   verbose_prefix_sums: 0
   verbose_rearrange: 0
   verbose_num_neighbors: 0
@@ -2344,16 +2345,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d6090a8e7f99a4e48a6f0cc6385bb442, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  fluid_cs: {fileID: 193044022}
   shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
   march_shader: {fileID: 7200000, guid: 7331c7cb430e21342b4f09c706820713, type: 3}
   mat: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
   isolevel: 8
   boundsSize: 10
   offset: {x: -0.64, y: 0, z: 0}
-  n_point_per_axis: 50
   n_point: 0
   march_kernel: 0
-  fluid_cs: {fileID: 193044022}
 --- !u!1 &278198228
 GameObject:
   m_ObjectHideFlags: 0
@@ -8108,16 +8108,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157b8bb05ae94d84480e7d4dd6beadcc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  fluid_cs: {fileID: 1925688882}
+  n_point_per_axis: 50
+  verbose_triangles: 0
   density_gen: {fileID: 670494837}
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
-  fluid_cs: {fileID: 1925688882}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   isolevel: 0
   boundsSize: 500
   offset: {x: 0, y: 0, z: 0}
-  n_point_per_axis: 50
   n_point: 0
-  n_particle: 0
   n_voxel_per_axis: 0
   n_voxel: 0
 --- !u!64 &503626321
@@ -14375,6 +14375,81 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 740223943}
   m_Mesh: {fileID: 4300002, guid: 681e41ee1260343b395ca58745c94870, type: 3}
+--- !u!1 &769186886
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 769186888}
+  - component: {fileID: 769186887}
+  m_Layer: 0
+  m_Name: waterReflectionSceneCamera
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!20 &769186887
+Camera:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 769186886}
+  m_Enabled: 0
+  serializedVersion: 2
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  m_projectionMatrixMode: 0
+  m_GateFitMode: 2
+  m_FOVAxisMode: 0
+  m_SensorSize: {x: 36, y: 24}
+  m_LensShift: {x: 0, y: 0}
+  m_FocalLength: 50
+  m_NormalizedViewPortRect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1
+    height: 1
+  near clip plane: 0.3
+  far clip plane: 1000
+  field of view: 60
+  orthographic: 0
+  orthographic size: 5
+  m_Depth: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967279
+  m_RenderingPath: 1
+  m_TargetTexture: {fileID: 0}
+  m_TargetDisplay: 0
+  m_TargetEye: 3
+  m_HDR: 1
+  m_AllowMSAA: 1
+  m_AllowDynamicResolution: 0
+  m_ForceIntoRT: 0
+  m_OcclusionCulling: 1
+  m_StereoConvergence: 10
+  m_StereoSeparation: 0.022
+--- !u!4 &769186888
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 769186886}
+  m_LocalRotation: {x: 0.087305404, y: 0.90234447, z: 0.36145458, w: -0.2179515}
+  m_LocalPosition: {x: 111.45575, y: -204.10924, z: 218.56195}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 16
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &807162942
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -21049,7 +21124,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1060349089
 Transform:
   m_ObjectHideFlags: 0
@@ -23127,6 +23202,7 @@ MonoBehaviour:
   show_forces: 0
   gizmos_particle_color: {r: 0, g: 0, b: 1, a: 1}
   verbose_grid: 0
+  verbose_offsets: 0
   verbose_prefix_sums: 0
   verbose_rearrange: 0
   verbose_num_neighbors: 0
@@ -24316,16 +24392,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d6090a8e7f99a4e48a6f0cc6385bb442, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  fluid_cs: {fileID: 1925688882}
   shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
   march_shader: {fileID: 7200000, guid: 7331c7cb430e21342b4f09c706820713, type: 3}
   mat: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
   isolevel: 8
   boundsSize: 10
   offset: {x: -0.64, y: 0, z: 0}
-  n_point_per_axis: 50
   n_point: 0
   march_kernel: 0
-  fluid_cs: {fileID: 1925688882}
 --- !u!1 &1527666990
 GameObject:
   m_ObjectHideFlags: 0
@@ -29803,16 +29878,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d6090a8e7f99a4e48a6f0cc6385bb442, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  fluid_cs: {fileID: 1297943045}
   shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
   march_shader: {fileID: 7200000, guid: 7331c7cb430e21342b4f09c706820713, type: 3}
   mat: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
   isolevel: 8
   boundsSize: 10
   offset: {x: -0.64, y: 0, z: 0}
-  n_point_per_axis: 50
   n_point: 0
   march_kernel: 0
-  fluid_cs: {fileID: 1297943045}
 --- !u!1 &1693415492
 GameObject:
   m_ObjectHideFlags: 0
@@ -36078,6 +36152,7 @@ MonoBehaviour:
   show_forces: 0
   gizmos_particle_color: {r: 0, g: 0, b: 1, a: 1}
   verbose_grid: 0
+  verbose_offsets: 0
   verbose_prefix_sums: 0
   verbose_rearrange: 0
   verbose_num_neighbors: 0
@@ -37140,16 +37215,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157b8bb05ae94d84480e7d4dd6beadcc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  fluid_cs: {fileID: 1297943045}
+  n_point_per_axis: 50
+  verbose_triangles: 0
   density_gen: {fileID: 8824180}
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
-  fluid_cs: {fileID: 1297943045}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   isolevel: 0
   boundsSize: 500
   offset: {x: -0.64, y: 0, z: 0}
-  n_point_per_axis: 50
   n_point: 0
-  n_particle: 0
   n_voxel_per_axis: 0
   n_voxel: 0
 --- !u!64 &2083196112

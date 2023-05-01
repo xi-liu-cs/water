@@ -37,7 +37,7 @@ sealed class NoiseFieldVisualizer : MonoBehaviour
 
     void Start()
     {
-        fluid_cs.Awake();
+        fluid_cs.Initialize();
         gameObject.AddComponent<MeshFilter>();
         gameObject.AddComponent<MeshRenderer>();
         /* _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float)); */
@@ -75,7 +75,7 @@ sealed class NoiseFieldVisualizer : MonoBehaviour
 
     void Update()
     {
-        fluid_cs.Update();
+        fluid_cs.UpdateParticles();
         /* float[] b = new float[1000];
         _voxelBuffer.GetData(b);
         for(int i = 0; i < 1000; ++i) Debug.Log(String.Format("b[{0}] = {1}", i, b[i])); */

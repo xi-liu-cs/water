@@ -44,13 +44,13 @@ struct particle {
     float3 position;
     int3 grid_indices;
     int projected_index;
-    uint offset;
     int index;
-    int numNeighbors;
 };
 
 // == BUFFERS ==
 RWStructuredBuffer<particle> particles;         // RWStructuredBuffer<Particle> _particles;     -- VERIFIED
+RWStructuredBuffer<int> particleOffsets;
+
 RWStructuredBuffer<int> neighbor_list;          // RWStructuredBuffer<int> _neighbourList;      -- VERIFIED
 //neighbors of a particle at particle_index * max_particles_per_grid * 8  
 RWStructuredBuffer<int> neighbor_tracker;       // RWStructuredBuffer<int> _neighbourTracker;    -- VERIFIED
@@ -71,7 +71,6 @@ RWStructuredBuffer<int> gridSumsBuffer;
 RWStructuredBuffer<int> gridSumsBufferIn;
 RWStructuredBuffer<particle> rearrangedParticles;
 RWStructuredBuffer<int> numNeighbors;
-RWStructuredBuffer<float3> storedVelocities;
 
 // int3 GetCell -- VERIFIED
 int3 GetGridXYZIndices(float3 position) {
@@ -168,8 +167,7 @@ void UpdateGridCellCounts(uint3 id : SV_DispatchThreadID) {
     int projected_index = GetProjectedGridIndexFromXYZ(grid_indices);
     p.grid_indices = grid_indices;
     p.projected_index = projected_index;
-    InterlockedAdd(grid[projected_index], 1, p.offset);
-    p.numNeighbors = 0;
+    InterlockedAdd(grid[projected_index], 1, particleOffsets[id.x]);
     particles[id.x] = p;
 }
 
@@ -228,8 +226,7 @@ void RearrangeParticles(uint3 id : SV_DispatchThreadID) {
   if (id.x >= numParticles) return;
   
   int projectedGridIndex = particles[id.x].projected_index;
-  int cellOffset = particles[id.x].offset;
-  int index = gridOffsetBuffer[projectedGridIndex] - 1 - cellOffset;
+  int index = gridOffsetBuffer[projectedGridIndex] - 1 - particleOffsets[id.x];
   rearrangedParticles[index] = particles[id.x];
 }
 
@@ -248,7 +245,6 @@ void CountNumNeighbors(uint3 id : SV_DispatchThreadID) {
                 //if (otherP.index == p.index) continue;
                 float dist = length(otherP.position - p.position);
                 if (dist <= smoothingRadius) {
-                    p.numNeighbors += 1;
                     numNeighbors[id.x] += 1;
                 }
             }
@@ -397,7 +393,6 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
     
     particles[id.x] = p;
     velocity[id.x] = v;
-    storedVelocities[id.x] = v;
 }
 
 #pragma kernel DampenByBounds
@@ -408,31 +403,31 @@ void DampenByBounds(uint3 id : SV_DispatchThreadID) {
     particle p = particles[id.x];
     float3 v = velocity[id.x];
 
-    if(particles[id.x].position.x - particleRenderRadius < -bounds[0]/2.0 + epsilon) {
+    if(particles[id.x].position.x - particleRenderRadius < origin[0] - bounds[0]/2.0 + epsilon) {
         v[0] *= damping;
-        p.position.x = -bounds[0]/2.0 + particleRenderRadius + epsilon;
+        p.position.x = origin[0] - bounds[0]/2.0 + particleRenderRadius + epsilon;
     }
-    else if(particles[id.x].position.x + particleRenderRadius > bounds[0]/2.0 - epsilon) {
+    else if(particles[id.x].position.x + particleRenderRadius > origin[0] + bounds[0]/2.0 - epsilon) {
         v[0] *= damping;
-        p.position.x = bounds[0]/2.0 - particleRenderRadius - epsilon;
+        p.position.x = origin[0] + bounds[0]/2.0 - particleRenderRadius - epsilon;
     }
 
-    if(particles[id.x].position.y - particleRenderRadius < -bounds[1]/2.0 + epsilon) {
+    if(particles[id.x].position.y - particleRenderRadius < origin[1] - bounds[1]/2.0 + epsilon) {
         v[1] *= damping;
-        p.position.y = -bounds[1]/2.0 + particleRenderRadius + epsilon;
+        p.position.y = origin[1] - bounds[1]/2.0 + particleRenderRadius + epsilon;
     }
-    else if(particles[id.x].position.y + particleRenderRadius > bounds[1]/2.0 - epsilon) {
+    else if(particles[id.x].position.y + particleRenderRadius > origin[1] + bounds[1]/2.0 - epsilon) {
         v[1] *= damping;
-        p.position.y = bounds[1]/2.0 - particleRenderRadius - epsilon;
+        p.position.y = origin[1] + bounds[1]/2.0 - particleRenderRadius - epsilon;
     }
 
-    if(particles[id.x].position.z - particleRenderRadius < -bounds[2]/2.0 + epsilon) {
+    if(particles[id.x].position.z - particleRenderRadius < origin[2] - bounds[2]/2.0 + epsilon) {
         v[2] *= damping;
-        p.position.z = -bounds[2]/2.0 + particleRenderRadius + epsilon;
+        p.position.z = origin[2] - bounds[2]/2.0 + particleRenderRadius + epsilon;
     }
-    else if(particles[id.x].position.z + particleRenderRadius > bounds[2]/2.0 - epsilon) {
+    else if(particles[id.x].position.z + particleRenderRadius > origin[2] + bounds[2]/2.0 - epsilon) {
         v[2] *= damping;
-        p.position.z = bounds[2]/2.0 - particleRenderRadius - epsilon;
+        p.position.z = origin[2] + bounds[2]/2.0 - particleRenderRadius - epsilon;
     }
 
     velocity[id.x] = v;

@@ -4,6 +4,9 @@ using UnityEngine;
 
 public class mesh_fluid_generator : MonoBehaviour
 {
+    [Header("== Particle Configurations ==")]
+    public fluid_gpu fluid_cs;
+
     const int thread_group_size = 8;
     /* public density_generator density_gen; */
     public ComputeShader shader,
@@ -12,32 +15,24 @@ public class mesh_fluid_generator : MonoBehaviour
     public float isolevel;
     public float boundsSize = 1;
     public Vector3 offset = Vector3.zero;
-    public int n_point_per_axis = 5;
+    private int n_point_per_axis;
     Mesh fluid;
-    public ComputeBuffer triangle_buffer,
-    point_buffer,
-    triangle_count_buffer,
-    voxel_density_buffer,
-    particle_buffer;
-    public int n_point,
-    march_kernel;
+    public ComputeBuffer triangle_buffer;
+    public ComputeBuffer point_buffer;
+    public ComputeBuffer triangle_count_buffer;
+    public ComputeBuffer voxel_density_buffer;
+    public int n_point;
+    public int march_kernel;
 
-    public fluid_gpu fluid_cs;
     
-    public struct particle
-    {
-        public Vector3 position;
-    }
 
-    void Awake()
-    {
-        fluid_cs.Awake();
-        particle_buffer = fluid_cs.particle_buffer;
+    void Awake() {
+        // We initialize our fluid_cs script. This ensures that we have everything set for our particles
+        fluid_cs.Initialize();
+
         n_point_per_axis = fluid_cs.n_point_per_axis;
         voxel_density_buffer = fluid_cs.density_buffer;
         CreateBuffers();
-        gameObject.AddComponent<MeshFilter>();
-        gameObject.AddComponent<MeshRenderer>();
         fluid = GetComponent<MeshFilter>().mesh;
         /* density_gen.Awake(); */
         find_kernel();
@@ -45,7 +40,7 @@ public class mesh_fluid_generator : MonoBehaviour
 
     void Update()
     {
-        fluid_cs.Update();
+        fluid_cs.UpdateParticles();
         UpdateChunkMesh(fluid);
     }
 
@@ -133,13 +128,11 @@ public class mesh_fluid_generator : MonoBehaviour
 
     void OnDestroy()
     {
-        particle_buffer.Release();
         voxel_density_buffer.Release();
         if(triangle_buffer != null)
         {
             triangle_buffer.Release();
             triangle_count_buffer.Release();
-            particle_buffer.Release();
         }
     }
 

@@ -42,7 +42,7 @@ sealed class VolumeDataVisualizer : MonoBehaviour
 
     void Start()
     {
-        fluid_cs.Awake();
+        fluid_cs.Initialize();
         gameObject.AddComponent<MeshFilter>();
         gameObject.AddComponent<MeshRenderer>();
         /* _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float)); */
@@ -68,7 +68,7 @@ sealed class VolumeDataVisualizer : MonoBehaviour
 
     void Update()
     {
-        fluid_cs.Update();
+        fluid_cs.UpdateParticles();
         // Rebuild the isosurface only when the target value has been changed.
         if (TargetValue == _builtTargetValue) return;
 

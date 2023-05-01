@@ -73,9 +73,10 @@ public abstract class density_generator : MonoBehaviour
         densityShader.SetVector ("offset", new Vector4(offset.x, offset.y, offset.z));
         densityShader.SetFloat ("spacing", spacing);
         densityShader.SetVector("worldSize", worldBounds);
-        densityShader.SetFloat("grid_size", fluid_cs.gridCellSize);
+        densityShader.SetFloat("gridCellSize", fluid_cs.gridCellSize);
         densityShader.SetInts("dimension", fluid_cs.dimension_array);
         densityShader.SetInt("max_particles_per_cube", max_particles_per_cube);
+        densityShader.SetFloats("bounds", fluid_cs.bounds);
 
         densityShader.SetBuffer(clear_cube_corner_neighbor_tracker_kernel, "cube_corner_neighbor_tracker", cube_corner_neighbor_tracker_buffer);
 

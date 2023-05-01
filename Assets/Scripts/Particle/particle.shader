@@ -30,9 +30,7 @@ Shader "Instanced/particle"
 			float3 position;
 			int3 grid_indices;
 			int projected_index;
-			uint offset;
 			int index;
-			int numNeighbors;
 		};
 
 		#ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
