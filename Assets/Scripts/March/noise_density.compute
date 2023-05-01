@@ -6,9 +6,6 @@
 // Copied from `fluid_shader_2.compute`
 struct particle {
     float3 position;
-    int3 grid_indices;
-    int projected_index;
-    int index;
 };
 
 static const int n = 8,
@@ -86,10 +83,14 @@ void clear_cube_corner_neighbor_tracker(uint3 id : SV_DispatchThreadID) {
 
 [numthreads(n_thread, n_thread, n_thread)]
 void compute_neighbor_list(uint3 id : SV_DispatchThreadID) {
+    // Get the index of the current... particle?
     int index = hash(id.x, id.y, id.z);
+    // Get the position of the current particle
     float3 pos = particles[index].position;
+    // Get the XYZ coordinates of the current cell in the voxel grid
     int3 cell_index = get_cell(pos);
 
+    // 
     int cube_corner_index = hash_cell(cell_index),
     original_value = 0;
     if(cube_corner_neighbor_tracker[cube_corner_index] + 1 > max_particles_per_cube) return;

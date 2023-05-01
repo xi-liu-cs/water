@@ -25,12 +25,8 @@ Shader "Instanced/particle"
 			float2 uv_MainTex;
 		};
 
-		struct particle
-		{
+		struct particle {
 			float3 position;
-			int3 grid_indices;
-			int projected_index;
-			int index;
 		};
 
 		#ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED

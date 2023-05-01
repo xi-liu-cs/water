@@ -457,10 +457,27 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   fluid_cs: {fileID: 193044022}
+  gridCellSize: 1
+  origin:
+  - 0
+  - 0
+  - 0
+  bounds:
+  - 100
+  - 200
+  - 100
+  bufferCells: 040000000400000004000000
+  outerBounds:
+  - 60
+  - 60
+  - 60
+  _numCellsPerAxis: 
+  numGridCells: 0
+  numVoxelsPerAxis: 
+  numVoxels: 0
+  maxTriangleCount: 0
   numPointsPerAxis: 50
   numPoints: 0
-  numVoxelsPerAx: 0
-  numVoxels: 0
   isolevel: 0
   numTriangles: 0
   verbose_triangles: 0
@@ -468,7 +485,6 @@ MonoBehaviour:
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
   material: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
   boundsSize: 500
-  offset: {x: 0, y: 0, z: 0}
 --- !u!64 &56379760
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -1762,26 +1778,32 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c72b5ae534e4e4488e4a32386758410, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridCellSize: 0.0625
+  gridCellSize: 1
   origin:
   - 0
   - 0
   - 0
   bounds:
-  - 1
-  - 1
-  - 1
+  - 100
+  - 200
+  - 100
   bufferCells: 040000000400000004000000
+  outerBounds:
+  - 60
+  - 60
+  - 60
+  _numCellsPerAxis: 
+  numGridCells: 0
   g:
   - 0
-  - -0.2
+  - -9.81
   - 0
-  numParticles: 300
-  particleRenderSize: 0.06
+  numParticles: 50000
+  particleRenderSize: 2
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  dt: 0.001
-  smoothingRadius: 0.0625
-  particleMass: 0.2
+  dt: -1
+  smoothingRadius: 1
+  particleMass: 2
   viscosity_coefficient: 3.5
   rest_density: 1000
   damping: -0.5
@@ -1789,8 +1811,8 @@ MonoBehaviour:
   compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
   show_particles: 0
   show_grid_cells: 0
-  show_velocities: 1
-  show_forces: 1
+  show_velocities: 0
+  show_forces: 0
   gizmos_particle_color: {r: 0, g: 0, b: 1, a: 0.05490196}
   verbose_grid: 0
   verbose_offsets: 0
@@ -1804,9 +1826,6 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   position_offset: {x: 0, y: 0, z: 0}
   velocity_initial: {x: 0, y: 0, z: 0}
-  max_particles_per_grid: 10
-  intial_particles_per_grid: 5
-  dimension_array: 
   n_point_per_axis: 89
   isolevel: 0
   max_density: 0
@@ -8093,10 +8112,27 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   fluid_cs: {fileID: 1925688882}
+  gridCellSize: 1
+  origin:
+  - 0
+  - 0
+  - 0
+  bounds:
+  - 50
+  - 50
+  - 50
+  bufferCells: 0a0000000a0000000a000000
+  outerBounds:
+  - 60
+  - 60
+  - 60
+  _numCellsPerAxis: 
+  numGridCells: 0
+  numVoxelsPerAxis: 
+  numVoxels: 0
+  maxTriangleCount: 0
   numPointsPerAxis: 50
   numPoints: 0
-  numVoxelsPerAx: 0
-  numVoxels: 0
   isolevel: 0
   numTriangles: 0
   verbose_triangles: 0
@@ -8104,7 +8140,6 @@ MonoBehaviour:
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   boundsSize: 500
-  offset: {x: 0, y: 0, z: 0}
 --- !u!64 &503626321
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -21105,7 +21140,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1060349089
 Transform:
   m_ObjectHideFlags: 0
@@ -23159,6 +23194,12 @@ MonoBehaviour:
   - 0
   bounds: []
   bufferCells: 0a0000000a0000000a000000
+  outerBounds:
+  - 60
+  - 60
+  - 60
+  _numCellsPerAxis: 
+  numGridCells: 0
   g:
   - 0
   - -9
@@ -23191,9 +23232,6 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   position_offset: {x: 0, y: 0, z: 0}
   velocity_initial: {x: 0, y: 0, z: 0}
-  max_particles_per_grid: 500
-  intial_particles_per_grid: 5
-  dimension_array: 
   n_point_per_axis: 50
   isolevel: 8
   max_density: 0
@@ -30507,7 +30545,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1740861793
 Transform:
   m_ObjectHideFlags: 0
@@ -36096,6 +36134,12 @@ MonoBehaviour:
   - 0
   bounds: []
   bufferCells: 0a0000000a0000000a000000
+  outerBounds:
+  - 60
+  - 60
+  - 60
+  _numCellsPerAxis: 
+  numGridCells: 0
   g:
   - 0
   - -9
@@ -36128,9 +36172,6 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   position_offset: {x: 0, y: 0, z: 0}
   velocity_initial: {x: 0, y: 0, z: 0}
-  max_particles_per_grid: 500
-  intial_particles_per_grid: 5
-  dimension_array: 
   n_point_per_axis: 50
   isolevel: 8
   max_density: 0
@@ -37167,10 +37208,27 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   fluid_cs: {fileID: 1297943045}
+  gridCellSize: 1
+  origin:
+  - 0
+  - 0
+  - 0
+  bounds:
+  - 50
+  - 50
+  - 50
+  bufferCells: 0a0000000a0000000a000000
+  outerBounds:
+  - 60
+  - 60
+  - 60
+  _numCellsPerAxis: 
+  numGridCells: 0
+  numVoxelsPerAxis: 
+  numVoxels: 0
+  maxTriangleCount: 0
   numPointsPerAxis: 50
   numPoints: 0
-  numVoxelsPerAx: 0
-  numVoxels: 0
   isolevel: 0
   numTriangles: 0
   verbose_triangles: 0
@@ -37178,7 +37236,6 @@ MonoBehaviour:
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   boundsSize: 500
-  offset: {x: -0.64, y: 0, z: 0}
 --- !u!64 &2083196112
 MeshCollider:
   m_ObjectHideFlags: 0
