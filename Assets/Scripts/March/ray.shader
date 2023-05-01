@@ -99,7 +99,7 @@ Shader "custom/ray"
                 fixed4 col = float4(0.1, 0.2, 0.6, 0.5);
                 /* float3 light_direct = normalize(_WorldSpaceLightPos0.xyz); */
                 float3 light_direct = normalize(float3(1., 1., 1.));
-                float4 s = float4(0, 0, 0, .3);
+                float4 s = float4(0, 0, 0, .5);
                 float t = ray_sphere(i.ray_o, i.ray_d, s);
                 if(t > 0.)
                     col = float4(shade_sphere(at(i.ray_o, i.ray_d, t), s, light_direct), 1.);
