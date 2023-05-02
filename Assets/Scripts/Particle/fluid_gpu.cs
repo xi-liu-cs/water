@@ -262,8 +262,8 @@ public class fluid_gpu : MonoBehaviour
         particle_buffer.GetData(temp_particles);
         //int[] temp_num_neighbors = new int[numParticles];
         //numNeighborsBuffer.GetData(temp_num_neighbors);
-        float3[] temp_forces_array = new float3[numParticles];
-        force_buffer.GetData(temp_forces_array);
+        //float3[] temp_forces_array = new float3[numParticles];
+        //force_buffer.GetData(temp_forces_array);
         float3[] temp_velocities_array = new float3[numParticles];
         velocity_buffer.GetData(temp_velocities_array);
         for(int i = 1; i < numParticles; i++) {
@@ -275,6 +275,7 @@ public class fluid_gpu : MonoBehaviour
                 Gizmos.color = gridColor;
                 Gizmos.DrawCube(GetGridCellWorldPositionFromGivenPosition(temp_particles[i].position), gridCellSize3D);
             }
+            /*
             if (show_forces) {
                 Gizmos.color = Color.green;
                 Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_forces_array[i]);
@@ -283,6 +284,7 @@ public class fluid_gpu : MonoBehaviour
                 Gizmos.color = Color.blue;
                 Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_velocities_array[i]);
             }
+            */
         }
         Gizmos.color = Color.yellow;
         Gizmos.DrawSphere(temp_particles[0].position, particleRenderRadius);
@@ -361,12 +363,12 @@ public class fluid_gpu : MonoBehaviour
     // - how many thread groups we need
     private void InitializeVariables() {
         // Determine our process type
-        bufferCellsPerAxis = (neighborSearchType == NeighborSearchType.PrefixSum) ? 2 : 1;
+        bufferCellsPerAxis = 5;
         // Calculate how many cells will fit within the provided dimensions
         _numCellsPerAxis = new int[3];
-        _numCellsPerAxis[0] = Mathf.CeilToInt(bounds[0] / gridCellSize);
-        _numCellsPerAxis[1] = Mathf.CeilToInt(bounds[1] / gridCellSize);
-        _numCellsPerAxis[2] = Mathf.CeilToInt(bounds[2] / gridCellSize);
+        _numCellsPerAxis[0] = Mathf.CeilToInt(bounds[0] / gridCellSize) + bufferCellsPerAxis;
+        _numCellsPerAxis[1] = Mathf.CeilToInt(bounds[1] / gridCellSize) + bufferCellsPerAxis;
+        _numCellsPerAxis[2] = Mathf.CeilToInt(bounds[2] / gridCellSize) + bufferCellsPerAxis;
         // Re-Calculate the new bounds based on the number of cells per axis
         outerBounds[0] = (float)_numCellsPerAxis[0] * gridCellSize;
         outerBounds[1] = (float)_numCellsPerAxis[1] * gridCellSize;
@@ -490,7 +492,7 @@ public class fluid_gpu : MonoBehaviour
         rearrangedParticlesBuffer = new ComputeBuffer(numParticles, sizeof(int));
         numNeighborsBuffer = new ComputeBuffer(numParticles, sizeof(int));
 
-        temp_buffer = new ComputeBuffer(numParticles, sizeof(float));
+        temp_buffer = new ComputeBuffer(numParticles, sizeof(int));
         
         compute_shader.SetBuffer(clear_grid_kernel, "grid", gridBuffer);
         compute_shader.SetBuffer(reset_num_neighbors_kernel, "numNeighbors", numNeighborsBuffer);
@@ -505,6 +507,7 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(update_grid_kernel, "grid", gridBuffer);
         compute_shader.SetBuffer(update_grid_kernel, "particleOffsets", particleOffsetsBuffer);
         compute_shader.SetBuffer(update_grid_kernel, "particleNeighbors", particleNeighborsBuffer);
+        compute_shader.SetBuffer(update_grid_kernel, "temp_buffer", temp_buffer);
 
         compute_shader.SetBuffer(prefix_sum_kernel, "gridOffsetBufferIn", gridBuffer);
         compute_shader.SetBuffer(prefix_sum_kernel, "gridOffsetBuffer", gridOffsetBuffer);
@@ -555,7 +558,6 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "density", density_buffer);
         compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "velocity", velocity_buffer);
         compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "force", force_buffer);
-        compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "temp_buffer", temp_buffer);
         
         compute_shader.SetBuffer(cv_compute_external_acceleration_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(cv_compute_external_acceleration_kernel, "force", force_buffer);
@@ -589,6 +591,7 @@ public class fluid_gpu : MonoBehaviour
             DebugBufferInt("Grid", debugNumGridCells, gridBuffer, true);
             DebugBufferParticle("Particles", debugNumParticles, particle_buffer);
         }
+        //DebugBufferInt("Projected indices", debugNumParticles, temp_buffer);
         if (verbose_offsets) {
             DebugBufferInt("Particle Offsets", debugNumParticles, particleOffsetsBuffer);
         }
@@ -649,7 +652,6 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.Dispatch(cv_compute_interact_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         compute_shader.Dispatch(cv_compute_external_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_force) DebugBufferFloat3("Forces",debugNumParticles,force_buffer);
-        //DebugBufferFloat("Q", debugNumParticles, temp_buffer);
     }
 
     void OnDestroy() {

@@ -1784,9 +1784,9 @@ MonoBehaviour:
   - 0
   - 0
   bounds:
-  - 50
-  - 50
-  - 50
+  - 200
+  - 100
+  - 200
   outerBounds:
   - 60
   - 60
@@ -1797,15 +1797,15 @@ MonoBehaviour:
   - 0
   - -9.81
   - 0
-  numParticles: 1000
-  particleRenderSize: 2
+  numParticles: 200000
+  particleRenderSize: 1.5
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
   dt: -1
-  smoothingRadius: 0.65
+  smoothingRadius: 1
   particleMass: 1
   viscosity_coefficient: 12.5
   rest_density: 1
-  damping: -0.5
+  damping: -0.3
   gas_constant: 0
   bulkModulus: 1000
   compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
@@ -1815,14 +1815,14 @@ MonoBehaviour:
   show_velocities: 0
   show_forces: 0
   gizmos_particle_color: {r: 0, g: 0, b: 1, a: 0.05490196}
-  verbose_grid: 1
+  verbose_grid: 0
   verbose_offsets: 0
   verbose_prefix_sums: 0
   verbose_rearrange: 0
   verbose_num_neighbors: 0
-  verbose_density_pressure: 1
-  verbose_force: 1
-  verbose_velocity: 1
+  verbose_density_pressure: 0
+  verbose_force: 0
+  verbose_velocity: 0
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   position_offset: {x: 0, y: 0, z: 0}

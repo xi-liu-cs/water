@@ -89,7 +89,7 @@ RWStructuredBuffer<float3> velocity;
 // Stores the force (acceleration) of each particle
 RWStructuredBuffer<float3> force;
 // Temp buffer for debugging
-RWStructuredBuffer<float> temp_buffer;
+RWStructuredBuffer<int> temp_buffer;
 
 // The buffers below are specific to prefix summation
 RWStructuredBuffer<int> gridOffsetBufferIn;
@@ -210,6 +210,7 @@ void UpdateGridCellCounts(uint3 id : SV_DispatchThreadID) {
     uint particleNeighborsStartingIndex = GetParticleNeighborStartingIndex(projected_index);  // Update `particleNeighbors`...
     if (particleOffsets[id.x] >= numParticlesPerGridCell) return;                       // ... but only if our number of particles in that cell does not exceed the limit per grid cell
     particleNeighbors[particleNeighborsStartingIndex + particleOffsets[id.x]] = id.x;    // Set the current particle within the cell as a neighbor
+    temp_buffer[id.x] = projected_index;
 }
 
 
