@@ -29,7 +29,7 @@ public class fluid_gpu : MonoBehaviour
         [Tooltip("What are the total world space length (per axis) is the simulation?")]
         public float[] bounds = {50f, 50f, 50f};
         // In our grid space, how many buffer cells are added to each axis? Prefix Sum: 2; CubeVolume: 1
-        private int bufferCellsPerAxis = (neighborSearchType == NeighborSearchType.PrefixSum) ? 2 : 1;
+        private int bufferCellsPerAxis;
         [ReadOnly, SerializeField, Tooltip("What is the world space size of the simulation, after taking into account grid cell size and buffer cells?")]
         private float[] outerBounds = {60f, 60f, 60f};
         [ReadOnly, SerializeField, Tooltip("Given `outerBounds`, how many grid cells are along each axis?")]
@@ -351,6 +351,8 @@ public class fluid_gpu : MonoBehaviour
     // - how many grid cells we have in total
     // - how many thread groups we need
     private void InitializeVariables() {
+        // Determine our process type
+        bufferCellsPerAxis = (neighborSearchType == NeighborSearchType.PrefixSum) ? 2 : 1;
         // Calculate how many cells will fit within the provided dimensions
         _numCellsPerAxis = new int[3];
         _numCellsPerAxis[0] = Mathf.CeilToInt(bounds[0] / gridCellSize) + bufferCellsPerAxis;
@@ -483,7 +485,7 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(update_grid_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(update_grid_kernel, "grid", gridBuffer);
         compute_shader.SetBuffer(update_grid_kernel, "particleOffsets", particleOffsetsBuffer);
-        compute_shader.SetBuffer(update_grid_kernel, "particleNeighbors", particleNeighborsBuffer)
+        compute_shader.SetBuffer(update_grid_kernel, "particleNeighbors", particleNeighborsBuffer);
 
         compute_shader.SetBuffer(prefix_sum_kernel, "gridOffsetBufferIn", gridBuffer);
         compute_shader.SetBuffer(prefix_sum_kernel, "gridOffsetBuffer", gridOffsetBuffer);
@@ -716,7 +718,7 @@ public class fluid_gpu : MonoBehaviour
 
         // We perform the updates for density, pressure, and force/acceleration. 
         // Which compute shader methods to run will be based on our chosen method.
-        if (processType == NeighborSearchType.PrefixSum) PrefixSumProcess(debugNumGridCells, debugNumParticles);
+        if (neighborSearchType == NeighborSearchType.PrefixSum) PrefixSumProcess(debugNumGridCells, debugNumParticles);
         else CubeVolumeProcess(debugNumGridCells, debugNumParticles);
 
         // Integrate over particles, update their positions after taking all force calcualtions into account
