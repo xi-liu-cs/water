@@ -1,39 +1,42 @@
 #include "../Noise/noise.cginc"
 
-#define _BLOCK_SIZE 1024
+// == WORLD CONFIGURATIONS ==
+float gridCellSize;             // How big are our grid cells? For Prefix Summation, recommended to match `smoothingRadius`
+float3 origin;                  // Where in world space are we centering the simulation around?
+float3 bounds;                  // What are the total world space length (per axis) is the simulation?
+float3 outerBounds;             // What is the world space size of the simulation, after taking into account grid cell size and buffer cells?
+int3 numCellsPerAxis;           // Given `outerBounds`, how many grid cells are along each axis?
+uint total_number_of_cells;     // How many grid cells do we have in total?
+float3 g;                       // What's the gravitational force exerted on all particles?
+float epsilon;                  // Mathf.epsilon
+float pi;                       // Mathf.PI
 
-// == VARIABLES ==
-float gridCellSize;                             // float CellSize                               -- VERIFIED
-int3 numCellsPerAxis;
-float3 origin;
-int3 dimension;                                 // int Dimensions                               -- VERIFIED
-float3 bounds;
-float3 outerBounds;
-uint max_particles_per_grid;                    // int maximumParticlesPerCell;                 -- UINT VS INT
-float smoothingRadius;                               // float radius;                                -- VERIFIED
+// == PARTICLE CONFIGURATIONS ==
+uint numParticles;              // How many particles will we use in the simulation?
+float particleRenderRadius;     // How big (visually only!) are each particle? For CubeVolume method, this is pretty important
+// NEEDS TO BE INCORPORATED
+uint numParticlesPerGridCell;   // How many particles can we realistically fit into each grid cell? Calculated from particle render size.
+
+// == FLUID MECHANICS ==
+float dt;                       // delta time - The time difference between frames.
+float smoothingRadius;          // `h`: the smoothing kernel radius for SPH. For Prefix Sum, recommended to set to the same as `gridCellSize`.
 float radius6;
 float radius9;
-float particleMass;                             // float mass;                                  -- VERIFIED
-float mass2;                                    // float mass2;                                 -- VERIFIED
-float gas_constant;                             // float gasConstant;                           -- VERIFIED
-float rest_density;                             // float restDensity;                           -- VERIFIED
-float viscosity_coefficient;                    // float viscosityCoefficient;                  -- VERIFIED
-float damping;                                  // float damping;                               -- VERIFIED
-float dt;                                       // float dt;                                    -- VERIFIED
-float epsilon;                                  // float epsilon;                               -- VERIFIED
-float3 g;                                       // float3 g;                                    -- VERIFIED
-float pi;                                       // float pi;                                    -- VERIFIED
-uint n;                                         // 8                                            -- HARD-CODED IN ORIGINAL SCRIPT
+float particleMass;             // How much mass does each particle have?
+float viscosity_coefficient;    // The viscosity coefficient for SPH. The higher the value, the more particles are likely to clump together.
+float rest_density;             // The density of the fluid at the ideal state
+float damping;                  // The amount of influence that boundaries have on particles when particles collide with boundaries.
+float gas_constant;             // The gas constant of the particle liquid. The higher this value, the more particles vibrate and launch themselves in the air. Depends on temperature in the real world.
 
-float e;
-uint numParticles;
-float4 time;
-uint total_number_of_cells;
-uint numBlocks;
+// GPU SETTINGS 
+#define _BLOCK_SIZE 1024        // How many threads can a thread group have?
+int processType;                // What kind of neighbor search and parsing should we use? 0 = Prefix Sum, 1 = CubeVolume
+uint numBlocks;                 // number of thread groups that run on the GPU
+
+// == MISC VARIABLES ==
 uint d;
 int randomSeed;
 int state;
-float particleRenderRadius;
 
 // == STRUCTS ==
 struct particle {
@@ -41,10 +44,29 @@ struct particle {
 };
 
 // == BUFFERS ==
-RWStructuredBuffer<particle> particles;         // RWStructuredBuffer<Particle> _particles;     -- VERIFIED
+// Stores how many particles are inside each grid cell. 
+    // Length = numGridCells
+    // To get grid cell count: 
+    //  1) Find projected grid cell hash index
+    //  2) grid[projected_index] <- the # of particles in that grid cell.
+RWStructuredBuffer<int> grid;
+// Stores all particle data in the system. 
+    // Length = numParticles
+RWStructuredBuffer<particle> particles;
+// Stores the "offsets" of each particle.
+    // Length = numParticles
+    // For example, each grid cell has `n` number of particles; `offset` is the index of the particle in their grid cell (max: `n-1`)
 RWStructuredBuffer<int> particleOffsets;
+// Stores ID of particles in each grid cell. Length = numGridCells * numParticlesPerGridCell
+    // To iterate through neighbors of a particle's current cell:
+    //  1) Get neighbor cells' projected indices. Can be done by getting current cell's XYZ indices, then iterating through 27 neighbor cells
+    //  2) Iterate through neighbor cells. For each neighbor cell:
+    //      2a) Get their starting index `j` for particleNeighborBuffer (neighbor's hashed index * numParticlesPerGridCell)
+    //      2b) Get # of neighbors `n` in that neighbor cell (gridBuffer[<neighbor's hashed index>])
+    //      2c) Loop `i` through `j` to `j+(n-1)`. Neighbor ID = particleNeighborBuffer[i]
+RWStructuredBuffer<uint> particleNeighbors;
 
-RWStructuredBuffer<int> neighbor_list;          // RWStructuredBuffer<int> _neighbourList;      -- VERIFIED
+
 //neighbors of a particle at particle_index * max_particles_per_grid * 8  
 RWStructuredBuffer<int> neighbor_tracker;       // RWStructuredBuffer<int> _neighbourTracker;    -- VERIFIED
 // number of neighors does each particle have
@@ -52,12 +74,17 @@ RWStructuredBuffer<uint> hash_grid;             // RWStructuredBuffer<uint> _has
 // aligned at particle_index * max_particles_per_grid * 8' + hash_grid_tracker[particle_index]
 RWStructuredBuffer<uint> hash_grid_tracker;     // RWStructuredBuffer<uint> _hashGridTracker;   -- VERIFIED
 // number of particles at each grid
-RWStructuredBuffer<float> density;              // RWStructuredBuffer<float> _densities;        -- VERIFIED
-RWStructuredBuffer<float> pressure;             // RWStructuredBuffer<float> _pressures;        -- VERIFIED
-RWStructuredBuffer<float3> velocity;            // RWStructuredBuffer<float3> _velocities;      -- VERIFIED
-RWStructuredBuffer<float3> force;               // RWStructuredBuffer<float3> _forces;          -- VERIFIED
 
-RWStructuredBuffer<int> grid;
+// Stores the density of each particle
+RWStructuredBuffer<float> density;
+// Stores the pressure of each particle
+RWStructuredBuffer<float> pressure;
+// Stores the velocity of each particle
+RWStructuredBuffer<float3> velocity;
+// Stores the force (acceleration) of each particle
+RWStructuredBuffer<float3> force;
+
+// The buffers below are specific to prefix summation
 RWStructuredBuffer<int> gridOffsetBufferIn;
 RWStructuredBuffer<int> gridOffsetBuffer;
 RWStructuredBuffer<int> gridSumsBuffer;
@@ -65,7 +92,8 @@ RWStructuredBuffer<int> gridSumsBufferIn;
 RWStructuredBuffer<uint> rearrangedParticles;
 RWStructuredBuffer<int> numNeighbors;
 
-// int3 GetCell -- VERIFIED
+// == HELPER FUNCTIONS ==
+// Given a world space position, what are the XYZ indices of the position's current cell?
 int3 GetGridXYZIndices(float3 position) {
     return int3(
         floor((position[0] - (origin[0] - (numCellsPerAxis[0] * gridCellSize)/2.0))/gridCellSize),
@@ -73,23 +101,36 @@ int3 GetGridXYZIndices(float3 position) {
         floor((position[2] - (origin[2] - (numCellsPerAxis[2] * gridCellSize)/2.0))/gridCellSize)
     );
 }
-
-// int Hash -- VERIFIED
+// Given an XYZ grid index, what is the projected 1D index?
 int GetProjectedGridIndexFromXYZ(int3 xyz) {
     return xyz.x + (numCellsPerAxis[0] * xyz.y) + (numCellsPerAxis[0] * numCellsPerAxis[1] * xyz.z);
 }
+// Given a world space position, what is the projected 1D index of the position's current cell?
 int GetProjectedGridIndexFromGivenPosition(float3 position) {
     int3 xyz = GetGridXYZIndices(position);
     return GetProjectedGridIndexFromXYZ(xyz);
 }
-
-#pragma kernel GenerateGrid
-[numthreads(_BLOCK_SIZE,1,1)]
-void GenerateGrid(uint3 id : SV_DispatchThreadID) {
-  if (id.x >= total_number_of_cells) return;
-  grid[id.x] = 0;
+// Given a projected hash, return that hash's position in the `particleNeighbors` buffer
+int GetParticleNeighborStartingIndex(int projected_index) {
+   return projected_index * numParticlesPerGridCell;
 }
-
+// Given XYZ coordinates, return the projected 1D indexes of all neighbor cells
+void GetNeighborCellProjectedIDs(int3 currentCellXYZ, out int neighborCells[27]) {
+    int result[27];
+    int count = 0;
+    for (int x = max(currentCellXYZ[0]-1,0); x <= min(currentCellXYZ[0]+1,numCellsPerAxis[0]-1); x++) {
+        for (int y = max(currentCellXYZ[1]-1,0); y <= min(currentCellXYZ[1]+1,numCellsPerAxis[1]-1); y++) {
+            for (int z = max(currentCellXYZ[2]-1,0); z <= min(currentCellXYZ[2]+1,numCellsPerAxis[2]-1); z++) {
+                result[count] = GetProjectedGridIndexFromXYZ(int3(x,y,z));
+                count += 1;
+            }
+        }
+    }
+    for(int c = count; c < 27; c++) {
+        result[c] = -1;
+    }
+    neighborCells = result;
+}
 // Basic random generation
 float wangHash() {
   state = (state ^ 61) ^(state >> 16);
@@ -99,23 +140,19 @@ float wangHash() {
   state = state ^(state >> 15);
   return state / 4294967296.0;
 }
-
 float randRange(float a, float b) {
   return wangHash() * (b - a) + a;
 }
 
+// == CORE METHODS
+
 #pragma kernel GenerateParticles
 [numthreads(_BLOCK_SIZE, 1, 1)]
+// Generate particles. Better done in the GPU than the CPU.
 void GenerateParticles(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
-    
     state = randomSeed + id.x;
-    /*float3 position = float3(
-        randRange(float(bound[0]), float(bound[1])), 
-        randRange(float(bound[2]), float(bound[3])), 
-        randRange(float(bound[4]), float(bound[5]))
-    );
-    */
+
     float3 position = 
         origin 
         //+ float3(float(bounds[0]/2.0-1),float(bounds[1]/2.0-1),float(bounds[2]/2.0-1)) 
@@ -133,11 +170,12 @@ void GenerateParticles(uint3 id : SV_DispatchThreadID) {
     density[id.x] = 0;
     pressure[id.x] = 0;
     force[id.x] = float3(0,0,0);
-    velocity[id.x] = float3(0,-50,0);
+    velocity[id.x] = float3(0,0,0);
 }
 
 #pragma kernel ClearGrid
 [numthreads(_BLOCK_SIZE, 1, 1)]
+// Reset the particle counts for each grid cell back to 0
 void ClearGrid(uint3 id : SV_DispatchThreadID) {
     if (id.x > total_number_of_cells) return;
     grid[id.x] = 0;
@@ -145,6 +183,7 @@ void ClearGrid(uint3 id : SV_DispatchThreadID) {
 
 #pragma kernel ResetNumNeighbors
 [numthreads(_BLOCK_SIZE,1,1)]
+// Reset the # of neighbors for each particle back to 0. Purely for debugging purposes
 void ResetNumNeighbors(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
     numNeighbors[id.x] = 0;
@@ -152,14 +191,21 @@ void ResetNumNeighbors(uint3 id : SV_DispatchThreadID) {
 
 #pragma kernel UpdateGridCellCounts
 [numthreads(_BLOCK_SIZE,1,1)]
+// Count how many particles are in each grid cell, and determine the offsets for each particle for their particular grid cell
 void UpdateGridCellCounts(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
-    particle p = particles[id.x];
-    int3 grid_indices = GetGridXYZIndices(p.position);
-    int projected_index = GetProjectedGridIndexFromXYZ(grid_indices);
-    InterlockedAdd(grid[projected_index], 1, particleOffsets[id.x]);
-    particles[id.x] = p;
+
+    particle p = particles[id.x];                                           // Get the current particle...
+    int3 grid_indices = GetGridXYZIndices(p.position);                      // ... its XYZ grid indices ...
+    int projected_index = GetProjectedGridIndexFromXYZ(grid_indices);       // ... then its 1D projected index.
+
+    InterlockedAdd(grid[projected_index], 1, particleOffsets[id.x]);        // Add to the total count for that grid cell
+    
+    int particleNeighborsStartingIndex = GetParticleNeighborStartingIndex(projected_index);  // Update `particleNeighbors`...
+    if (particleOffsets[id.x] >= numParticlesPerGridCell) return;                       // ... but only if our number of particles in that cell does not exceed the limit per grid cell
+    particleNeighbors[particleNeighborsStartingIndex + particleOffsets[id.x]] = id.x;    // Set the current particle within the cell as a neighbor
 }
+
 
 #pragma kernel PrefixSum
 groupshared int temp[_BLOCK_SIZE * 2];
@@ -241,9 +287,9 @@ void CountNumNeighbors(uint3 id : SV_DispatchThreadID) {
             }
         }
     }
-    particles[id.x] = p;
 }
 
+// == HELPERS FOR DENSITY ==
 float DensityKernel(float h, float r) {
     float diff = h*h - r*r;
     return (315.0 / (64.0 * pi * radius9)) * diff * diff * diff;
@@ -254,10 +300,9 @@ float GetDensity(float currentDensity, float dist) {
     // If not, we simply return current density
     return 0.0;
 }
-
-#pragma kernel ComputeDensityPressure
+#pragma kernel PS_ComputeDensityPressure
 [numthreads(_BLOCK_SIZE, 1, 1)]
-void ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
+void PS_ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
     
     particle p = particles[id.x];
@@ -294,7 +339,44 @@ void ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
     else density[id.x] = _density;
     pressure[id.x] = _pressure;
 }
+#pragma kernel CV_ComputeDensityPressure
+[numthreads(_BLOCK_SIZE,1,1)]
+void CV_ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= numParticles) return;
 
+    particle p = particles[id.x];
+    float3 origin = p.position;
+    float _density = 0.0;
+    float _pressure = 0.0;
+
+    int neighborCells[27];
+    GetNeighborCellProjectedIDs(GetGridXYZIndices(p.position), neighborCells));
+    for(int i = 0; i < 27; i++) {
+        int neighborProjectedID = neighborCells[i];
+        if (neighborProjectedID == -1) break;
+        int particleNeighborsStartingIndex = GetParticleNeighborStartingIndex(neighborProjectedID);
+        int numParticlesInGridCell = grid[neighborProjectedID];
+        for(int j = particleNeighborsStartingIndex; j < particleNeighborsStartingIndex + min(numParticlesPerGridCell, numParticlesInGridCell); j++) {
+            uint otherId = particleNeighbors[j];
+            // If the indexes match, that means they're the same. Ignore it!
+            //if (otherId == id.x) continue;
+            // Get the direction to the other particle from the current particle
+            float3 dir = particles[otherId].position - origin;
+            // Get the distance between the current and other particle's centers
+            float dist = length(dir);
+            // Determine the new density, given these parameters
+            _density += GetDensity(_density, dist);
+            // Determine pressure
+            _pressure = gas_constant * (_density - rest_density);
+        }
+    }
+
+    if (_density == 0.0) density[id.x] = 0.000001;
+    else density[id.x] = _density;
+    pressure[id.x] = _pressure;
+}
+
+// == HELPERS FOR PRESSURE AND VISCOSITY ==
 float PressureKernel(float h, float r) {
     float dist = h - r;
     return (15 / (pi * radius6)) * dist * dist * dist; 
@@ -335,9 +417,9 @@ float3 GetViscosityForce(uint currentId,uint neighborId, float dist) {
     return float3(0,0,0);
 }
 
-#pragma kernel ComputeForce
+#pragma kernel PS_ComputeForce
 [numthreads(_BLOCK_SIZE, 1, 1)]
-void ComputeForce(uint3 id : SV_DispatchThreadID) {
+void PS_ComputeForce(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
 
     particle p = particles[id.x];
@@ -368,6 +450,42 @@ void ComputeForce(uint3 id : SV_DispatchThreadID) {
             }
         }
     }
+    // Determine the combined force
+    force[id.x] = forcePressure + forceViscosity + forceGravity;
+}
+#pragma kernel CV_ComputeForce
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void CV_ComputeForce(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= numParticles) return;
+
+    particle p = particles[id.x];
+    float3 forcePressure = float3(0,0,0);
+    float3 forceViscosity = float3(0,0,0);
+    float3 forceGravity = g * density[id.x];
+
+    int neighborCells[27];
+    GetNeighborCellProjectedIDs(GetGridXYZIndices(p.position), neighborCells));
+    for(int i = 0; i < 27; i++) {
+        int neighborProjectedID = neighborCells[i];
+        if (neighborProjectedID == -1) break;
+        int particleNeighborsStartingIndex = GetParticleNeighborStartingIndex(neighborProjectedID);
+        int numParticlesInGridCell = grid[neighborProjectedID];
+        for(int j = particleNeighborsStartingIndex; j < particleNeighborsStartingIndex + min(numParticlesPerGridCell, numParticlesInGridCell); j++) {
+            uint otherId = particleNeighbors[j];
+            // Skip if we encountered each other
+            if (otherId == id.x) continue;
+
+            // get the direction to the other neighbor from the current particle
+            float3 dir = particles[otherId].position - p.position;
+            // Get the distance between the centers of the two particles
+            float dist = length(dir);
+            // Calculate pressure force
+            forcePressure += GetPressureForce(id.x, otherId, dir, dist);
+            // Calcualte viscosity force
+            forceViscosity += GetViscosityForce(id.x, otherId, dist);
+        }
+    }
+
     // Determine the combined force
     force[id.x] = forcePressure + forceViscosity + forceGravity;
 }
@@ -425,3 +543,5 @@ void DampenByBounds(uint3 id : SV_DispatchThreadID) {
     velocity[id.x] = v;
     particles[id.x] = p;
 }
+
+// https://github.com/MahmoudKanbar/SPH-Water-Simulation-With-Unity
