@@ -296,60 +296,68 @@ void CountNumNeighbors(uint3 id : SV_DispatchThreadID) {
     }
 }
 
-// == HELPERS FOR DENSITY ==
-// The methodology below id described by https://matthias-research.github.io/pages/publications/sca03.pdf
-float DensityKernel(float h, float r) {
-    float diff = h*h - r*r;
-    return (315.0 / (64.0 * pi * radius9)) * diff * diff * diff;
+
+// == DENSITY CALCULATION ==
+// We'll be using THIS methodology, described by https://www.cs.cornell.edu/~bindel/class/cs5220-f11/code/sph.pdf
+
+// Helper function: calculates density for a current particle and its potential neighbor.
+float CalculateDensity(uint currentIndex, uint otherIndex) {
+    float3 diffPosition = particles[currentIndex].position - particles[otherIndex].position;
+    float diffSquare = dot(diffPosition, diffPosition);
+    if (diffSquare > radius2) return 0.0;
+
+    float z = radius2 - diffSquare;
+    float modDensity = ((4.0 * particleMass) / (pi * radius16)) * pow(z,3);
+    if (modDensity < 0.0001) return 0.0;
+    return modDensity;
 }
-float GetDensity(float currentDensity, float dist) {
-    // If 0 <= distance <= smoothing radius:
-    if (dist < smoothingRadius) return particleMass * DensityKernel(smoothingRadius, dist);
-    // If not, we simply return current density
-    return 0.0;
-}
-#pragma kernel PS_ComputeDensityPressure
+
+// The method to call by the CPU
+// The general methodology is as follows:
+    // 1) Initialize a list of neighbor cells to our particle's current cell
+    // 2) Get those neighbor cells' projected 1D indexes, then loop through them.
+        // 2a) If the projected ID is -1, then it's a bust. We break early.
+        // 2b) Get thje starting index for `particleNeighbors` where that neighbor cell's particles are stored
+        // 2c) Get the current number of neighbors for that cell from `grid`, using the projected ID of the neighbor cell
+        // 2d) Iterate through all particles in that neighbor cell
+            // i) Get the particle's ID, and check if it's the same as the current particle. Skip if so - we already handled that scenario above.
+            // ii) Get the direction to the other particle from the current particle
+            // iii) Get the distance between the current and other particle's centers
+            // iv) Double-check that the distance between the current particle and neighbor particle is within the smoothing kernel radius. If not, continue
+            // 3df) Add to density
+#pragma kernel PS_ComputeDensity
 [numthreads(_BLOCK_SIZE, 1, 1)]
-void PS_ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
+void PS_ComputeDensity(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
     
-    particle p = particles[id.x];
+    // Get the projected 1D grid index of the current particle
+    int projected_index = GetProjectedGridIndexFromGivenPosition(particles[id.x].position);
 
-    float3 origin = p.position;
-    int projected_index = GetProjectedGridIndexFromGivenPosition(origin);
-    float _density = 0.0;
-    float _pressure = 0.0;
+    // We pre-emptively add the particle itself to density. This makes it easier to handle because of imprecision with float point values
+    // In the original method, this step was automatically done in the loop below. however, we're just being safe here and simplifying the operation
+    float _density = (4.0 * particleMass) / (pi * radius2);
 
-        int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
-        for (int z = projected_index - zStep; z <= projected_index + zStep; z += zStep) {
-            for (int y = z - numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
-                int start = gridOffsetBuffer[y - 2];
-                int end = gridOffsetBuffer[y + 1];
+    int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
+    for (int z = projected_index - zStep; z <= projected_index + zStep; z += zStep) {
+        for (int y = z - numCellsPerAxis[0]; y <= z + numCellsPerAxis[0]; y += numCellsPerAxis[0]) {
+            int start = gridOffsetBuffer[y - 2];
+            int end = gridOffsetBuffer[y + 1];
 
-                for (int i = start; i < end; i++) {
-                    // Get the other neighbor particle
-                    uint otherId = rearrangedParticles[i];
-                    // If the indexes match, that means they're the same. Ignore it!
-                    //if (otherId == id.x) continue;
-                    // Get the direction to the other particle from the current particle
-                    float3 dir = particles[otherId].position - origin;
-                    // Get the distance between the current and other particle's centers
-                    float dist = length(dir);
-                    // Determine the new density, given these parameters
-                    _density += GetDensity(_density, dist);
-                    // Determine pressure
-                    _pressure = gas_constant * (_density - rest_density);
-                }
+            for (int i = start; i < end; i++) {
+                // Get the other neighbor particle
+                uint otherId = rearrangedParticles[i];
+                // If the indexes match, that means they're the same. Ignore it!
+                if (otherId == id.x) continue;
+                // Determine the density calculation, add it to the current density
+                _density += CalculateDensity(id.x, otherId);
             }
+        }
         
     }
-    if (_density == 0.0) density[id.x] = 0.000001;
-    else density[id.x] = _density;
-    pressure[id.x] = _pressure;
+    density[id.x] = _density;
 }
 #pragma kernel CV_ComputeDensity
 [numthreads(_BLOCK_SIZE,1,1)]
-// We'll be using THIS methodology, described by https://www.cs.cornell.edu/~bindel/class/cs5220-f11/code/sph.pdf
 void CV_ComputeDensity(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
 
@@ -360,19 +368,6 @@ void CV_ComputeDensity(uint3 id : SV_DispatchThreadID) {
     // In the original method, this step was automatically done in the loop below. however, we're just being safe here and simplifying the operation
     float _density = (4.0 * particleMass) / (pi * radius2);
 
-    // Time to iterate through all neighbors. The steps are:
-        // 1) Initialize a list of neighbor cells to our particle's current cell
-        // 2) Get those neighbor cells' projected 1D indexes, then loop through them.
-            // 2a) If the projected ID is -1, then it's a bust. We break early.
-            // 2b) Get thje starting index for `particleNeighbors` where that neighbor cell's particles are stored
-            // 2c) Get the current number of neighbors for that cell from `grid`, using the projected ID of the neighbor cell
-            // 2d) Iterate through all particles in that neighbor cell
-                // i) Get the particle's ID, and check if it's the same as the current particle. Skip if so - we already handled that scenario above.
-                // ii) Get the direction to the other particle from the current particle
-                // iii) Get the distance between the current and other particle's centers
-                // iv) Double-check that the distance between the current particle and neighbor particle is within the smoothing kernel radius. If not, continue
-                // 3df) Add to density
-
     int neighborCells[27];
     GetNeighborCellProjectedIDs(GetGridXYZIndices(p.position), neighborCells);
     for(int i = 0; i < 27; i++) {
@@ -382,8 +377,9 @@ void CV_ComputeDensity(uint3 id : SV_DispatchThreadID) {
         int numParticlesInGridCell = grid[neighborProjectedID];
         for(uint j = particleNeighborsStartingIndex; j < particleNeighborsStartingIndex + min(numParticlesPerGridCell, numParticlesInGridCell); j++) {
             uint otherId = particleNeighbors[j];
-            
             if (otherId == id.x) continue;
+            _density += CalculateDensity(id.x, otherId);
+            /*
             float3 diffPosition = p.position - particles[otherId].position;
             float diffSquare = dot(diffPosition, diffPosition);
             if (diffSquare > radius2) continue; 
@@ -391,6 +387,7 @@ void CV_ComputeDensity(uint3 id : SV_DispatchThreadID) {
             float modDensity = ((4.0 * particleMass) / (pi * radius16)) * pow(z,3);
             if (modDensity < 0.0001) continue;
             _density += modDensity;
+            */
             
         }
     }
@@ -398,57 +395,35 @@ void CV_ComputeDensity(uint3 id : SV_DispatchThreadID) {
     density[id.x] = _density;
 }
 
-// == HELPERS FOR PRESSURE AND VISCOSITY ==
-float PressureKernel(float h, float r) {
-    float dist = h - r;
-    return (15 / (pi * radius6)) * dist * dist * dist; 
-}
-float3 GetPressureForce(uint currentId, uint neighborId, float3 direction, float dist) {
-    // If the distance fits within the smoothing radius:
-    if (dist < smoothingRadius) {
-        float3 normalizedDir = float3(0,0,0);
-        if (dist != 0.0) {
-            normalizedDir = direction / dist;
-        }
-        return -1.0 * (normalizedDir) 
-            * particleMass 
-            * (
-                (pressure[currentId] + pressure[neighborId]) 
-                / (2.0 * density[neighborId]) 
-            )
-            * PressureKernel(smoothingRadius, dist);
-    }
-    // otherwise, return empty float3
-    return float3(0,0,0);
+
+// == ACCELERATION CALCULATION ==
+
+// Helper function: calculates acceleration
+float3 CalculateAcceleration(uint currentIndex, uint otherIndex) {
+    float currentDensity = density[currentIndex];
+
+    float neighborDensity = density[otherIndex];
+    float3 diffPosition = particles[currentIndex].position - particles[otherIndex].position;
+    float diffSquare = dot(diffPosition,diffPosition);
+    float q = sqrt(diffSquare) / smoothingRadius;
+    if (diffSquare > radius2) return float3(0,0,0);
+
+    float3 diffVelocity = velocity[currentIndex] - velocity[otherIndex];
+    float u = 1-q;
+    float wZero = (particleMass * u) / (pi * radius4 * currentDensity * neighborDensity);
+    float wP = wZero * 15.0 * bulkModulus * (currentDensity + neighborDensity - (2.0 * rest_density)) * (u/q);
+    float wV = wZero * 40.0 * viscosity_coefficient;
+    return wP * diffPosition - wV * diffVelocity;
 }
 
-float ViscosityKernel(float h, float r) {
-    return (45.0 / (pi * radius6)) * (h * r);
-}
-float3 GetViscosityForce(uint currentId,uint neighborId, float dist) {
-    // If the distance fits within the smoothing radius:
-    if (dist < smoothingRadius) {
-        return viscosity_coefficient 
-            * particleMass 
-            * (
-                (velocity[neighborId] - velocity[currentId]) / density[neighborId] 
-            )
-            * ViscosityKernel(smoothingRadius, dist);
-    }
-    // Otherwise, return empty float3
-    return float3(0,0,0);
-}
-
-#pragma kernel PS_ComputeForce
+#pragma kernel PS_ComputeInteractAcceleration
 [numthreads(_BLOCK_SIZE, 1, 1)]
-void PS_ComputeForce(uint3 id : SV_DispatchThreadID) {
+void PS_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
 
     particle p = particles[id.x];
     int projected_index = GetProjectedGridIndexFromGivenPosition(p.position); 
-    float3 forcePressure = float3(0,0,0);
-    float3 forceViscosity = float3(0,0,0);
-    float3 forceGravity = g * density[id.x];
+    float3 _acceleration = float3(0,0,0);
 
     int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
     for (int z = projected_index - zStep; z <= projected_index + zStep; z += zStep) {
@@ -459,21 +434,12 @@ void PS_ComputeForce(uint3 id : SV_DispatchThreadID) {
                 // Get the other particle
                 uint otherId = rearrangedParticles[i];
                 // Skip if we encountered each other
-                if (otherId == id.x) continue;
-
-                // get the direction to the other neighbor from the current particle
-                float3 dir = particles[otherId].position - p.position;
-                // Get the distance between the centers of the two particles
-                float dist = length(dir);
-                // Calculate pressure force
-                forcePressure += GetPressureForce(id.x, otherId, dir, dist);
-                // Calcualte viscosity force
-                forceViscosity += GetViscosityForce(id.x, otherId, dist);
+                _acceleration += CalculateAcceleration(id.x, otherId);
             }
         }
     }
     // Determine the combined force
-    force[id.x] = forcePressure + forceViscosity + forceGravity;
+    force[id.x] = _acceleration;
 }
 #pragma kernel CV_ComputeInteractAcceleration
 [numthreads(_BLOCK_SIZE, 1, 1)]
@@ -482,7 +448,6 @@ void CV_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
 
     particle p = particles[id.x];
-    float currentDensity = density[id.x];
     float3 _acceleration = float3(0,0,0);
 
     int neighborCells[27];
@@ -496,7 +461,7 @@ void CV_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
             uint otherId = particleNeighbors[j];
             // Skip if we encountered each other
             if (otherId == id.x) continue;
-
+            /*
             float neighborDensity = density[otherId];
             float3 diffPosition = p.position - particles[otherId].position;
             float diffSquare = dot(diffPosition,diffPosition);
@@ -509,23 +474,18 @@ void CV_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
             float wP = wZero * 15.0 * bulkModulus * (currentDensity + neighborDensity - (2.0 * rest_density)) * (u/q);
             float wV = wZero * 40.0 * viscosity_coefficient;
             _acceleration += wP * diffPosition - wV * diffVelocity;
-
-            /*
-            float coeff = (particleMass * u) / (pi * radius4 * neighborDensity * currentDensity);
-            float3 left = 15.0 * bulkModulus * (currentDensity + neighborDensity - 2.0 * rest_density) * (u/q) * diffPosition;
-            float3 right = 40.0 * viscosity_coefficient * diffVelocity;
-            _acceleration += coeff * (left - right);
             */
+            _acceleration += CalculateAcceleration(id.x, otherId);
         }
     }
 
     force[id.x] = _acceleration;
 }
 
-#pragma kernel CV_ComputeExternalAcceleration
+#pragma kernel ComputeExternalAcceleration
 [numthreads(_BLOCK_SIZE,1,1)]
 // Derived from https://www.cs.cornell.edu/~bindel/class/cs5220-f11/code/sph.pdf. This computes forces on the current particle based on external forces such as gravity
-void CV_ComputeExternalAcceleration(uint3 id : SV_DispatchThreadID) {
+void ComputeExternalAcceleration(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
     particle p = particles[id.x];
     

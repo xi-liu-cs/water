@@ -1784,9 +1784,9 @@ MonoBehaviour:
   - 0
   - 0
   bounds:
-  - 200
+  - 300
   - 100
-  - 200
+  - 300
   outerBounds:
   - 60
   - 60
@@ -1809,7 +1809,7 @@ MonoBehaviour:
   gas_constant: 0
   bulkModulus: 1000
   compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
-  neighborSearchType: 1
+  neighborSearchType: 0
   show_particles: 0
   show_grid_cells: 0
   show_velocities: 0

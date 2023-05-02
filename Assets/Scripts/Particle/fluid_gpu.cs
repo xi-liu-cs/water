@@ -121,13 +121,13 @@ public class fluid_gpu : MonoBehaviour
     int add_sums_kernel;
     int rearrange_particles_kernel;
     int count_num_neighbors_kernel;
-    int ps_compute_density_pressure_kernel;
-    int ps_compute_force_kernel;
+    int ps_compute_density_kernel;
+    int ps_compute_interact_acceleration_kernel;
     // Specific to cube volume method
     int cv_compute_density_kernel;
     int cv_compute_interact_acceleration_kernel;
-    int cv_compute_external_acceleration_kernel;
     // Update particle positions (Universal)
+    int compute_external_acceleration_kernel;
     int integrate_kernel;
     int dampen_by_bounds_kernel;
 
@@ -404,13 +404,13 @@ public class fluid_gpu : MonoBehaviour
         add_sums_kernel = compute_shader.FindKernel("AddSums");
         rearrange_particles_kernel = compute_shader.FindKernel("RearrangeParticles");
         count_num_neighbors_kernel = compute_shader.FindKernel("CountNumNeighbors");
-        ps_compute_density_pressure_kernel = compute_shader.FindKernel("PS_ComputeDensityPressure");
-        ps_compute_force_kernel = compute_shader.FindKernel("PS_ComputeForce");
+        ps_compute_density_kernel = compute_shader.FindKernel("PS_ComputeDensity");
+        ps_compute_interact_acceleration_kernel = compute_shader.FindKernel("PS_ComputeInteractAcceleration");
         // Specific to Cube Volume Method
         cv_compute_density_kernel = compute_shader.FindKernel("CV_ComputeDensity");
         cv_compute_interact_acceleration_kernel = compute_shader.FindKernel("CV_ComputeInteractAcceleration");
-        cv_compute_external_acceleration_kernel = compute_shader.FindKernel("CV_ComputeExternalAcceleration");
         // This one is universal across process types
+        compute_external_acceleration_kernel = compute_shader.FindKernel("ComputeExternalAcceleration");
         integrate_kernel = compute_shader.FindKernel("Integrate");
         dampen_by_bounds_kernel = compute_shader.FindKernel("DampenByBounds");
     }
@@ -525,27 +525,17 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(count_num_neighbors_kernel, "gridOffsetBuffer", gridOffsetBuffer);
         compute_shader.SetBuffer(count_num_neighbors_kernel, "numNeighbors", numNeighborsBuffer);
 
-        compute_shader.SetBuffer(ps_compute_density_pressure_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(ps_compute_density_pressure_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        compute_shader.SetBuffer(ps_compute_density_pressure_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        compute_shader.SetBuffer(ps_compute_density_pressure_kernel, "density", density_buffer);
-        compute_shader.SetBuffer(ps_compute_density_pressure_kernel, "pressure", pressure_buffer);
+        compute_shader.SetBuffer(ps_compute_density_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(ps_compute_density_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
+        compute_shader.SetBuffer(ps_compute_density_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        compute_shader.SetBuffer(ps_compute_density_kernel, "density", density_buffer);
     
-        compute_shader.SetBuffer(ps_compute_force_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "density", density_buffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "pressure", pressure_buffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "velocity", velocity_buffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "force", force_buffer);
-
-        compute_shader.SetBuffer(ps_compute_force_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "density", density_buffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "pressure", pressure_buffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "velocity", velocity_buffer);
-        compute_shader.SetBuffer(ps_compute_force_kernel, "force", force_buffer);
+        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
+        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "density", density_buffer);
+        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "velocity", velocity_buffer);
+        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "force", force_buffer);
 
         compute_shader.SetBuffer(cv_compute_density_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(cv_compute_density_kernel, "grid", gridBuffer);
@@ -559,8 +549,8 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "velocity", velocity_buffer);
         compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "force", force_buffer);
         
-        compute_shader.SetBuffer(cv_compute_external_acceleration_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(cv_compute_external_acceleration_kernel, "force", force_buffer);
+        compute_shader.SetBuffer(compute_external_acceleration_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(compute_external_acceleration_kernel, "force", force_buffer);
         
         compute_shader.SetBuffer(integrate_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(integrate_kernel, "velocity", velocity_buffer);
@@ -601,6 +591,9 @@ public class fluid_gpu : MonoBehaviour
         if (neighborSearchType == NeighborSearchType.PrefixSum) PrefixSumProcess(debugNumGridCells, debugNumParticles);
         else CubeVolumeProcess(debugNumGridCells, debugNumParticles);
 
+        compute_shader.Dispatch(compute_external_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        if (verbose_force) DebugBufferFloat3("Forces",debugNumParticles,force_buffer);
+
         // Integrate over particles, update their positions after taking all force calcualtions into account
         compute_shader.Dispatch(integrate_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
 
@@ -634,13 +627,13 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.Dispatch(count_num_neighbors_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_num_neighbors) DebugBufferInt("Num Neighbors",debugNumParticles,numNeighborsBuffer);
 
-        compute_shader.Dispatch(ps_compute_density_pressure_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        compute_shader.Dispatch(ps_compute_density_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_density_pressure) {
             DebugBufferFloat("Densities",debugNumParticles,density_buffer);
             DebugBufferFloat("Pressures",debugNumParticles,pressure_buffer);
         }
 
-        compute_shader.Dispatch(ps_compute_force_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        compute_shader.Dispatch(ps_compute_interact_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_force) DebugBufferFloat3("Forces",debugNumParticles,force_buffer);
     }
 
@@ -650,8 +643,6 @@ public class fluid_gpu : MonoBehaviour
             DebugBufferFloat("Densities",debugNumParticles,density_buffer);
         }
         compute_shader.Dispatch(cv_compute_interact_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
-        compute_shader.Dispatch(cv_compute_external_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
-        if (verbose_force) DebugBufferFloat3("Forces",debugNumParticles,force_buffer);
     }
 
     void OnDestroy() {
