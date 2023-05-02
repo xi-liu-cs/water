@@ -428,7 +428,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &56379758
 Transform:
   m_ObjectHideFlags: 0
@@ -1750,7 +1750,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &193044021
 Transform:
   m_ObjectHideFlags: 0
@@ -1778,16 +1778,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c72b5ae534e4e4488e4a32386758410, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridCellSize: 1
+  gridCellSize: 2
   origin:
   - 0
   - 0
   - 0
   bounds:
-  - 100
-  - 200
-  - 100
-  bufferCells: 040000000400000004000000
+  - 50
+  - 50
+  - 50
   outerBounds:
   - 60
   - 60
@@ -1798,30 +1797,32 @@ MonoBehaviour:
   - 0
   - -9.81
   - 0
-  numParticles: 50000
+  numParticles: 1000
   particleRenderSize: 2
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
   dt: -1
-  smoothingRadius: 1
-  particleMass: 2
-  viscosity_coefficient: 3.5
-  rest_density: 1000
+  smoothingRadius: 0.65
+  particleMass: 1
+  viscosity_coefficient: 12.5
+  rest_density: 1
   damping: -0.5
-  gas_constant: 10
+  gas_constant: 0
+  bulkModulus: 1000
   compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
+  neighborSearchType: 1
   show_particles: 0
   show_grid_cells: 0
   show_velocities: 0
   show_forces: 0
   gizmos_particle_color: {r: 0, g: 0, b: 1, a: 0.05490196}
-  verbose_grid: 0
+  verbose_grid: 1
   verbose_offsets: 0
   verbose_prefix_sums: 0
   verbose_rearrange: 0
   verbose_num_neighbors: 0
-  verbose_density_pressure: 0
-  verbose_force: 0
-  verbose_velocity: 0
+  verbose_density_pressure: 1
+  verbose_force: 1
+  verbose_velocity: 1
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   position_offset: {x: 0, y: 0, z: 0}
@@ -22293,7 +22294,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1243475183}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -20.191765, y: -25.534767, z: 91.89072}
+  m_LocalPosition: {x: -20.191765, y: -25.534767, z: -29.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -23193,7 +23194,6 @@ MonoBehaviour:
   - 0
   - 0
   bounds: []
-  bufferCells: 0a0000000a0000000a000000
   outerBounds:
   - 60
   - 60
@@ -23214,7 +23214,9 @@ MonoBehaviour:
   rest_density: 9
   damping: -0.1
   gas_constant: 2000
+  bulkModulus: 1000
   compute_shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
+  neighborSearchType: 0
   show_particles: 0
   show_grid_cells: 0
   show_velocities: 0
@@ -30101,7 +30103,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1705393042}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -16.9, y: -0.06737208, z: -1.097676}
+  m_LocalPosition: {x: -0.3, y: -0.06737208, z: -1.097676}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -36133,7 +36135,6 @@ MonoBehaviour:
   - 0
   - 0
   bounds: []
-  bufferCells: 0a0000000a0000000a000000
   outerBounds:
   - 60
   - 60
@@ -36154,7 +36155,9 @@ MonoBehaviour:
   rest_density: 9
   damping: -0.9
   gas_constant: 2000
+  bulkModulus: 1000
   compute_shader: {fileID: 7200000, guid: 97e2b3a2559455040abdc7a79c91848c, type: 3}
+  neighborSearchType: 0
   show_particles: 0
   show_grid_cells: 0
   show_velocities: 0

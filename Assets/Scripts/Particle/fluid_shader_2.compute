@@ -20,13 +20,18 @@ uint numParticlesPerGridCell;   // How many particles can we realistically fit i
 // == FLUID MECHANICS ==
 float dt;                       // delta time - The time difference between frames.
 float smoothingRadius;          // `h`: the smoothing kernel radius for SPH. For Prefix Sum, recommended to set to the same as `gridCellSize`.
+float radius2;
+float radius4;
 float radius6;
+float radius8;
 float radius9;
+float radius16;
 float particleMass;             // How much mass does each particle have?
 float viscosity_coefficient;    // The viscosity coefficient for SPH. The higher the value, the more particles are likely to clump together.
 float rest_density;             // The density of the fluid at the ideal state
 float damping;                  // The amount of influence that boundaries have on particles when particles collide with boundaries.
 float gas_constant;             // The gas constant of the particle liquid. The higher this value, the more particles vibrate and launch themselves in the air. Depends on temperature in the real world.
+float bulkModulus;
 
 // GPU SETTINGS 
 #define _BLOCK_SIZE 1024        // How many threads can a thread group have?
@@ -49,14 +54,14 @@ struct particle {
     // To get grid cell count: 
     //  1) Find projected grid cell hash index
     //  2) grid[projected_index] <- the # of particles in that grid cell.
-RWStructuredBuffer<int> grid;
+RWStructuredBuffer<uint> grid;
 // Stores all particle data in the system. 
     // Length = numParticles
 RWStructuredBuffer<particle> particles;
 // Stores the "offsets" of each particle.
     // Length = numParticles
     // For example, each grid cell has `n` number of particles; `offset` is the index of the particle in their grid cell (max: `n-1`)
-RWStructuredBuffer<int> particleOffsets;
+RWStructuredBuffer<uint> particleOffsets;
 // Stores ID of particles in each grid cell. Length = numGridCells * numParticlesPerGridCell
     // To iterate through neighbors of a particle's current cell:
     //  1) Get neighbor cells' projected indices. Can be done by getting current cell's XYZ indices, then iterating through 27 neighbor cells
@@ -83,6 +88,8 @@ RWStructuredBuffer<float> pressure;
 RWStructuredBuffer<float3> velocity;
 // Stores the force (acceleration) of each particle
 RWStructuredBuffer<float3> force;
+// Temp buffer for debugging
+RWStructuredBuffer<float> temp_buffer;
 
 // The buffers below are specific to prefix summation
 RWStructuredBuffer<int> gridOffsetBufferIn;
@@ -126,9 +133,7 @@ void GetNeighborCellProjectedIDs(int3 currentCellXYZ, out int neighborCells[27])
             }
         }
     }
-    for(int c = count; c < 27; c++) {
-        result[c] = -1;
-    }
+    for(int c = count; c < 27; c++) result[c] = -1;
     neighborCells = result;
 }
 // Basic random generation
@@ -154,17 +159,18 @@ void GenerateParticles(uint3 id : SV_DispatchThreadID) {
     state = randomSeed + id.x;
 
     float3 position = 
-        origin 
-        //+ float3(float(bounds[0]/2.0-1),float(bounds[1]/2.0-1),float(bounds[2]/2.0-1)) 
+        origin
+        + bounds/2.0 
+        //+ float3(float(bounds[0]/2.0-1),float(bounds[1]/2.0-1),float(bounds[2]/2.0-1));
         + float3(
             randRange(float(-bounds[0]/2.0), float(bounds[0]/2.0)), 
             randRange(float(-bounds[1]/2.0), float(bounds[1]/2.0)), 
             randRange(float(-bounds[2]/2.0), float(bounds[2]/2.0))
         )
         - float3(
-            randRange(float(0),float(0.01)),
-            randRange(float(0),float(0.01)),
-            randRange(float(0),float(0.01))
+            randRange(float(0),float(10)),
+            randRange(float(0),float(10)),
+            randRange(float(0),float(10))
         );
     particles[id.x].position = position;
     density[id.x] = 0;
@@ -201,7 +207,7 @@ void UpdateGridCellCounts(uint3 id : SV_DispatchThreadID) {
 
     InterlockedAdd(grid[projected_index], 1, particleOffsets[id.x]);        // Add to the total count for that grid cell
     
-    int particleNeighborsStartingIndex = GetParticleNeighborStartingIndex(projected_index);  // Update `particleNeighbors`...
+    uint particleNeighborsStartingIndex = GetParticleNeighborStartingIndex(projected_index);  // Update `particleNeighbors`...
     if (particleOffsets[id.x] >= numParticlesPerGridCell) return;                       // ... but only if our number of particles in that cell does not exceed the limit per grid cell
     particleNeighbors[particleNeighborsStartingIndex + particleOffsets[id.x]] = id.x;    // Set the current particle within the cell as a neighbor
 }
@@ -290,6 +296,7 @@ void CountNumNeighbors(uint3 id : SV_DispatchThreadID) {
 }
 
 // == HELPERS FOR DENSITY ==
+// The methodology below id described by https://matthias-research.github.io/pages/publications/sca03.pdf
 float DensityKernel(float h, float r) {
     float diff = h*h - r*r;
     return (315.0 / (64.0 * pi * radius9)) * diff * diff * diff;
@@ -339,41 +346,55 @@ void PS_ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
     else density[id.x] = _density;
     pressure[id.x] = _pressure;
 }
-#pragma kernel CV_ComputeDensityPressure
+#pragma kernel CV_ComputeDensity
 [numthreads(_BLOCK_SIZE,1,1)]
-void CV_ComputeDensityPressure(uint3 id : SV_DispatchThreadID) {
+// We'll be using THIS methodology, described by https://www.cs.cornell.edu/~bindel/class/cs5220-f11/code/sph.pdf
+void CV_ComputeDensity(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
 
+    // We get the current particle we're looking at
     particle p = particles[id.x];
-    float3 origin = p.position;
-    float _density = 0.0;
-    float _pressure = 0.0;
+
+    // We pre-emptively add the particle itself to density. This makes it easier to handle because of imprecision with float point values
+    // In the original method, this step was automatically done in the loop below. however, we're just being safe here and simplifying the operation
+    float _density = (4.0 * particleMass) / (pi * radius2);
+
+    // Time to iterate through all neighbors. The steps are:
+        // 1) Initialize a list of neighbor cells to our particle's current cell
+        // 2) Get those neighbor cells' projected 1D indexes, then loop through them.
+            // 2a) If the projected ID is -1, then it's a bust. We break early.
+            // 2b) Get thje starting index for `particleNeighbors` where that neighbor cell's particles are stored
+            // 2c) Get the current number of neighbors for that cell from `grid`, using the projected ID of the neighbor cell
+            // 2d) Iterate through all particles in that neighbor cell
+                // i) Get the particle's ID, and check if it's the same as the current particle. Skip if so - we already handled that scenario above.
+                // ii) Get the direction to the other particle from the current particle
+                // iii) Get the distance between the current and other particle's centers
+                // iv) Double-check that the distance between the current particle and neighbor particle is within the smoothing kernel radius. If not, continue
+                // 3df) Add to density
 
     int neighborCells[27];
-    GetNeighborCellProjectedIDs(GetGridXYZIndices(p.position), neighborCells));
+    GetNeighborCellProjectedIDs(GetGridXYZIndices(p.position), neighborCells);
     for(int i = 0; i < 27; i++) {
         int neighborProjectedID = neighborCells[i];
         if (neighborProjectedID == -1) break;
         int particleNeighborsStartingIndex = GetParticleNeighborStartingIndex(neighborProjectedID);
         int numParticlesInGridCell = grid[neighborProjectedID];
-        for(int j = particleNeighborsStartingIndex; j < particleNeighborsStartingIndex + min(numParticlesPerGridCell, numParticlesInGridCell); j++) {
+        for(uint j = particleNeighborsStartingIndex; j < particleNeighborsStartingIndex + min(numParticlesPerGridCell, numParticlesInGridCell); j++) {
             uint otherId = particleNeighbors[j];
-            // If the indexes match, that means they're the same. Ignore it!
-            //if (otherId == id.x) continue;
-            // Get the direction to the other particle from the current particle
-            float3 dir = particles[otherId].position - origin;
-            // Get the distance between the current and other particle's centers
-            float dist = length(dir);
-            // Determine the new density, given these parameters
-            _density += GetDensity(_density, dist);
-            // Determine pressure
-            _pressure = gas_constant * (_density - rest_density);
+            
+            if (otherId == id.x) continue;
+            float3 diffPosition = p.position - particles[otherId].position;
+            float diffSquare = dot(diffPosition, diffPosition);
+            if (diffSquare > radius2) continue; 
+            float z = radius2 - diffSquare;
+            float modDensity = ((4.0 * particleMass) / (pi * radius16)) * pow(z,3);
+            if (modDensity < 0.0001) continue;
+            _density += modDensity;
+            
         }
     }
 
-    if (_density == 0.0) density[id.x] = 0.000001;
-    else density[id.x] = _density;
-    pressure[id.x] = _pressure;
+    density[id.x] = _density;
 }
 
 // == HELPERS FOR PRESSURE AND VISCOSITY ==
@@ -453,41 +474,66 @@ void PS_ComputeForce(uint3 id : SV_DispatchThreadID) {
     // Determine the combined force
     force[id.x] = forcePressure + forceViscosity + forceGravity;
 }
-#pragma kernel CV_ComputeForce
+#pragma kernel CV_ComputeInteractAcceleration
 [numthreads(_BLOCK_SIZE, 1, 1)]
-void CV_ComputeForce(uint3 id : SV_DispatchThreadID) {
+// Based off of https://www.cs.cornell.edu/~bindel/class/cs5220-f11/code/sph.pdf. This calculates the interactive forces between particles
+void CV_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
 
     particle p = particles[id.x];
-    float3 forcePressure = float3(0,0,0);
-    float3 forceViscosity = float3(0,0,0);
-    float3 forceGravity = g * density[id.x];
+    float currentDensity = density[id.x];
+    float3 _acceleration = float3(0,0,0);
 
     int neighborCells[27];
-    GetNeighborCellProjectedIDs(GetGridXYZIndices(p.position), neighborCells));
+    GetNeighborCellProjectedIDs(GetGridXYZIndices(p.position), neighborCells);
     for(int i = 0; i < 27; i++) {
         int neighborProjectedID = neighborCells[i];
         if (neighborProjectedID == -1) break;
         int particleNeighborsStartingIndex = GetParticleNeighborStartingIndex(neighborProjectedID);
         int numParticlesInGridCell = grid[neighborProjectedID];
-        for(int j = particleNeighborsStartingIndex; j < particleNeighborsStartingIndex + min(numParticlesPerGridCell, numParticlesInGridCell); j++) {
+        for(uint j = particleNeighborsStartingIndex; j < particleNeighborsStartingIndex + min(numParticlesPerGridCell, numParticlesInGridCell); j++) {
             uint otherId = particleNeighbors[j];
             // Skip if we encountered each other
             if (otherId == id.x) continue;
 
-            // get the direction to the other neighbor from the current particle
-            float3 dir = particles[otherId].position - p.position;
-            // Get the distance between the centers of the two particles
-            float dist = length(dir);
-            // Calculate pressure force
-            forcePressure += GetPressureForce(id.x, otherId, dir, dist);
-            // Calcualte viscosity force
-            forceViscosity += GetViscosityForce(id.x, otherId, dist);
+            float neighborDensity = density[otherId];
+            float3 diffPosition = p.position - particles[otherId].position;
+            float diffSquare = dot(diffPosition,diffPosition);
+            float q = sqrt(diffSquare) / smoothingRadius;
+            if (diffSquare > radius2) continue;
+
+            float3 diffVelocity = velocity[id.x] - velocity[otherId];
+            float u = 1-q;
+            float wZero = (particleMass * u) / (pi * radius4 * currentDensity * neighborDensity);
+            float wP = wZero * 15.0 * bulkModulus * (currentDensity + neighborDensity - (2.0 * rest_density)) * (u/q);
+            float wV = wZero * 40.0 * viscosity_coefficient;
+            _acceleration += wP * diffPosition - wV * diffVelocity;
+
+            /*
+            float coeff = (particleMass * u) / (pi * radius4 * neighborDensity * currentDensity);
+            float3 left = 15.0 * bulkModulus * (currentDensity + neighborDensity - 2.0 * rest_density) * (u/q) * diffPosition;
+            float3 right = 40.0 * viscosity_coefficient * diffVelocity;
+            _acceleration += coeff * (left - right);
+            */
         }
     }
 
-    // Determine the combined force
-    force[id.x] = forcePressure + forceViscosity + forceGravity;
+    force[id.x] = _acceleration;
+}
+
+#pragma kernel CV_ComputeExternalAcceleration
+[numthreads(_BLOCK_SIZE,1,1)]
+// Derived from https://www.cs.cornell.edu/~bindel/class/cs5220-f11/code/sph.pdf. This computes forces on the current particle based on external forces such as gravity
+void CV_ComputeExternalAcceleration(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= numParticles) return;
+    particle p = particles[id.x];
+    
+    float3 gravityForce = g * particleMass;
+    
+    // Additional forces can be applied here!
+    float3 sumForces = gravityForce;
+
+    force[id.x] += sumForces / particleMass;
 }
 
 #pragma kernel Integrate
@@ -498,7 +544,7 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
     particle p = particles[id.x];
     float3 v = velocity[id.x];
 
-    v += dt * (force[id.x] / density[id.x]);
+    v += dt * force[id.x];
     p.position += dt * v;
     
     particles[id.x] = p;
@@ -513,35 +559,47 @@ void DampenByBounds(uint3 id : SV_DispatchThreadID) {
     particle p = particles[id.x];
     float3 v = velocity[id.x];
 
-    if(particles[id.x].position.x - particleRenderRadius < origin[0] - bounds[0]/2.0 + epsilon) {
+    // If we're just about to hit the edge, we bounce back
+    if(particles[id.x].position.x - particleRenderRadius <= origin[0] - bounds[0]/2.0 + epsilon) {
         v[0] *= damping;
         p.position.x = origin[0] - bounds[0]/2.0 + particleRenderRadius + epsilon;
     }
-    else if(particles[id.x].position.x + particleRenderRadius > origin[0] + bounds[0]/2.0 - epsilon) {
+    else if(particles[id.x].position.x + particleRenderRadius >= origin[0] + bounds[0]/2.0 - epsilon) {
         v[0] *= damping;
         p.position.x = origin[0] + bounds[0]/2.0 - particleRenderRadius - epsilon;
     }
 
-    if(particles[id.x].position.y - particleRenderRadius < origin[1] - bounds[1]/2.0 + epsilon) {
+    if(particles[id.x].position.y - particleRenderRadius <= origin[1] - bounds[1]/2.0 + epsilon) {
         v[1] *= damping;
         p.position.y = origin[1] - bounds[1]/2.0 + particleRenderRadius + epsilon;
     }
-    else if(particles[id.x].position.y + particleRenderRadius > origin[1] + bounds[1]/2.0 - epsilon) {
+    else if(particles[id.x].position.y + particleRenderRadius >= origin[1] + bounds[1]/2.0 - epsilon) {
         v[1] *= damping;
         p.position.y = origin[1] + bounds[1]/2.0 - particleRenderRadius - epsilon;
     }
 
-    if(particles[id.x].position.z - particleRenderRadius < origin[2] - bounds[2]/2.0 + epsilon) {
+    if(particles[id.x].position.z - particleRenderRadius <= origin[2] - bounds[2]/2.0 + epsilon) {
         v[2] *= damping;
         p.position.z = origin[2] - bounds[2]/2.0 + particleRenderRadius + epsilon;
     }
-    else if(particles[id.x].position.z + particleRenderRadius > origin[2] + bounds[2]/2.0 - epsilon) {
+    else if(particles[id.x].position.z + particleRenderRadius >= origin[2] + bounds[2]/2.0 - epsilon) {
         v[2] *= damping;
         p.position.z = origin[2] + bounds[2]/2.0 - particleRenderRadius - epsilon;
     }
 
+    // If we're actually out of bounds, we teleport to the highest place above origin that's not occupied\
+    //bool needsReplacing = false;
+    //if(
+    //    particles[id.x].position[0] < origin[0] - bounds[0]/2.0 
+    //    || particles[id.x].position[0] > origin[0] + bounds[0]/2.0
+    //    || particles[id.x].position[1] < origin[1] - bounds[1]/2.0
+    //    || particles[id.x].position[1] > origin[1] + bounds[1]/2.0
+    //    || particles[id.x].position[2] < origin[2] - bounds[2]/2.0
+    //    || particles[id.x].position[2] > origin[2] + bounds[2]/2.0
+    //) {
+    //    p.position = origin + dt * v;
+    //}
+
     velocity[id.x] = v;
     particles[id.x] = p;
 }
-
-// https://github.com/MahmoudKanbar/SPH-Water-Simulation-With-Unity
