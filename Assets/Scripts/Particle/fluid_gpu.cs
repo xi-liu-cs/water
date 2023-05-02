@@ -35,6 +35,7 @@ public class fluid_gpu : MonoBehaviour
         [ReadOnly, SerializeField, Tooltip("Given `outerBounds`, how many grid cells are along each axis?")]
         private int[] _numCellsPerAxis;
         public Vector3Int numCellsPerAxis { get => new Vector3Int(_numCellsPerAxis[0], _numCellsPerAxis[1], _numCellsPerAxis[2]); set {} }
+        public int[] numCellsPerAxisInt { get => _numCellsPerAxis; set {} }
         [ReadOnly, SerializeField, Tooltip("How many grid cells do we have in total?")]
         private int numGridCells;
         [Tooltip("What's the gravitational force exerted on all particles?")]
@@ -49,7 +50,8 @@ public class fluid_gpu : MonoBehaviour
         [Tooltip("The mesh used to render each particle in the simulation. Usually just the default `Sphere` mesh from Unity.")]
         public Mesh particle_mesh;
         // How many particles can we realistically fit into each grid cell? Calculated from particle render size. Intentional to use radius instead of size
-        private int numParticlesPerGridCell => Mathf.CeilToInt(Mathf.Pow(gridCellSize / particleRenderRadius, 3));
+        private int _numParticlesPerGridCell => Mathf.CeilToInt(Mathf.Pow(gridCellSize / particleRenderRadius, 3));
+        public int numParticlesPerGridCell { get => _numParticlesPerGridCell; set {} }
 
     [Header("== FLUID MECHANICS ==")]
         [Tooltip("The time difference between frames. If set to a negative number, will default to `Time.deltaTime`.")]
@@ -207,11 +209,11 @@ public class fluid_gpu : MonoBehaviour
         // Length = numParticles
         // For example, each grid cell has `n` number of particles; `offset` is the index of the particle in their grid cell (max: `n-1`)
     public ComputeBuffer particleOffsetsBuffer;
-    // Stores ID of particles in each grid cell. Length = numGridCells * numParticlesPerGridCell
+    // Stores ID of particles in each grid cell. Length = numGridCells * _numParticlesPerGridCell
     // To iterate through neighbors of a particle's current cell:
     //  1) Get neighbor cells' projected indices. Can be done by getting current cell's XYZ indices, then iterating through 27 neighbor cells
     //  2) Iterate through neighbor cells. For each neighbor cell:
-    //      2a) Get their starting index `j` for particleNeighborsBuffer (neighbor's hashed index * numParticlesPerGridCell)
+    //      2a) Get their starting index `j` for particleNeighborsBuffer (neighbor's hashed index * _numParticlesPerGridCell)
     //      2b) Get # of neighbors `n` in that neighbor cell (gridBuffer[<neighbor's hashed index>])
     //      2c) Loop `i` through `j` to `j+(n-1)`. Neighbor ID = particleNeighborsBuffer[i]
     public ComputeBuffer particleNeighborsBuffer;
@@ -386,8 +388,8 @@ public class fluid_gpu : MonoBehaviour
 
         Debug.Log($"Number of particle grid cells per axis: ({_numCellsPerAxis[0]}, {_numCellsPerAxis[1]}, {_numCellsPerAxis[2]})");
         Debug.Log($"Total # of particle grid cells: {numGridCells}");
-        Debug.Log($"# Particles per grid cell: {numParticlesPerGridCell}");
-        Debug.Log($"Size of particle neighbors: {numGridCells * numParticlesPerGridCell}");
+        Debug.Log($"# Particles per grid cell: {_numParticlesPerGridCell}");
+        Debug.Log($"Size of particle neighbors: {numGridCells * _numParticlesPerGridCell}");
     }
 
     // We need to find out which kernels we need to invoke in the GPU for each process.
@@ -430,7 +432,7 @@ public class fluid_gpu : MonoBehaviour
         // == PARTICLE CONFIGURATIONS ==
         compute_shader.SetInt("numParticles", numParticles);
         compute_shader.SetFloat("particleRenderRadius", particleRenderRadius);
-        compute_shader.SetInt("numParticlesPerGridCell", numParticlesPerGridCell);
+        compute_shader.SetInt("numParticlesPerGridCell", _numParticlesPerGridCell);
 
         // == GPU SETTINGS
         compute_shader.SetInt("numBlocks", numBlocks);
@@ -479,7 +481,7 @@ public class fluid_gpu : MonoBehaviour
         particle_buffer = new ComputeBuffer(numParticles, sizeof(float)*3);
         particleOffsetsBuffer = new ComputeBuffer(numParticles, sizeof(int));
         gridBuffer = new ComputeBuffer(numGridCells, sizeof(int));
-        particleNeighborsBuffer = new ComputeBuffer(numGridCells * numParticlesPerGridCell, sizeof(int));
+        particleNeighborsBuffer = new ComputeBuffer(numGridCells * _numParticlesPerGridCell, sizeof(int));
 
         density_buffer = new ComputeBuffer(numParticles, sizeof(float));
         pressure_buffer = new ComputeBuffer(numParticles, sizeof(float));

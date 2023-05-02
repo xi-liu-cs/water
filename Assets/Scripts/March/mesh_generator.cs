@@ -2,222 +2,143 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(MeshRenderer))]
 public class mesh_generator : MonoBehaviour
 {
-    struct Triangle {
-        public Vector3 a;
-        public Vector3 b;
-        public Vector3 c;
-
-        public Vector3 this [int i] {
-            get {
-                switch (i) {
-                    case 0:
-                        return a;
-                    case 1:
-                        return b;
-                    default:
-                        return c;
-                }
-            }
-        }
-    }
-
-    [Header("== REFERENCES ==")]
-    [Tooltip("Reference to the script that handles all particles, aka our ParticleManager")]
-    public fluid_gpu fluid_cs;
-
-    [Header("== WORLD CONFIGURATIONS ==")]
-        [Tooltip("How big are our grid cells? Recommended to match `smoothingRadius` from `fluid_gpu.cs")]
-        public float gridCellSize = 1f;
-        [Tooltip("Where in world space are we centering the simulation around?")]
-        public float[] origin = {0f,0f,0f};
-        [Tooltip("What are the total world space length (per axis) is the simulation?")]
-        public float[] bounds = {50f, 50f, 50f};
-        [Tooltip("In our grid space, how many buffer cells are added to each axis?")]
-        public int[] bufferCells = {10,10,10};
-        [ReadOnly, SerializeField, Tooltip("What is the world space size of the simulation, after taking into account grid cell size and buffer cells?")]
-        private float[] outerBounds = {60f, 60f, 60f};
-        [ReadOnly, SerializeField, Tooltip("Given `outerBounds`, how many grid cells are along each axis?")]
-        private int[] _numCellsPerAxis;
-        public Vector3Int numCellsPerAxis { get => new Vector3Int(_numCellsPerAxis[0], _numCellsPerAxis[1], _numCellsPerAxis[2]); set {} }
-        [ReadOnly, SerializeField, Tooltip("How many grid cells do we have in total?")]
-        private int numGridCells;
-        [ReadOnly, SerializeField, Tooltip("Given the total number of grid cells, how many voxels do we have per axis?")]
-        private int[] numVoxelsPerAxis;
-        [ReadOnly, Tooltip("The total number of voxels, given `numVoxelsPerAxis")] public int numVoxels;
-
-    [Header("== TRIANGLE CONFIGURATIONS ==")]
-        [ReadOnly, SerializeField, Tooltip("How many triangles can we have, max?")]
-        private int maxTriangleCount;
-        [Tooltip("How many points will we render across the cube grid, per axis?")]
-        public int numPointsPerAxis = 50;
-        [ReadOnly, SerializeField] 
-        private int numPoints;
-        [Tooltip("ISO Level for the marching cubes algorithm")]
-        public float isolevel;
-        [ReadOnly, SerializeField, Tooltip("The calculated number of triangles outputted by the marching cubes shader.")]
-        private int numTriangles = 0;
-        // read-only: the triangles outputted by the marching cubes shader
-        private Triangle[] triangles = new Triangle[0];
-
-    [Header("== GPU CONFIGURATIOSN ==")]
-        // how big each thread group is
-        const int _BLOCK_SIZE = 1024;
-        // # of threads per axis
-        private int[] numThreadsPerAxis = new int[3];
-
-    [Header("Debug Configurations")]
-    [Tooltip("When active, prints out details about the triangles outputted by teh marching cubes shader")]
-    public bool verbose_triangles = false;
-
+    const int thread_group_size = 8;
     public density_generator density_gen;
     public ComputeShader shader;
+    public fluid_gpu fluid_cs;
     public Material material;
+    public float isolevel;
     public float boundsSize = 1;
+    public Vector3 offset = Vector3.zero;
+    public int n_point_per_axis = 84;
     Mesh fluid;
+    MeshFilter fluid_mesh_filter;
     MeshRenderer fluid_mesh_renderer;
-    public ComputeBuffer triangle_buffer;
-    public ComputeBuffer point_buffer;
-    public ComputeBuffer triangle_count_buffer;
-    public ComputeBuffer voxel_density_buffer;
+    public ComputeBuffer triangle_buffer,
+    point_buffer,
+    triangle_count_buffer,
+    voxel_density_buffer,
+    particle_buffer;
+    public int n_point,
+    n_particle,
+    n_voxel_per_axis,
+    n_voxel;
 
-    private int size_property;
-    private int particle_buffer_property; 
+    int size_property = Shader.PropertyToID("size"),
+    particle_buffer_property = Shader.PropertyToID("particle_buffer");
+    
+    public struct particle
+    {
+        public Vector3 position;
+    }
 
-    private void Awake() {
-        // Move to center of the world
-        transform.position = Vector3.zero;
+    /* void OnDrawGizmos()
+    {
+        if(Application.isPlaying)
+        {
+            Gizmos.color = Color.yellow;
+            particle[] debug_particles = new particle[n_particle];
+            particle_buffer.GetData(debug_particles);
+            for(int i = 0; i < debug_particles.Length; ++i)
+                Gizmos.DrawSphere(debug_particles[i].position, 1f);
+        }
+    } */
 
-        // Initialize shader properties
-        size_property = Shader.PropertyToID("size");
-        particle_buffer_property = Shader.PropertyToID("particle_buffer");
-
-        // Dunno what these do -_-
-        fluid_mesh_renderer = GetComponent<MeshRenderer>();
-        fluid = GetComponent<MeshFilter>().mesh;
-
-        // Initialize Particles
+    void Awake()
+    {
         fluid_cs.Initialize();
-
-        InitializeVariables();
-        InitializeShaderVariables();
-        InitializeBuffers();
-
-        // Initialize Density
-        density_gen.Initialize();
-    }
-
-    private void InitializeVariables() {
-        _numCellsPerAxis = new int[3];
-        _numCellsPerAxis[0] = Mathf.CeilToInt(bounds[0] / gridCellSize) + bufferCells[0];
-        _numCellsPerAxis[1] = Mathf.CeilToInt(bounds[1] / gridCellSize) + bufferCells[1];
-        _numCellsPerAxis[2] = Mathf.CeilToInt(bounds[2] / gridCellSize) + bufferCells[2];
-        // Re-Calculate the new bounds based on the number of cells per axis
-        outerBounds[0] = (float)_numCellsPerAxis[0] * gridCellSize;
-        outerBounds[1] = (float)_numCellsPerAxis[1] * gridCellSize;
-        outerBounds[2] = (float)_numCellsPerAxis[2] * gridCellSize;
-        // How many grid cells are there in total?
-        numGridCells = _numCellsPerAxis[0] * _numCellsPerAxis[1] * _numCellsPerAxis[2];
-        // How many voxels are present per axis?
-        numVoxelsPerAxis = new int[3] {
-            _numCellsPerAxis[0] - 1,
-            _numCellsPerAxis[1] - 1,
-            _numCellsPerAxis[2] - 1
-        };
-        // How many voxels do we have in total?
-        numVoxels = numVoxelsPerAxis[0] * numVoxelsPerAxis[1] * numVoxelsPerAxis[2];
-
-        // How many triangles can we generate?
-        maxTriangleCount = numVoxels * 5;
-
-        // We gotta also set variables for GPU processing
-        numThreadsPerAxis = new int[3] {
-            Mathf.CeilToInt((float)numVoxelsPerAxis[0]/(float)_BLOCK_SIZE),
-            Mathf.CeilToInt((float)numVoxelsPerAxis[1]/(float)_BLOCK_SIZE),
-            Mathf.CeilToInt((float)numVoxelsPerAxis[2]/(float)_BLOCK_SIZE)
-        };
-    }
-
-    private void InitializeShaderVariables() {
-        shader.SetInt("n_point_per_axis", numPointsPerAxis);
-        shader.SetFloat("isolevel", isolevel);
+        particle_buffer = fluid_cs.particle_buffer;
+        n_point_per_axis = fluid_cs.n_point_per_axis;
+        n_particle = fluid_cs.numParticles;
+        gameObject.transform.position = new Vector3(0, 0, 0);
+        fluid_mesh_filter = gameObject.GetComponent<MeshFilter>();
+        if(fluid_mesh_filter == null)
+        {
+            gameObject.AddComponent<MeshFilter>();
+            fluid_mesh_filter = gameObject.GetComponent<MeshFilter>();
+        }
+        fluid_mesh_renderer = gameObject.GetComponent<MeshRenderer>();
+        if(fluid_mesh_renderer == null)
+        {
+            gameObject.AddComponent<MeshRenderer>();
+            fluid_mesh_renderer = gameObject.GetComponent<MeshRenderer>();
+        }
+        fluid = GetComponent<MeshFilter>().mesh;
+        CreateBuffers();
+        density_gen.Awake();
     }
     
 
-    void Update() {
-        // Tell our particle manager to update the particles
+    void Update()
+    {
         fluid_cs.UpdateParticles();
-        UpdateGridDensity();
-        UpdateTriangles();
-        UpdateMesh(fluid);
+        UpdateChunkMesh(fluid);
     }
 
-    unsafe void InitializeBuffers() {
-        triangle_buffer = new ComputeBuffer(maxTriangleCount, sizeof(Triangle), ComputeBufferType.Append);
-        triangle_count_buffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
-        voxel_density_buffer = new ComputeBuffer(numPoints, sizeof(float));
-        point_buffer = new ComputeBuffer(numPoints, sizeof(float) * 3);
-
+    unsafe void CreateBuffers()
+    {
+        n_point = n_point_per_axis * n_point_per_axis * n_point_per_axis;
+        n_voxel_per_axis = n_point_per_axis - 1;
+        n_voxel = n_voxel_per_axis * n_voxel_per_axis * n_voxel_per_axis;
+        int maxTriangleCount = n_voxel * 5;
+        triangle_buffer = new ComputeBuffer(maxTriangleCount, sizeof(tri), ComputeBufferType.Append);
+        triangle_count_buffer = new ComputeBuffer(1, sizeof (int), ComputeBufferType.Raw);
+        voxel_density_buffer = new ComputeBuffer(n_point, sizeof(float));
+        point_buffer = new ComputeBuffer(n_point, 3 * sizeof(float));
         shader.SetBuffer(0, "triangles", triangle_buffer);
+        shader.SetInt("n_point_per_axis", n_point_per_axis);
+        shader.SetFloat("isolevel", isolevel);
         shader.SetBuffer(0, "voxel_density", voxel_density_buffer);
         shader.SetBuffer(0, "particles", fluid_cs.particle_buffer);
         shader.SetBuffer(0, "points", point_buffer);
-        
-        material.SetFloat(size_property, fluid_cs.particleRenderRadius);
+        material.SetFloat(size_property, fluid_cs.particleRenderSize);
         material.SetBuffer(particle_buffer_property, fluid_cs.particle_buffer);
         fluid_mesh_renderer.material = material;
     }
 
-    private void UpdateGridDensity() {
-        Vector3 center = new Vector3(origin[0], origin[1], origin[2]);
-        Vector3 worldBounds = new Vector3(outerBounds[0], outerBounds[1], outerBounds[2]);
-
-        density_gen.generate(
-            point_buffer, numPointsPerAxis, 
-            boundsSize, 
-            worldBounds, 
-            center,
-            Vector3.zero, 
-            gridCellSize
-        );
+    unsafe public void UpdateChunkMesh(Mesh mesh)
+    {
+        int n_voxel_per_axis = n_point_per_axis - 1;
+        int numThreadsPerAxis = Mathf.CeilToInt (n_voxel_per_axis / (float) thread_group_size);
+        float pointSpacing = boundsSize / (n_point_per_axis - 1);
+        Vector3 coord = Vector3.zero;
+        Vector3 center = - new Vector3(boundsSize, boundsSize, boundsSize) / 2 + coord * boundsSize + Vector3.one * boundsSize / 2;
+        Vector3 worldBounds = new Vector3(boundsSize, boundsSize, boundsSize);
+        density_gen.generate(point_buffer, n_point_per_axis, boundsSize, worldBounds, center, offset, pointSpacing);
         
-        /* 
-        float[] a = new float[100];
+        /* float[] a = new float[100];
         voxel_density_buffer.GetData(a);
         Debug.Log("voxel");
-        for(int i = 0; i < 100; ++i) Debug.Log(a[i]); 
-        */
+        for(int i = 0; i < 100; ++i) Debug.Log(a[i]); */
 
-    }
-
-    private void UpdateTriangles() {
-        triangle_buffer.SetCounterValue(0);
-        shader.Dispatch (0, numThreadsPerAxis[0], numThreadsPerAxis[1], numThreadsPerAxis[2]);
+        triangle_buffer.SetCounterValue (0);
+        shader.Dispatch (0, numThreadsPerAxis, numThreadsPerAxis, numThreadsPerAxis);
         ComputeBuffer.CopyCount (triangle_buffer, triangle_count_buffer, 0);
         int[] triCountArray = { 0 };
         triangle_count_buffer.GetData (triCountArray);
-        numTriangles = triCountArray[0];
-        triangles = new Triangle[numTriangles];
-        triangle_buffer.GetData(triangles, 0, 0, numTriangles);
-        if (verbose_triangles) {
-            Debug.Log($"Triangle count: {numTriangles}");
-            for(int i = 0; i < numTriangles; i++) {
-                Debug.Log($"a: {triangles[i].a} | b: {triangles[i].b} | c: {triangles[i].c}");
-            }
-        }
-    }
+        int numTris = triCountArray[0];
+        tri[] tris = new tri[numTris];
+        triangle_buffer.GetData(tris, 0, 0, numTris);
+        /* Debug.Log("triangle count = " + numTris);
+        for(int i = 0; i < numTris; ++i)
+        {
+            Debug.Log(tris[i].a);
+            Debug.Log(tris[i].b);
+            Debug.Log(tris[i].c);
+        } */
 
-    private void UpdateMesh(Mesh mesh) {
         mesh.Clear();
-        var vertices = new Vector3[numTriangles * 3];
-        var meshTriangles = new int[numTriangles * 3];
+        var vertices = new Vector3[numTris * 3];
+        var meshTriangles = new int[numTris * 3];
 
-        for(int i = 0; i < numTriangles; i++) {
-            for(int j = 0; j < 3; j++) {
+        for(int i = 0; i < numTris; ++i)
+        {
+            for(int j = 0; j < 3; ++j)
+            {
                 meshTriangles[i * 3 + j] = i * 3 + j; /* assign index */
-                vertices[i * 3 + j] = triangles[i][j];
+                vertices[i * 3 + j] = tris[i][j];
             }
         }
         mesh.vertices = vertices;
@@ -232,11 +153,36 @@ public class mesh_generator : MonoBehaviour
 
     void OnDestroy()
     {
-        //particle_buffer.Release();
+        particle_buffer.Release();
         voxel_density_buffer.Release();
-        if(triangle_buffer != null) {
+        if(triangle_buffer != null)
+        {
             triangle_buffer.Release();
             triangle_count_buffer.Release();
+            particle_buffer.Release();
+        }
+    }
+
+    struct tri
+    {
+        public Vector3 a;
+        public Vector3 b;
+        public Vector3 c;
+
+        public Vector3 this [int i]
+        {
+            get
+            {
+                switch (i)
+                {
+                    case 0:
+                        return a;
+                    case 1:
+                        return b;
+                    default:
+                        return c;
+                }
+            }
         }
     }
 }
