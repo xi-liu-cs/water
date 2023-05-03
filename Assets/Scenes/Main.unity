@@ -203,6 +203,10 @@ MonoBehaviour:
   fluid_cs: {fileID: 1297943045}
   sphere_radius: 50
   max_particles_per_cube: 10
+  n_voxel: 0
+  clear_cube_corner_neighbor_tracker_kernel: 0
+  compute_neighbor_list_kernel: 0
+  compute_density_kernel: 0
   seed: 1
   numOctaves: 8
   lacunarity: 2
@@ -456,35 +460,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157b8bb05ae94d84480e7d4dd6beadcc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fluid_cs: {fileID: 193044022}
-  gridCellSize: 1
-  origin:
-  - 0
-  - 0
-  - 0
-  bounds:
-  - 100
-  - 200
-  - 100
-  bufferCells: 040000000400000004000000
-  outerBounds:
-  - 60
-  - 60
-  - 60
-  _numCellsPerAxis: 
-  numGridCells: 0
-  numVoxelsPerAxis: 
-  numVoxels: 0
-  maxTriangleCount: 0
-  numPointsPerAxis: 50
-  numPoints: 0
-  isolevel: 0
-  numTriangles: 0
-  verbose_triangles: 0
   density_gen: {fileID: 1060349090}
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
+  fluid_cs: {fileID: 193044022}
   material: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
+  isolevel: 0
   boundsSize: 500
+  offset: {x: 0, y: 0, z: 0}
+  n_point_per_axis: 84
+  n_point: 0
+  n_particle: 0
+  n_voxel_per_axis: 0
+  n_voxel: 0
 --- !u!64 &56379760
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -1762,7 +1749,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1289472802}
   m_Father: {fileID: 1944129685}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -1809,7 +1797,7 @@ MonoBehaviour:
   gas_constant: 0
   bulkModulus: 1000
   compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
-  neighborSearchType: 0
+  neighborSearchType: 1
   show_particles: 0
   show_grid_cells: 0
   show_velocities: 0
@@ -8112,35 +8100,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157b8bb05ae94d84480e7d4dd6beadcc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fluid_cs: {fileID: 1925688882}
-  gridCellSize: 1
-  origin:
-  - 0
-  - 0
-  - 0
-  bounds:
-  - 50
-  - 50
-  - 50
-  bufferCells: 0a0000000a0000000a000000
-  outerBounds:
-  - 60
-  - 60
-  - 60
-  _numCellsPerAxis: 
-  numGridCells: 0
-  numVoxelsPerAxis: 
-  numVoxels: 0
-  maxTriangleCount: 0
-  numPointsPerAxis: 50
-  numPoints: 0
-  isolevel: 0
-  numTriangles: 0
-  verbose_triangles: 0
   density_gen: {fileID: 670494837}
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
+  fluid_cs: {fileID: 1925688882}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
+  isolevel: 0
   boundsSize: 500
+  offset: {x: 0, y: 0, z: 0}
+  n_point_per_axis: 84
+  n_point: 0
+  n_particle: 0
+  n_voxel_per_axis: 0
+  n_voxel: 0
 --- !u!64 &503626321
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -13860,6 +13831,10 @@ MonoBehaviour:
   fluid_cs: {fileID: 1925688882}
   sphere_radius: 50
   max_particles_per_cube: 10
+  n_voxel: 0
+  clear_cube_corner_neighbor_tracker_kernel: 0
+  compute_neighbor_list_kernel: 0
+  compute_density_kernel: 0
   seed: 1
   numOctaves: 8
   lacunarity: 2
@@ -21141,7 +21116,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1060349089
 Transform:
   m_ObjectHideFlags: 0
@@ -21174,6 +21149,10 @@ MonoBehaviour:
   fluid_cs: {fileID: 193044022}
   sphere_radius: 50
   max_particles_per_cube: 10
+  n_voxel: 0
+  clear_cube_corner_neighbor_tracker_kernel: 0
+  compute_neighbor_list_kernel: 0
+  compute_density_kernel: 0
   seed: 1
   numOctaves: 8
   lacunarity: 2
@@ -22916,6 +22895,103 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1288215766}
   m_Mesh: {fileID: -8809867199647813555, guid: 3f52a7aff58a5eb4396a70f19d4eb898, type: 3}
+--- !u!1 &1289472801
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1289472802}
+  - component: {fileID: 1289472805}
+  - component: {fileID: 1289472804}
+  - component: {fileID: 1289472803}
+  m_Layer: 0
+  m_Name: Obstacle1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &1289472802
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1289472801}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 429.1, y: -51.9, z: -267}
+  m_LocalScale: {x: 50, y: 50, z: 50}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 193044021}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!135 &1289472803
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1289472801}
+  m_Material: {fileID: 0}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!23 &1289472804
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1289472801}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &1289472805
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1289472801}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!1001 &1291477279
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -37210,35 +37286,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157b8bb05ae94d84480e7d4dd6beadcc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fluid_cs: {fileID: 1297943045}
-  gridCellSize: 1
-  origin:
-  - 0
-  - 0
-  - 0
-  bounds:
-  - 50
-  - 50
-  - 50
-  bufferCells: 0a0000000a0000000a000000
-  outerBounds:
-  - 60
-  - 60
-  - 60
-  _numCellsPerAxis: 
-  numGridCells: 0
-  numVoxelsPerAxis: 
-  numVoxels: 0
-  maxTriangleCount: 0
-  numPointsPerAxis: 50
-  numPoints: 0
-  isolevel: 0
-  numTriangles: 0
-  verbose_triangles: 0
   density_gen: {fileID: 8824180}
   shader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
+  fluid_cs: {fileID: 1297943045}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
+  isolevel: 0
   boundsSize: 500
+  offset: {x: 0, y: 0, z: 0}
+  n_point_per_axis: 84
+  n_point: 0
+  n_particle: 0
+  n_voxel_per_axis: 0
+  n_voxel: 0
 --- !u!64 &2083196112
 MeshCollider:
   m_ObjectHideFlags: 0
