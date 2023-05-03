@@ -76,7 +76,6 @@ public class mesh_generator : MonoBehaviour
         density_gen.Awake();
     }
     
-
     void Update()
     {
         fluid_cs.Update();

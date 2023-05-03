@@ -31,7 +31,6 @@ public abstract class density_generator_xi : MonoBehaviour
     public void Awake()
     {
         n_voxel = mesh_gen.n_voxel;
-        Debug.Log("mesh_gen point" + mesh_gen.n_point_per_axis);
         find_kernel();
         voxel_density_buffer = mesh_gen.voxel_density_buffer;
         particle_buffer = fluid_cs.particle_buffer;

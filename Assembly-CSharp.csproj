@@ -49,6 +49,7 @@
      <Compile Include="Assets\Scripts\March Cube\VolumeDataVisualizer.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\CollisionAvoidance.cs" />
      <Compile Include="Assets\Scripts\Cave\SeaWorldColours.cs" />
+     <Compile Include="Assets\Scripts\Marchxi\noise_density_xi.cs" />
      <Compile Include="Assets\Scripts\Input\input.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\OffsetPursuit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\ThirdPersonUnit.cs" />
@@ -72,6 +73,7 @@
      <Compile Include="Assets\Scripts\Cave\NoiseDensity.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\FollowPathUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Wander1.cs" />
+     <Compile Include="Assets\Scripts\Marchxi\mesh_generator_xi.cs" />
      <Compile Include="Assets\Style\TextureScaler.cs" />
      <Compile Include="Assets\Scripts\Rov\rov.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid.cs" />
@@ -85,6 +87,7 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Evade.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\EvadeUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Pursue.cs" />
+     <Compile Include="Assets\Scripts\Marchxi\density_generator_xi.cs" />
      <Compile Include="Assets\Scripts\Water\fog_start.cs" />
      <Compile Include="Assets\Scripts\Collider\collider.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\ScreenBoundary3D.cs" />
@@ -106,9 +109,6 @@
      <Compile Include="Assets\Scripts\March\ray.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
      <Compile Include="Assets\Scripts\March Cube\NoiseFieldVisualizer.cs" />
-     <Compile Include="Assets\Scripts\Marchxi\noise_density_xi.cs" />
-     <Compile Include="Assets\Scripts\Marchxi\mesh_generator_xi.cs" />
-     <Compile Include="Assets\Scripts\Marchxi\density_generator_xi.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Marchxi\water.shader" />

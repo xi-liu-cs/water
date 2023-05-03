@@ -65,14 +65,14 @@ float std_kernel(float distance_square)
 }
 
 /* try sphere */
-int hash(uint x, uint y, uint z)
-{
-    return x + n_point_per_axis * (y + n_point_per_axis * z);
-}
 /* int hash(uint x, uint y, uint z)
 {
-    return x + n_point_per_axis_vec[0] * (y + n_point_per_axis_vec[1] * z);
+    return x + n_point_per_axis * (y + n_point_per_axis * z);
 } */
+int hash(uint x, uint y, uint z)
+{
+    return x + n_point_per_axis_vec[0] * (y + n_point_per_axis_vec[1] * z);
+}
 
 int3 get_cell(float3 position)
 {
@@ -80,14 +80,14 @@ int3 get_cell(float3 position)
 }
 
 /* try sphere */
-int hash_cell(int3 cell)
-{
-    return cell.x + n_point_per_axis * (cell.y + n_point_per_axis * cell.z);
-}
 /* int hash_cell(int3 cell)
 {
-    return cell.x + n_point_per_axis_vec[0] * (cell.y + n_point_per_axis_vec[1] * cell.z);
+    return cell.x + n_point_per_axis * (cell.y + n_point_per_axis * cell.z);
 } */
+int hash_cell(int3 cell)
+{
+    return cell.x + n_point_per_axis_vec[0] * (cell.y + n_point_per_axis_vec[1] * cell.z);
+}
 
 /* [numthreads(n_thread, n_thread, n_thread)]
 void compute_density(int3 id : SV_DispatchThreadID)
@@ -398,8 +398,7 @@ void compute_neighbor_list(uint3 id : SV_DispatchThreadID)
 [numthreads(n_thread, n_thread, n_thread)]
 void compute_density(int3 id : SV_DispatchThreadID)
 {
-    if(id.x >= n_point_per_axis || id.y >= n_point_per_axis || id.z >= n_point_per_axis)
-        return;
+    /* if(id.x >= n_point_per_axis_vec[0] || id.y >= n_point_per_axis_vec[1] || id.z >= n_point_per_axis_vec[2]) return; */
     float3 cube_corner_pos = float3(bound[0], bound[2], bound[4]) + id * grid_size;
     int cube_corner_index = hash_cell(id);
     float sum = 0,

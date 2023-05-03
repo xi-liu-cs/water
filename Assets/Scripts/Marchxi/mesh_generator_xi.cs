@@ -28,7 +28,8 @@ public class mesh_generator_xi : MonoBehaviour
 
     public float[] bound;
     public float voxel_size = 2;
-    public int[] n_point_per_axis_vec;
+    public int[] n_point_per_axis_vec,
+    n_voxel_per_axis_vec;
 
     int size_property = Shader.PropertyToID("size"),
     particle_buffer_property = Shader.PropertyToID("particle_buffer");
@@ -57,6 +58,8 @@ public class mesh_generator_xi : MonoBehaviour
         n_point_per_axis = fluid_cs.n_point_per_axis;
         bound = fluid_cs.bound;
         n_point_per_axis_vec = new int[]{(int)((bound[1] - bound[0]) / voxel_size), (int)((bound[3] - bound[2]) / voxel_size), (int)((bound[5] - bound[4]) / voxel_size)};
+        n_voxel_per_axis_vec = new int[]{n_point_per_axis_vec[0] - 1, n_point_per_axis_vec[1] - 1, n_point_per_axis_vec[2] - 1};
+        Debug.Log("n_point " + n_point_per_axis_vec[0] + " " + n_point_per_axis_vec[1] + " " + n_point_per_axis_vec[2]);
         n_particle = fluid_cs.n_particle;
         gameObject.transform.position = new Vector3(0, 0, 0);
         fluid_mesh_filter = gameObject.GetComponent<MeshFilter>();
@@ -76,7 +79,6 @@ public class mesh_generator_xi : MonoBehaviour
         density_gen.Awake();
     }
     
-
     void Update()
     {
         fluid_cs.Update();
@@ -85,9 +87,8 @@ public class mesh_generator_xi : MonoBehaviour
 
     unsafe void CreateBuffers()
     {
-        n_point = n_point_per_axis * n_point_per_axis * n_point_per_axis;
-        n_voxel_per_axis = n_point_per_axis - 1;
-        n_voxel = n_voxel_per_axis * n_voxel_per_axis * n_voxel_per_axis;
+        n_point = n_point_per_axis_vec[0] * n_point_per_axis_vec[1] * n_point_per_axis_vec[2];
+        n_voxel = n_voxel_per_axis_vec[0] * n_voxel_per_axis_vec[1] * n_voxel_per_axis_vec[2];
         int maxTriangleCount = n_voxel * 5;
         triangle_buffer = new ComputeBuffer(maxTriangleCount, sizeof(tri), ComputeBufferType.Append);
         triangle_count_buffer = new ComputeBuffer(1, sizeof (int), ComputeBufferType.Raw);
@@ -108,7 +109,8 @@ public class mesh_generator_xi : MonoBehaviour
     unsafe public void UpdateChunkMesh(Mesh mesh)
     {
         int n_voxel_per_axis = n_point_per_axis - 1;
-        int numThreadsPerAxis = Mathf.CeilToInt (n_voxel_per_axis / (float) thread_group_size);
+        Vector3Int thread_per_axis_vec = new Vector3Int(Mathf.CeilToInt(n_voxel_per_axis_vec[0] / (float) thread_group_size), Mathf.CeilToInt(n_voxel_per_axis_vec[1] / (float) thread_group_size), Mathf.CeilToInt(n_voxel_per_axis_vec[2] / (float) thread_group_size));
+        
         float pointSpacing = boundsSize / (n_point_per_axis - 1);
         Vector3 coord = Vector3.zero;
         Vector3 center = - new Vector3(boundsSize, boundsSize, boundsSize) / 2 + coord * boundsSize + Vector3.one * boundsSize / 2;
@@ -121,7 +123,7 @@ public class mesh_generator_xi : MonoBehaviour
         for(int i = 0; i < 100; ++i) Debug.Log(a[i]); */
 
         triangle_buffer.SetCounterValue (0);
-        shader.Dispatch (0, numThreadsPerAxis, numThreadsPerAxis, numThreadsPerAxis);
+        shader.Dispatch (0, thread_per_axis_vec.x, thread_per_axis_vec.y, thread_per_axis_vec.z);
         ComputeBuffer.CopyCount (triangle_buffer, triangle_count_buffer, 0);
         int[] triCountArray = { 0 };
         triangle_count_buffer.GetData (triCountArray);
@@ -135,6 +137,13 @@ public class mesh_generator_xi : MonoBehaviour
             Debug.Log(tris[i].b);
             Debug.Log(tris[i].c);
         } */
+        Debug.Log("triangle count = " + numTris);
+        for(int i = 0; i < numTris; ++i)
+        {
+            Debug.Log(tris[i].a);
+            Debug.Log(tris[i].b);
+            Debug.Log(tris[i].c);
+        }
 
         mesh.Clear();
         var vertices = new Vector3[numTris * 3];

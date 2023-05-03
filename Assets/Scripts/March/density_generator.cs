@@ -19,6 +19,7 @@ public abstract class density_generator : MonoBehaviour
 
     public int max_particles_per_cube = 10,
     n_voxel,
+    n_point,
     clear_cube_corner_neighbor_tracker_kernel,
     compute_neighbor_list_kernel,
     compute_density_kernel;
@@ -31,11 +32,14 @@ public abstract class density_generator : MonoBehaviour
     public void Awake()
     {
         n_voxel = mesh_gen.n_voxel;
+        n_point = mesh_gen.n_point;
         find_kernel();
         voxel_density_buffer = mesh_gen.voxel_density_buffer;
         particle_buffer = fluid_cs.particle_buffer;
-        cube_corner_neighbor_list_buffer = new ComputeBuffer(n_voxel * max_particles_per_cube, sizeof(int));
-        cube_corner_neighbor_tracker_buffer = new ComputeBuffer(n_voxel, sizeof(int));
+        /* cube_corner_neighbor_list_buffer = new ComputeBuffer(n_voxel * max_particles_per_cube, sizeof(int));
+        cube_corner_neighbor_tracker_buffer = new ComputeBuffer(n_voxel, sizeof(int)); */
+        cube_corner_neighbor_list_buffer = new ComputeBuffer(n_point * max_particles_per_cube, sizeof(int));
+        cube_corner_neighbor_tracker_buffer = new ComputeBuffer(n_point, sizeof(int));
         /* int n = mesh_gen.n_point;
         particles = new particle[n];
         for(int i = 0; i < n; ++i)
