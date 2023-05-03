@@ -251,13 +251,15 @@ Shader "custom/ray"
                 /* fixed4 col = tex2D(main_tex, i.uv); */
                 fixed4 col = float4(0.1, 0.2, 0.6, 0.5);
                 /* float3 light_direct = normalize(_WorldSpaceLightPos0.xyz); */
-                float3 light_direct = normalize(float3(1., 1., 1.));
+
+                /* float3 light_direct = normalize(float3(1., 1., 1.));
                 float4 s = float4(0, 0, 0, 2);
                 float t = ray_sphere(i.ray_o, i.ray_d, s);
                 float n = turbulence(i.vertex.xyz);
                 col += float4(sin(_Time.y * n), cos(_Time.y * n), sin(_Time.y * 1.3 * n), 0.) - n;
                 if(t >= 0.)
-                    col = float4(shade_sphere(at(i.ray_o, i.ray_d, t), s, light_direct), 1.);
+                    col = float4(shade_sphere(at(i.ray_o, i.ray_d, t), s, light_direct), 1.); */
+                
                 /* if(i.vertex.y < 0.5 * _ScreenParams.y) col = float4(0, 1, 0, 1); */
                 float3 color_offset = float3(clamp(-cos(Time), -0.2, 0.2), 0., clamp(-sin(Time), -0.2, 0.2));
                 float2 uv = i.uv; /* gl_FragCoord.xy / resolution.xy */
