@@ -161,6 +161,7 @@ public class mesh_generator : MonoBehaviour
             triangle_count_buffer.Release();
             particle_buffer.Release();
         }
+        fluid_cs.OnDestroy();
     }
 
     struct tri

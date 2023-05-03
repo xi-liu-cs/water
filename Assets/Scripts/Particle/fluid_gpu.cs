@@ -526,12 +526,12 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetBuffer(march_kernel, "float_debug", float_debug_buffer); */
     }
 
-    void OnDestroy()
+    public void OnDestroy()
     {
         free();
     }
 
-    void free()
+    public void free()
     {
         particle_buffer.Dispose();
         arg_buffer.Dispose();
