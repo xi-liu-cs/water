@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public abstract class density_generator : MonoBehaviour
+public abstract class density_generator_xi : MonoBehaviour
 {
     const int thread_group_size = 8;
     public ComputeShader densityShader;
@@ -12,7 +12,7 @@ public abstract class density_generator : MonoBehaviour
     cube_corner_neighbor_tracker_buffer;
     protected List<ComputeBuffer> buffersToRelease;
     /* public particle[] particles; */
-    public mesh_generator mesh_gen;
+    public mesh_generator_xi mesh_gen;
     public fluid_gpu fluid_cs;
     public float sphere_radius = 50f,
     march_grid_size = 2;
@@ -31,6 +31,7 @@ public abstract class density_generator : MonoBehaviour
     public void Awake()
     {
         n_voxel = mesh_gen.n_voxel;
+        Debug.Log("mesh_gen point" + mesh_gen.n_point_per_axis);
         find_kernel();
         voxel_density_buffer = mesh_gen.voxel_density_buffer;
         particle_buffer = fluid_cs.particle_buffer;

@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class mesh_generator : MonoBehaviour
+public class mesh_generator_xi : MonoBehaviour
 {
     const int thread_group_size = 8;
-    public density_generator density_gen;
+    public density_generator_xi density_gen;
     public ComputeShader shader;
     public fluid_gpu fluid_cs;
     public Material material;

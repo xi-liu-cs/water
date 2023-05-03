@@ -106,8 +106,13 @@
      <Compile Include="Assets\Scripts\March\ray.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
      <Compile Include="Assets\Scripts\March Cube\NoiseFieldVisualizer.cs" />
+     <Compile Include="Assets\Scripts\Marchxi\noise_density_xi.cs" />
+     <Compile Include="Assets\Scripts\Marchxi\mesh_generator_xi.cs" />
+     <Compile Include="Assets\Scripts\Marchxi\density_generator_xi.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
+     <None Include="Assets\Scripts\Marchxi\water.shader" />
+     <None Include="Assets\Scripts\Marchxi\noise_density.compute" />
      <None Include="Assets\Scripts\Particle\march_table.compute" />
      <None Include="Assets\Scripts\March Fluid\march.compute" />
      <None Include="Assets\Scripts\March\march.compute" />
@@ -125,9 +130,12 @@
      <None Include="Assets\Scripts\Water\coral.shader" />
      <None Include="Assets\Scripts\March Fluid\water.shader" />
      <None Include="Assets\Style\Resources\StyleDepthMotion.compute" />
+     <None Include="Assets\Scripts\Marchxi\march.compute" />
      <None Include="Assets\Scripts\Particle\particle.shader" />
      <None Include="Assets\Scripts\Cave\SeaWorld.shader" />
+     <None Include="Assets\Scripts\Marchxi\march_table.compute" />
      <None Include="Assets\Scripts\Fog\fog.shader" />
+     <None Include="Assets\Scripts\Marchxi\noise.compute" />
      <None Include="Assets\Scripts\March Cube\NoiseFieldGenerator.compute" />
      <None Include="Assets\Scripts\Cave\Compute\Includes\Noise.compute" />
      <None Include="Assets\Scripts\Cave\Compute\Includes\MarchTables.compute" />
@@ -138,6 +146,7 @@
      <None Include="Assets\Style\Resources\BFrameGenerator.compute" />
      <None Include="Assets\Scripts\March\noise_density.compute" />
      <None Include="Assets\Scripts\March\water.shader" />
+     <None Include="Assets\Scripts\Marchxi\ray.shader" />
     <Reference Include="UnityEngine">
         <HintPath>C:\Program Files\Unity 2021.3.11f1\Editor\Data\Managed\UnityEngine\UnityEngine.dll</HintPath>
     </Reference>
