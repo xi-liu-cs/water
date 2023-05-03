@@ -205,6 +205,7 @@ MonoBehaviour:
   march_grid_size: 0
   max_particles_per_cube: 10
   n_voxel: 0
+  n_point: 0
   clear_cube_corner_neighbor_tracker_kernel: 0
   compute_neighbor_list_kernel: 0
   compute_density_kernel: 0
@@ -14409,6 +14410,7 @@ MonoBehaviour:
   march_grid_size: 0
   max_particles_per_cube: 10
   n_voxel: 0
+  n_point: 0
   clear_cube_corner_neighbor_tracker_kernel: 0
   compute_neighbor_list_kernel: 0
   compute_density_kernel: 0
@@ -22261,6 +22263,7 @@ MonoBehaviour:
   march_grid_size: 2
   max_particles_per_cube: 10
   n_voxel: 0
+  n_point: 0
   clear_cube_corner_neighbor_tracker_kernel: 0
   compute_neighbor_list_kernel: 0
   compute_density_kernel: 0
