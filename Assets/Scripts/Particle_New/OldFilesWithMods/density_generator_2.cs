@@ -14,7 +14,7 @@ public abstract class density_generator_2 : MonoBehaviour
     protected List<ComputeBuffer> buffersToRelease;
     /* public particle[] particles; */
     public mesh_generator mesh_gen;
-    public fluid_gpu fluid_cs;
+    public fluid_gpu_2 fluid_cs;
     public float sphere_radius = 50f;
 
     public int max_particles_per_cube = 10,

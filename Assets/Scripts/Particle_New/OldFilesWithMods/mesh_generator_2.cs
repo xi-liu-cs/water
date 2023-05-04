@@ -7,7 +7,7 @@ public class mesh_generator_2 : MonoBehaviour
     const int thread_group_size = 8;
     public density_generator density_gen;
     public ComputeShader shader;
-    public fluid_gpu fluid_cs;
+    public fluid_gpu_2 fluid_cs;
     public Material material;
     public float isolevel;
     public float boundsSize = 1;
