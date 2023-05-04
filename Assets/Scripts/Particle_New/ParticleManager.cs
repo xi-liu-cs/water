@@ -21,6 +21,9 @@ public class ParticleManager : MonoBehaviour
 
     private bool initialized = false;
 
+    [Header("== REFERENCES ==")]
+        public Boids3D boidManager;
+
     [Header("== WORLD CONFIGURATIONS ==")]
         #if UNITY_EDITOR
         [Help("These configurations can be used to adjust the simulation's world parameters. This includes how big the grid cells are, where the center of the simulation is in world space, etc.\n\n- `Bounds` is where the simulation is limited to\n- `Outer Bounds` is the world space including the buffer cells.\n- `Num Cells Per Axis` s is automatically calculated based on `Grid Cell Size` and `Outer Bounds`.\n- `Num Grid Cells` is the total number of grid cells populating `Outer Bounds` and is auto-calculated.\n- `G` is the gravitational force exerted on all particles in the simulation.", UnityEditor.MessageType.None)]
@@ -67,6 +70,12 @@ public class ParticleManager : MonoBehaviour
         private int _numParticlesPerGridCell => Mathf.CeilToInt(Mathf.Pow(gridCellSize / particleRenderRadius, 3));
         public int numParticlesPerGridCell { get => _numParticlesPerGridCell; set {} }
 
+    [Header("== BOID CONFIGURATIONS ==")]
+        #if UNITY_EDITOR
+        [Help("The first `numBoids` particles are considered boids and will be constantly cemented to the boids from a separate boids manager. We just need to let the SPH compute shader know which of its particles are boids", UnityEditor.MessageType.None)]
+        #endif
+        public int numBoids = 100;
+
     [Header("== FLUID MECHANICS ==")]
         #if UNITY_EDITOR
         [Help("These configurations adjust the behavior of the SPH fluid dynamics. These can get complicated, so make sure you know SPH inside out first. Learn about them here:\nhttps://www.cs.cornell.edu/~bindel/class/cs5220-f11/code/sph.pdf\nhttps://matthias-research.github.io/pages/publications/sca03.pdf\nThe current implementation is based off of the 1st reference.\n\n- `Dt` = The time step between frames. If set to any value < 0, then defaults to `Time.deltaTime`\n- `Smoothing Radius` = `K` - the radius used for the smoothing kernel.\n- `Particle Mass` = the mass of each individual particle.\n- `Viscosity Coefficient` = `mu`, how much particles stick to each other.\n- `Rest Density` = `p_0`, the default density the fluid is meant to embody when still.\n- `Damping` = How much the boundary walls reflect particles upon contact.\n - `Gas_constant` = how much the particles are excited. Normally dependent on temperature. Not used in this implementation.\n- `Bulk Modulus` = Every fluid has a modulus value - this can be looked up online. Try to pick values that aren't too large or small.", UnityEditor.MessageType.None)]
@@ -103,7 +112,7 @@ public class ParticleManager : MonoBehaviour
         #endif
 
         [Tooltip("Reference to the compute shader used to control particle movement")]
-        public ComputeShader compute_shader;
+        public ComputeShader SPHComputeShader;
         [Tooltip("What kind of neighbor search and parsing should we use?")]
         public NeighborSearchType neighborSearchType = NeighborSearchType.CubeVolume;
         // number of threads running in each thread group that runs the simulation
@@ -118,6 +127,8 @@ public class ParticleManager : MonoBehaviour
         public bool show_gizmos = false;
         [Tooltip("Show particles via Gizmos")]
         public bool show_particles = false;
+        [Tooltip("Show boids")]
+        public bool show_boids = false;
         [Tooltip("Show grid cells that have occupying particles via Gizmos")]
         public bool show_grid_cells = false;
         [Tooltip("Show the velocity vectors of each particle")]
@@ -158,6 +169,7 @@ public class ParticleManager : MonoBehaviour
     int compute_external_acceleration_kernel;
     int integrate_kernel;
     int dampen_by_bounds_kernel;
+    int integrate_boid_particles_kernel;
 
     // public Vector3 velocity_initial = new Vector3(0, 10, 0);
 
@@ -263,12 +275,20 @@ public class ParticleManager : MonoBehaviour
             }
             */
         }
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawSphere(temp_particles[0].position, particleRenderRadius);
-        Gizmos.color = gridColor;
-        Gizmos.DrawCube(GetGridCellWorldPositionFromGivenPosition(temp_particles[0].position), gridCellSize3D);
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(temp_particles[0].position, smoothingRadius);
+
+        if (show_boids) {
+            Gizmos.color = Color.yellow;
+            for(int i = 0; i < numBoids; i++) {
+                Gizmos.DrawSphere(temp_particles[i].position, particleRenderRadius);
+            }
+        } else {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawSphere(temp_particles[0].position, particleRenderRadius);
+            Gizmos.color = gridColor;
+            Gizmos.DrawCube(GetGridCellWorldPositionFromGivenPosition(temp_particles[0].position), gridCellSize3D);
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(temp_particles[0].position, smoothingRadius);
+        }
         /*
         Vector3 handlePos = new Vector3(
             temp_particles[0].position[0],
@@ -319,14 +339,16 @@ public class ParticleManager : MonoBehaviour
     // This is a public method that can be called from some external manager or the like.
     // If this is a standalone component without any managers, the `Awake` method will handle this by itself. No management needed.
     public void Initialize() {
+        // Initialize boids first
+        boidManager.Initialize();
         // Initialize key variables once
         InitializeVariables();
         // Determine the kernels from the GPU
         InitializeKernels();
         InitializeShaderVariables();
         InitializeBuffers();
-        compute_shader.Dispatch(clear_grid_kernel, numBlocks,1,1);
-        compute_shader.Dispatch(generate_particles_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
+        SPHComputeShader.Dispatch(clear_grid_kernel, numBlocks,1,1);
+        SPHComputeShader.Dispatch(generate_particles_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
         initialized = true;
         Debug.Log("Particles Initialized");
     }
@@ -353,6 +375,9 @@ public class ParticleManager : MonoBehaviour
         numGridCells = _numCellsPerAxis[0] * _numCellsPerAxis[1] * _numCellsPerAxis[2];
         // For volumetric neighbor search, the # of particles per grid cell is calculated automatically. No need to calculate it here.
 
+        // However, we need to adjust the number of boids to ensure that it isn't larger than the # of particles in the current system.
+        numBoids = Mathf.Min(numBoids, Mathf.FloorToInt((float)numParticles*0.9f));
+
         // == GPU SETTINGS ==
         numBlocks = Mathf.CeilToInt((float)numGridCells / (float)_BLOCK_SIZE);
 
@@ -366,54 +391,56 @@ public class ParticleManager : MonoBehaviour
     // Keep in mind that the kernels will differ based on which neighbor search type we end up using.
     void InitializeKernels() {
         // Initialization and Resetting (Universal). Reset num neighbors is purely for debugging purposes
-        clear_grid_kernel = compute_shader.FindKernel("ClearGrid");
-        generate_particles_kernel = compute_shader.FindKernel("GenerateParticles");
-        reset_num_neighbors_kernel = compute_shader.FindKernel("ResetNumNeighbors");
-        update_grid_kernel = compute_shader.FindKernel("UpdateGridCellCounts");
+        clear_grid_kernel = SPHComputeShader.FindKernel("ClearGrid");
+        generate_particles_kernel = SPHComputeShader.FindKernel("GenerateParticles");
+        reset_num_neighbors_kernel = SPHComputeShader.FindKernel("ResetNumNeighbors");
+        update_grid_kernel = SPHComputeShader.FindKernel("UpdateGridCellCounts");
         // Specific to Prefix Summation Method
-        prefix_sum_kernel = compute_shader.FindKernel("PrefixSum");
-        sum_blocks_kernel = compute_shader.FindKernel("SumBlocks");
-        add_sums_kernel = compute_shader.FindKernel("AddSums");
-        rearrange_particles_kernel = compute_shader.FindKernel("RearrangeParticles");
-        count_num_neighbors_kernel = compute_shader.FindKernel("CountNumNeighbors");
-        ps_compute_density_kernel = compute_shader.FindKernel("PS_ComputeDensity");
-        ps_compute_interact_acceleration_kernel = compute_shader.FindKernel("PS_ComputeInteractAcceleration");
+        prefix_sum_kernel = SPHComputeShader.FindKernel("PrefixSum");
+        sum_blocks_kernel = SPHComputeShader.FindKernel("SumBlocks");
+        add_sums_kernel = SPHComputeShader.FindKernel("AddSums");
+        rearrange_particles_kernel = SPHComputeShader.FindKernel("RearrangeParticles");
+        count_num_neighbors_kernel = SPHComputeShader.FindKernel("CountNumNeighbors");
+        ps_compute_density_kernel = SPHComputeShader.FindKernel("PS_ComputeDensity");
+        ps_compute_interact_acceleration_kernel = SPHComputeShader.FindKernel("PS_ComputeInteractAcceleration");
         // Specific to Cube Volume Method
-        cv_compute_density_kernel = compute_shader.FindKernel("CV_ComputeDensity");
-        cv_compute_interact_acceleration_kernel = compute_shader.FindKernel("CV_ComputeInteractAcceleration");
+        cv_compute_density_kernel = SPHComputeShader.FindKernel("CV_ComputeDensity");
+        cv_compute_interact_acceleration_kernel = SPHComputeShader.FindKernel("CV_ComputeInteractAcceleration");
         // This one is universal across process types
-        compute_external_acceleration_kernel = compute_shader.FindKernel("ComputeExternalAcceleration");
-        integrate_kernel = compute_shader.FindKernel("Integrate");
-        dampen_by_bounds_kernel = compute_shader.FindKernel("DampenByBounds");
+        compute_external_acceleration_kernel = SPHComputeShader.FindKernel("ComputeExternalAcceleration");
+        integrate_kernel = SPHComputeShader.FindKernel("Integrate");
+        dampen_by_bounds_kernel = SPHComputeShader.FindKernel("DampenByBounds");
+        integrate_boid_particles_kernel = SPHComputeShader.FindKernel("IntegrateBoidsParticles");
     }
 
     void InitializeShaderVariables() {
         // == WORLD CONFIGURATIONS ==
-        compute_shader.SetFloat("gridCellSize", gridCellSize);
-        compute_shader.SetInts("numCellsPerAxis", _numCellsPerAxis);
-        compute_shader.SetInt("total_number_of_cells", numGridCells);
-        compute_shader.SetFloats("origin", origin);
-        compute_shader.SetFloats("bounds", bounds);
-        compute_shader.SetFloats("outerBounds", _outerBounds);
-        compute_shader.SetFloats("g", g);
-        compute_shader.SetFloat("epsilon", Mathf.Epsilon);
-        compute_shader.SetFloat("pi", Mathf.PI);
+        SPHComputeShader.SetFloat("gridCellSize", gridCellSize);
+        SPHComputeShader.SetInts("numCellsPerAxis", _numCellsPerAxis);
+        SPHComputeShader.SetInt("total_number_of_cells", numGridCells);
+        SPHComputeShader.SetFloats("origin", origin);
+        SPHComputeShader.SetFloats("bounds", bounds);
+        SPHComputeShader.SetFloats("outerBounds", _outerBounds);
+        SPHComputeShader.SetFloats("g", g);
+        SPHComputeShader.SetFloat("epsilon", Mathf.Epsilon);
+        SPHComputeShader.SetFloat("pi", Mathf.PI);
 
         // == PARTICLE CONFIGURATIONS ==
-        compute_shader.SetInt("numParticles", numParticles);
-        compute_shader.SetFloat("particleRenderRadius", particleRenderRadius);
-        compute_shader.SetInt("numParticlesPerGridCell", _numParticlesPerGridCell);
+        SPHComputeShader.SetInt("numParticles", numParticles);
+        SPHComputeShader.SetInt("numBoids", numBoids);
+        SPHComputeShader.SetFloat("particleRenderRadius", particleRenderRadius);
+        SPHComputeShader.SetInt("numParticlesPerGridCell", _numParticlesPerGridCell);
 
         // == GPU SETTINGS
-        compute_shader.SetInt("numBlocks", numBlocks);
-        compute_shader.SetInt("randomSeed", Random.Range(0,int.MaxValue));
+        SPHComputeShader.SetInt("numBlocks", numBlocks);
+        SPHComputeShader.SetInt("randomSeed", Random.Range(0,int.MaxValue));
 
         // == OLD SETTINGS ==
-        //compute_shader.SetInt("n", 8);
-        //compute_shader.SetFloat("e", Mathf.Exp(1));
-        //compute_shader.SetVector("time", Shader.GetGlobalVector("_Time"));
-        compute_shader.SetInt("n_point_per_axis", n_point_per_axis);
-        compute_shader.SetFloat("isolevel", isolevel);
+        //SPHComputeShader.SetInt("n", 8);
+        //SPHComputeShader.SetFloat("e", Mathf.Exp(1));
+        //SPHComputeShader.SetVector("time", Shader.GetGlobalVector("_Time"));
+        SPHComputeShader.SetInt("n_point_per_axis", n_point_per_axis);
+        SPHComputeShader.SetFloat("isolevel", isolevel);
 
         // Update variables that may change over time due to modifying inspector values
         UpdateShaderVariables();
@@ -421,25 +448,25 @@ public class ParticleManager : MonoBehaviour
 
     public void UpdateShaderVariables(bool updateDT = false) {
         // == FLUID MECHANICS ==
-        compute_shader.SetFloat("smoothingRadius", smoothingRadius);
-        compute_shader.SetFloat("radius2", radius2);
-        compute_shader.SetFloat("radius4", radius4);
-        compute_shader.SetFloat("radius6", radius6);
-        compute_shader.SetFloat("radius8", radius8);
-        compute_shader.SetFloat("radius9", radius9);
-        compute_shader.SetFloat("radius16", radius16);
+        SPHComputeShader.SetFloat("smoothingRadius", smoothingRadius);
+        SPHComputeShader.SetFloat("radius2", radius2);
+        SPHComputeShader.SetFloat("radius4", radius4);
+        SPHComputeShader.SetFloat("radius6", radius6);
+        SPHComputeShader.SetFloat("radius8", radius8);
+        SPHComputeShader.SetFloat("radius9", radius9);
+        SPHComputeShader.SetFloat("radius16", radius16);
 
-        compute_shader.SetFloat("particleMass", particleMass);
-        compute_shader.SetFloat("gas_constant", gas_constant);
-        compute_shader.SetFloat("rest_density", rest_density);
-        compute_shader.SetFloat("viscosity_coefficient", viscosity_coefficient);
-        compute_shader.SetFloat("damping", damping);
-        compute_shader.SetFloat("bulkModulus", bulkModulus);
+        SPHComputeShader.SetFloat("particleMass", particleMass);
+        SPHComputeShader.SetFloat("gas_constant", gas_constant);
+        SPHComputeShader.SetFloat("rest_density", rest_density);
+        SPHComputeShader.SetFloat("viscosity_coefficient", viscosity_coefficient);
+        SPHComputeShader.SetFloat("damping", damping);
+        SPHComputeShader.SetFloat("bulkModulus", bulkModulus);
 
-        compute_shader.SetFloats("g", g);
+        SPHComputeShader.SetFloats("g", g);
         if (updateDT) {
-            if (dt > 0) compute_shader.SetFloat("dt", dt);
-            else compute_shader.SetFloat("dt", Time.deltaTime);
+            if (dt > 0) SPHComputeShader.SetFloat("dt", dt);
+            else SPHComputeShader.SetFloat("dt", Time.deltaTime);
         }
     }
 
@@ -466,71 +493,77 @@ public class ParticleManager : MonoBehaviour
 
         temp_buffer = new ComputeBuffer(numParticles, sizeof(int));
         
-        compute_shader.SetBuffer(clear_grid_kernel, "grid", gridBuffer);
-        compute_shader.SetBuffer(reset_num_neighbors_kernel, "numNeighbors", numNeighborsBuffer);
+        SPHComputeShader.SetBuffer(clear_grid_kernel, "grid", gridBuffer);
+        SPHComputeShader.SetBuffer(reset_num_neighbors_kernel, "numNeighbors", numNeighborsBuffer);
 
-        compute_shader.SetBuffer(generate_particles_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(generate_particles_kernel, "density", density_buffer);
-        compute_shader.SetBuffer(generate_particles_kernel, "pressure", pressure_buffer);
-        compute_shader.SetBuffer(generate_particles_kernel, "force", force_buffer);
-        compute_shader.SetBuffer(generate_particles_kernel, "velocity", velocity_buffer);
+        SPHComputeShader.SetBuffer(generate_particles_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(generate_particles_kernel, "density", density_buffer);
+        SPHComputeShader.SetBuffer(generate_particles_kernel, "pressure", pressure_buffer);
+        SPHComputeShader.SetBuffer(generate_particles_kernel, "force", force_buffer);
+        SPHComputeShader.SetBuffer(generate_particles_kernel, "velocity", velocity_buffer);
 
-        compute_shader.SetBuffer(update_grid_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(update_grid_kernel, "grid", gridBuffer);
-        compute_shader.SetBuffer(update_grid_kernel, "particleOffsets", particleOffsetsBuffer);
-        compute_shader.SetBuffer(update_grid_kernel, "particleNeighbors", particleNeighborsBuffer);
-        compute_shader.SetBuffer(update_grid_kernel, "temp_buffer", temp_buffer);
+        SPHComputeShader.SetBuffer(update_grid_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(update_grid_kernel, "grid", gridBuffer);
+        SPHComputeShader.SetBuffer(update_grid_kernel, "particleOffsets", particleOffsetsBuffer);
+        SPHComputeShader.SetBuffer(update_grid_kernel, "particleNeighbors", particleNeighborsBuffer);
+        SPHComputeShader.SetBuffer(update_grid_kernel, "temp_buffer", temp_buffer);
 
-        compute_shader.SetBuffer(prefix_sum_kernel, "gridOffsetBufferIn", gridBuffer);
-        compute_shader.SetBuffer(prefix_sum_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        compute_shader.SetBuffer(prefix_sum_kernel, "gridSumsBuffer", gridSumsBuffer2);
+        SPHComputeShader.SetBuffer(prefix_sum_kernel, "gridOffsetBufferIn", gridBuffer);
+        SPHComputeShader.SetBuffer(prefix_sum_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        SPHComputeShader.SetBuffer(prefix_sum_kernel, "gridSumsBuffer", gridSumsBuffer2);
 
-        compute_shader.SetBuffer(add_sums_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        SPHComputeShader.SetBuffer(add_sums_kernel, "gridOffsetBuffer", gridOffsetBuffer);
 
-        compute_shader.SetBuffer(rearrange_particles_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(rearrange_particles_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        compute_shader.SetBuffer(rearrange_particles_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        compute_shader.SetBuffer(rearrange_particles_kernel, "particleOffsets", particleOffsetsBuffer);
+        SPHComputeShader.SetBuffer(rearrange_particles_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(rearrange_particles_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
+        SPHComputeShader.SetBuffer(rearrange_particles_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        SPHComputeShader.SetBuffer(rearrange_particles_kernel, "particleOffsets", particleOffsetsBuffer);
 
-        compute_shader.SetBuffer(count_num_neighbors_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(count_num_neighbors_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        compute_shader.SetBuffer(count_num_neighbors_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        compute_shader.SetBuffer(count_num_neighbors_kernel, "numNeighbors", numNeighborsBuffer);
+        SPHComputeShader.SetBuffer(count_num_neighbors_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(count_num_neighbors_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
+        SPHComputeShader.SetBuffer(count_num_neighbors_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        SPHComputeShader.SetBuffer(count_num_neighbors_kernel, "numNeighbors", numNeighborsBuffer);
 
-        compute_shader.SetBuffer(ps_compute_density_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(ps_compute_density_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        compute_shader.SetBuffer(ps_compute_density_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        compute_shader.SetBuffer(ps_compute_density_kernel, "density", density_buffer);
+        SPHComputeShader.SetBuffer(ps_compute_density_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(ps_compute_density_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
+        SPHComputeShader.SetBuffer(ps_compute_density_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        SPHComputeShader.SetBuffer(ps_compute_density_kernel, "density", density_buffer);
     
-        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "density", density_buffer);
-        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "velocity", velocity_buffer);
-        compute_shader.SetBuffer(ps_compute_interact_acceleration_kernel, "force", force_buffer);
+        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
+        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "density", density_buffer);
+        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "velocity", velocity_buffer);
+        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "force", force_buffer);
 
-        compute_shader.SetBuffer(cv_compute_density_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(cv_compute_density_kernel, "grid", gridBuffer);
-        compute_shader.SetBuffer(cv_compute_density_kernel, "particleNeighbors", particleNeighborsBuffer);
-        compute_shader.SetBuffer(cv_compute_density_kernel, "density", density_buffer);
+        SPHComputeShader.SetBuffer(cv_compute_density_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(cv_compute_density_kernel, "grid", gridBuffer);
+        SPHComputeShader.SetBuffer(cv_compute_density_kernel, "particleNeighbors", particleNeighborsBuffer);
+        SPHComputeShader.SetBuffer(cv_compute_density_kernel, "density", density_buffer);
 
-        compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "grid", gridBuffer);
-        compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "particleNeighbors", particleNeighborsBuffer);
-        compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "density", density_buffer);
-        compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "velocity", velocity_buffer);
-        compute_shader.SetBuffer(cv_compute_interact_acceleration_kernel, "force", force_buffer);
+        SPHComputeShader.SetBuffer(cv_compute_interact_acceleration_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(cv_compute_interact_acceleration_kernel, "grid", gridBuffer);
+        SPHComputeShader.SetBuffer(cv_compute_interact_acceleration_kernel, "particleNeighbors", particleNeighborsBuffer);
+        SPHComputeShader.SetBuffer(cv_compute_interact_acceleration_kernel, "density", density_buffer);
+        SPHComputeShader.SetBuffer(cv_compute_interact_acceleration_kernel, "velocity", velocity_buffer);
+        SPHComputeShader.SetBuffer(cv_compute_interact_acceleration_kernel, "force", force_buffer);
         
-        compute_shader.SetBuffer(compute_external_acceleration_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(compute_external_acceleration_kernel, "force", force_buffer);
+        SPHComputeShader.SetBuffer(compute_external_acceleration_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(compute_external_acceleration_kernel, "force", force_buffer);
         
-        compute_shader.SetBuffer(integrate_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(integrate_kernel, "velocity", velocity_buffer);
-        compute_shader.SetBuffer(integrate_kernel, "force", force_buffer);
-        compute_shader.SetBuffer(integrate_kernel, "density", density_buffer);
+        SPHComputeShader.SetBuffer(integrate_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(integrate_kernel, "velocity", velocity_buffer);
+        SPHComputeShader.SetBuffer(integrate_kernel, "force", force_buffer);
+        SPHComputeShader.SetBuffer(integrate_kernel, "density", density_buffer);
 
-        compute_shader.SetBuffer(dampen_by_bounds_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(dampen_by_bounds_kernel, "velocity", velocity_buffer);
+        SPHComputeShader.SetBuffer(dampen_by_bounds_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(dampen_by_bounds_kernel, "velocity", velocity_buffer);
+
+        SPHComputeShader.SetBuffer(integrate_boid_particles_kernel, "particles", particle_buffer);
+        SPHComputeShader.SetBuffer(integrate_boid_particles_kernel, "velocity", velocity_buffer);
+        SPHComputeShader.SetBuffer(integrate_boid_particles_kernel, "boids", boidManager.boidsBuffer);
+        SPHComputeShader.SetBuffer(integrate_boid_particles_kernel, "boidVelocities", boidManager.boidVelocitiesBuffer);
+
     }
 
     private void Update() {
@@ -544,11 +577,11 @@ public class ParticleManager : MonoBehaviour
         UpdateShaderVariables(true);
 
         // Reset the grid and num neighbors buffer, if we are debugging
-        compute_shader.Dispatch(clear_grid_kernel, numBlocks,1,1);
-        compute_shader.Dispatch(reset_num_neighbors_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
+        SPHComputeShader.Dispatch(clear_grid_kernel, numBlocks,1,1);
+        SPHComputeShader.Dispatch(reset_num_neighbors_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
         
         // Calculate how many particles are in each grid cell, and get each particle's offset for their particular grid cell
-        compute_shader.Dispatch(update_grid_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
+        SPHComputeShader.Dispatch(update_grid_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
         if (verbose_grid) {
             DebugBufferInt("Grid", debugNumGridCells, gridBuffer, true);
             DebugBufferParticle("Particles", debugNumParticles, particle_buffer);
@@ -563,15 +596,18 @@ public class ParticleManager : MonoBehaviour
         if (neighborSearchType == NeighborSearchType.PrefixSum) PrefixSumProcess(debugNumGridCells, debugNumParticles);
         else CubeVolumeProcess(debugNumGridCells, debugNumParticles);
 
-        compute_shader.Dispatch(compute_external_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        SPHComputeShader.Dispatch(compute_external_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_force) DebugBufferFloat3("Forces",debugNumParticles,force_buffer);
 
         // Integrate over particles, update their positions after taking all force calcualtions into account
-        compute_shader.Dispatch(integrate_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        SPHComputeShader.Dispatch(integrate_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
 
         // Make sure that particles are within bounds, limit them if so
-        compute_shader.Dispatch(dampen_by_bounds_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        SPHComputeShader.Dispatch(dampen_by_bounds_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_velocity) DebugBufferFloat3("Velocities",debugNumParticles,velocity_buffer);
+
+        // Integrate the boid particles specifically
+        SPHComputeShader.Dispatch(integrate_boid_particles_kernel, Mathf.CeilToInt((float)numBoids / (float)_BLOCK_SIZE), 1, 1);
         
         // Render the particles
         particle_material.SetFloat(size_property, particleRenderSize);
@@ -580,41 +616,41 @@ public class ParticleManager : MonoBehaviour
     }
 
     private void PrefixSumProcess(int debugNumGridCells, int debugNumParticles) {
-        compute_shader.Dispatch(prefix_sum_kernel, numBlocks, 1, 1);
+        SPHComputeShader.Dispatch(prefix_sum_kernel, numBlocks, 1, 1);
         bool swap = false;
         for (int d = 1; d < numBlocks; d *= 2) {
-            compute_shader.SetBuffer(sum_blocks_kernel, "gridSumsBufferIn", swap ? gridSumsBuffer1 : gridSumsBuffer2);
-            compute_shader.SetBuffer(sum_blocks_kernel, "gridSumsBuffer", swap ? gridSumsBuffer2 : gridSumsBuffer1);
-            compute_shader.SetInt("d", d);
-            compute_shader.Dispatch(sum_blocks_kernel, Mathf.CeilToInt((float)numBlocks / (float)_BLOCK_SIZE), 1, 1);
+            SPHComputeShader.SetBuffer(sum_blocks_kernel, "gridSumsBufferIn", swap ? gridSumsBuffer1 : gridSumsBuffer2);
+            SPHComputeShader.SetBuffer(sum_blocks_kernel, "gridSumsBuffer", swap ? gridSumsBuffer2 : gridSumsBuffer1);
+            SPHComputeShader.SetInt("d", d);
+            SPHComputeShader.Dispatch(sum_blocks_kernel, Mathf.CeilToInt((float)numBlocks / (float)_BLOCK_SIZE), 1, 1);
             swap = !swap;
         }
-        compute_shader.SetBuffer(add_sums_kernel, "gridSumsBufferIn", swap ? gridSumsBuffer1 : gridSumsBuffer2);
-        compute_shader.Dispatch(add_sums_kernel, numBlocks, 1, 1);
+        SPHComputeShader.SetBuffer(add_sums_kernel, "gridSumsBufferIn", swap ? gridSumsBuffer1 : gridSumsBuffer2);
+        SPHComputeShader.Dispatch(add_sums_kernel, numBlocks, 1, 1);
         if (verbose_prefix_sums) DebugBufferInt("Prefix Sums", debugNumGridCells, gridOffsetBuffer);
 
-        compute_shader.Dispatch(rearrange_particles_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        SPHComputeShader.Dispatch(rearrange_particles_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_rearrange) DebugBufferInt("Rearranged particle", debugNumParticles, rearrangedParticlesBuffer);
 
-        compute_shader.Dispatch(count_num_neighbors_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        SPHComputeShader.Dispatch(count_num_neighbors_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_num_neighbors) DebugBufferInt("Num Neighbors",debugNumParticles,numNeighborsBuffer);
 
-        compute_shader.Dispatch(ps_compute_density_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        SPHComputeShader.Dispatch(ps_compute_density_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_density_pressure) {
             DebugBufferFloat("Densities",debugNumParticles,density_buffer);
             DebugBufferFloat("Pressures",debugNumParticles,pressure_buffer);
         }
 
-        compute_shader.Dispatch(ps_compute_interact_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        SPHComputeShader.Dispatch(ps_compute_interact_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_force) DebugBufferFloat3("Forces",debugNumParticles,force_buffer);
     }
 
     private void CubeVolumeProcess(int debugNumGridCells, int debugNumParticles) {
-        compute_shader.Dispatch(cv_compute_density_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        SPHComputeShader.Dispatch(cv_compute_density_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_density_pressure) {
             DebugBufferFloat("Densities",debugNumParticles,density_buffer);
         }
-        compute_shader.Dispatch(cv_compute_interact_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        SPHComputeShader.Dispatch(cv_compute_interact_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
     }
 
     void OnDestroy() {

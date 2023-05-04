@@ -1788,7 +1788,7 @@ MonoBehaviour:
   - 0
   numParticles: 100000
   particleRenderSize: 0.5
-  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 3}
   dt: 0.0165
   smoothingRadius: 1
   particleMass: 1
@@ -13784,6 +13784,77 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 2011210839}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &642818517
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 642818519}
+  - component: {fileID: 642818518}
+  m_Layer: 0
+  m_Name: BoidManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &642818518
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 642818517}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96a6a0d68f8145142ab28350586c62cc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _origin: {x: 0, y: 0, z: 0}
+  gridCellSize: 2
+  _numGridCellsPerAxis: {x: 15, y: 15, z: 15}
+  numBufferCellsPerAxis: {x: 5, y: 5, z: 5}
+  showBounds: 1
+  gridBoundsColor: {r: 0, g: 0.286582, b: 1, a: 1}
+  showInnerBounds: 1
+  gridInnerBoundsColor: {r: 0, g: 0, b: 0, a: 1}
+  showGridAxes: 0
+  gridAxesColor: {r: 1, g: 1, b: 1, a: 0.5}
+  debugGridStats: 1
+  boidsShader: {fileID: 7200000, guid: cb7d915e02f06a741ab6c83fee738e0f, type: 3}
+  awaitInitialization: 1
+  numBoids: 1000
+  boidSize: 0.05
+  boidColor: {r: 1, g: 0, b: 0, a: 1}
+  visualRange: 0.5
+  innerRange: 0.15
+  maxSpeed: 3
+  minSpeed: 1.5
+  cohesionFactor: 0.25
+  separationFactor: 30
+  alignmentFactor: 0.25
+  turnSpeed: 2
+  useGPU: 1
+  verbose: 0
+  visualizeBoidGridCells: 0
+--- !u!4 &642818519
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 642818517}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 19
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &670494835
 GameObject:
   m_ObjectHideFlags: 0
@@ -36650,7 +36721,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1996116367
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -36660,18 +36731,19 @@ MonoBehaviour:
   m_GameObject: {fileID: 1996116366}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8dd4df2c33fac5d47b116ff65e5d832c, type: 3}
+  m_Script: {fileID: 11500000, guid: e4f5d1eb2d4d1bc499b8668e3fe66fcf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  boidManager: {fileID: 642818518}
   gridCellSize: 2
   origin:
   - 0
   - 0
   - 0
   bounds:
-  - 100
-  - 100
-  - 100
+  - 30
+  - 30
+  - 30
   bufferCellsPerAxis: 0
   _outerBounds:
   - 60
@@ -36683,10 +36755,11 @@ MonoBehaviour:
   - 0
   - -9.81
   - 0
-  numParticles: 100000
+  numParticles: 25000
   particleRenderSize: 0.5
   particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
   particle_material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
+  numBoids: 1000
   dt: 0.0165
   smoothingRadius: 1
   particleMass: 1
@@ -36695,10 +36768,11 @@ MonoBehaviour:
   damping: -0.3
   gas_constant: 0
   bulkModulus: 1000
-  compute_shader: {fileID: 7200000, guid: 71d491604466ca34ab15c77a36998ff8, type: 3}
+  SPHComputeShader: {fileID: 7200000, guid: 9155f82097444ea40beb7a5c2c804eaf, type: 3}
   neighborSearchType: 1
   show_gizmos: 1
   show_particles: 0
+  show_boids: 1
   show_grid_cells: 0
   show_velocities: 0
   show_forces: 0
@@ -36900,7 +36974,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &2023041258
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -36913,21 +36987,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e00510d8b9792514b8f700acb185e4a5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particleManager: {fileID: 1996116367}
-  fluidMaterial: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
-  densityShader: {fileID: 7200000, guid: caddb635310b1ac469a9baa6aec884ae, type: 3}
-  triangleShader: {fileID: 7200000, guid: 72092789e7a84a84891f70e20ae12abb, type: 3}
-  origin:
-  - 0
-  - 0
-  - 0
-  voxelSize: 10
-  numPointsPerAxis: 0a0000000a0000000a000000
-  smoothingRadius: 0.05
-  maxParticlesPerVoxel: 20
-  isoLevel: 8
-  gizmos_densities: 0
-  gizmos_points: 0
 --- !u!4 &2023041259
 Transform:
   m_ObjectHideFlags: 0

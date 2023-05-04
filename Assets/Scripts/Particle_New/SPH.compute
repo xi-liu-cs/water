@@ -11,6 +11,7 @@ float pi;                       // Mathf.PI
 
 // == PARTICLE CONFIGURATIONS ==
 uint numParticles;              // How many particles will we use in the simulation?
+uint numBoids;                  // How many boids are a part of the simulation?
 float particleRenderRadius;     // How big (visually only!) are each particle? For CubeVolume method, this is pretty important
 // NEEDS TO BE INCORPORATED
 uint numParticlesPerGridCell;   // How many particles can we realistically fit into each grid cell? Calculated from particle render size.
@@ -45,6 +46,11 @@ int state;
 struct particle {
     float3 position;
 };
+struct Boid {
+    float3 position;
+    int3 gridIndices;
+    int projectedGridIndex;
+};
 
 // == BUFFERS ==
 // Stores how many particles are inside each grid cell. 
@@ -56,6 +62,9 @@ RWStructuredBuffer<uint> grid;
 // Stores all particle data in the system. 
     // Length = numParticles
 RWStructuredBuffer<particle> particles;
+// Stores all boid data in the other manager.
+RWStructuredBuffer<Boid> boids;
+RWStructuredBuffer<float3> boidVelocities;
 // Stores the "offsets" of each particle.
     // Length = numParticles
     // For example, each grid cell has `n` number of particles; `offset` is the index of the particle in their grid cell (max: `n-1`)
@@ -500,7 +509,7 @@ void ComputeExternalAcceleration(uint3 id : SV_DispatchThreadID) {
 #pragma kernel Integrate
 [numthreads(_BLOCK_SIZE, 1, 1)]
 void Integrate(uint3 id : SV_DispatchThreadID) {
-    if (id.x >= numParticles) return;
+    if (id.x < numBoids || id.x >= numParticles) return;
 
     particle p = particles[id.x];
     float3 v = velocity[id.x];
@@ -515,7 +524,7 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
 #pragma kernel DampenByBounds
 [numthreads(_BLOCK_SIZE,1,1)]
 void DampenByBounds(uint3 id : SV_DispatchThreadID) {
-    if (id.x >= numParticles) return;
+    if (id.x < numBoids || id.x >= numParticles) return;
     
     particle p = particles[id.x];
     float3 v = velocity[id.x];
@@ -563,4 +572,12 @@ void DampenByBounds(uint3 id : SV_DispatchThreadID) {
 
     velocity[id.x] = v;
     particles[id.x] = p;
+}
+
+#pragma kernel IntegrateBoidsParticles
+[numthreads(_BLOCK_SIZE,1,1)]
+void IntegrateBoidsParticles(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= numBoids) return;
+    particles[id.x].position = boids[id.x].position;
+    velocity[id.x] = boidVelocities[id.x];
 }
