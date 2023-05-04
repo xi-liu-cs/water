@@ -277,7 +277,6 @@ public class ParticleManager : MonoBehaviour
         );
         Handles.Label(handlePos, temp_num_neighbors[0].ToString());
         */
-
     }
 
     public Vector3Int GetGridXYZIndices(Vector3 position) {

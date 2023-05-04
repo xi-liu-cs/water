@@ -1,0 +1,86 @@
+#pragma kernel march
+#include "../../march/march_table.compute"
+
+static const int n_thread = 8;
+
+struct particle
+{
+    float3 position;
+};
+
+struct tri
+{
+    float3 vertex_a,
+    vertex_b,
+    vertex_c;
+};
+
+AppendStructuredBuffer<tri> triangles;
+RWStructuredBuffer<particle> particles;
+RWStructuredBuffer<float> voxel_density;
+RWStructuredBuffer<float3> points;
+
+int3 n_point_per_axis;
+float isolevel;
+
+float3 interpolate_vertex(float3 vertex1, float density1, float3 vertex2, float density2)
+{
+    float t = (isolevel - density1) / (density2 - density1);
+    return vertex1 + t * (vertex2 - vertex1);
+}
+
+int hash(int x, int y, int z)
+{
+    return x + (n_point_per_axis[0] * y) + (n_point_per_axis[0] * n_point_per_axis[1] * z);
+}
+
+[numthreads(n_thread, n_thread, n_thread)]
+void march(int3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_point_per_axis[0] - 1 || id.y >= n_point_per_axis[1] - 1 || id.z >= n_point_per_axis[2] - 1)
+        return;
+
+    float3 cube_corner_vertices[] =
+    {
+        points[hash(id.x, id.y, id.z)],
+        points[hash(id.x + 1, id.y, id.z)],
+        points[hash(id.x + 1, id.y, id.z + 1)],
+        points[hash(id.x, id.y, id.z + 1)],
+        points[hash(id.x, id.y + 1, id.z)],
+        points[hash(id.x + 1, id.y + 1, id.z)],
+        points[hash(id.x + 1, id.y + 1, id.z + 1)],
+        points[hash(id.x, id.y + 1, id.z + 1)]
+    };
+    float cube_corner_densities[] = 
+    {
+        voxel_density[hash(id.x, id.y, id.z)],
+        voxel_density[hash(id.x + 1, id.y, id.z)],
+        voxel_density[hash(id.x + 1, id.y, id.z + 1)],
+        voxel_density[hash(id.x, id.y, id.z + 1)],
+        voxel_density[hash(id.x, id.y + 1, id.z)],
+        voxel_density[hash(id.x + 1, id.y + 1, id.z)],
+        voxel_density[hash(id.x + 1, id.y + 1, id.z + 1)],
+        voxel_density[hash(id.x, id.y + 1, id.z + 1)]
+    };
+
+    int cube_index = 0;
+    for(int c = 0; c < 8; ++c)
+        if(cube_corner_densities[c] < isolevel)
+            cube_index |= 1 << c;
+
+    for(int i = 0; triangulation[cube_index][i] != -1; i += 3)
+    {
+        int a0 = cornerIndexAFromEdge[triangulation[cube_index][i]],
+        b0 = cornerIndexBFromEdge[triangulation[cube_index][i]],
+        a1 = cornerIndexAFromEdge[triangulation[cube_index][i + 1]],
+        b1 = cornerIndexBFromEdge[triangulation[cube_index][i + 1]],
+        a2 = cornerIndexAFromEdge[triangulation[cube_index][i + 2]],
+        b2 = cornerIndexBFromEdge[triangulation[cube_index][i + 2]];
+
+        tri a;
+        a.vertex_a = interpolate_vertex(cube_corner_vertices[a0], cube_corner_densities[a0], cube_corner_vertices[b0], cube_corner_densities[b0]);
+        a.vertex_b = interpolate_vertex(cube_corner_vertices[a1], cube_corner_densities[a1], cube_corner_vertices[b1], cube_corner_densities[b1]);
+        a.vertex_c = interpolate_vertex(cube_corner_vertices[a2], cube_corner_densities[a2], cube_corner_vertices[b2], cube_corner_densities[b2]);
+        triangles.Append(a);
+    }
+}

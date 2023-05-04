@@ -1,0 +1,205 @@
+#pragma kernel clear_cube_corner_neighbor_tracker
+#pragma kernel compute_neighbor_list
+#pragma kernel compute_density
+//#include "../../Noise/noise.compute"
+
+// Copied from `fluid_shader_2.compute`
+struct particle {
+    float3 position;
+};
+
+float3 origin;
+static const int n_thread = 8;
+
+// Retrieved from `fluid_gpu.cs`
+uint numParticles;
+float3 pointGridCellSizes;
+float radius;
+float radius2;
+float radius3;
+float particleRenderSize;
+float3 bounds;
+int3 dimension;
+
+RWStructuredBuffer<particle> particles;
+RWStructuredBuffer<float> voxel_density;
+RWStructuredBuffer<float3> points;
+
+RWStructuredBuffer<int> cube_corner_neighbor_list,
+cube_corner_neighbor_tracker;
+int max_particles_per_cube;
+
+float kernel(float r, float x) {
+    return pow(r*r - x*x, 3);
+}
+
+/*
+float std_kernel(float distance_square) {
+    float x = 1.0 - distance_square / radius2;
+    return 315.0 / (64.0 * pi * radius3) * x * x * x;
+}
+*/
+
+int hash(uint x, uint y, uint z) {
+    return x + (dimension[0] * y) + (dimension[0] * dimension[1] * z);
+}
+
+int3 get_cell(float3 position) {
+    return int3(
+        floor((position[0] - (origin[0] - bounds[0]/2.0))/pointGridCellSizes[0]),
+        floor((position[1] - (origin[1] - bounds[1]/2.0))/pointGridCellSizes[1]),
+        floor((position[2] - (origin[2] - bounds[2]/2.0))/pointGridCellSizes[2])
+    );
+}
+
+int hash_cell(int3 xyz) {
+    return xyz.x + (dimension[0] * xyz.y) + (dimension[0] * dimension[1] * xyz.z);
+     
+}
+
+
+[numthreads(n_thread, n_thread, n_thread)]
+void clear_cube_corner_neighbor_tracker(uint3 id : SV_DispatchThreadID) {
+    cube_corner_neighbor_tracker[hash(id.x, id.y, id.z)] = 0;
+}
+
+void AddNeighbor(int x, int y, int z, uint3 particleId) {
+    if (x < 0 || x > dimension[0]) return;
+    if (y < 0 || y > dimension[1]) return;
+    if (z < 0 || z > dimension[2]) return;
+
+    int cubeCornerIndex = hash(x,y,z);
+    int offset = 0;
+    if(cube_corner_neighbor_tracker[cubeCornerIndex] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cubeCornerIndex], 1, offset);
+    if(offset > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cubeCornerIndex * max_particles_per_cube + offset] = particleId.x;
+}
+
+[numthreads(1024, 1,1)]
+void compute_neighbor_list(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= numParticles) return;
+    // Get the index of the current... particle?
+    //int index = hash(id.x, id.y, id.z);
+    // Get the position of the current particle
+    float3 pos = particles[id.x].position;
+    // Get the XYZ coordinates of the current cell in the voxel grid
+    int3 cell_index = get_cell(pos);
+
+    // Original hash
+    AddNeighbor(cell_index[0], cell_index[1], cell_index[2], id);
+
+    // Upwards one z-axis unit
+    AddNeighbor(cell_index[0], cell_index[1], cell_index[2] + 1, id);
+    /*
+    int cube_corner_index2 = hash(cell_index[0], cell_index[1], cell_index[2] + 1),
+    original_value2 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index2] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index2], 1, original_value2);
+    if(original_value2 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index2 * max_particles_per_cube + original_value2] = id.x;
+    */
+
+    // Upwards one y-axis unit
+    AddNeighbor(cell_index[0], cell_index[1] + 1, cell_index[2], id);
+    /*
+    int cube_corner_index3 = hash(cell_index[0], cell_index[1] + 1, cell_index[2]),
+    original_value3 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index3] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index3], 1, original_value3);
+    if(original_value3 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index3 * max_particles_per_cube + original_value3] = id.x;
+    */
+
+    // Upwards both Z and X
+    AddNeighbor(cell_index[0], cell_index[1] + 1, cell_index[2] + 1, id);
+    /*
+    int cube_corner_index4 = hash(cell_index[0], cell_index[1] + 1, cell_index[2] + 1),
+    original_value4 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index4] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index4], 1, original_value4);
+    if(original_value4 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index4 * max_particles_per_cube + original_value4] = id.x;
+    */
+
+    // Upwards one x_axis
+    AddNeighbor(cell_index[0] + 1, cell_index[1], cell_index[2], id);
+    /*
+    int cube_corner_index5 = hash(cell_index[0] + 1, cell_index[1], cell_index[2]),
+    original_value5 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index5] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index5], 1, original_value5);
+    if(original_value5 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index5 * max_particles_per_cube + original_value5] = id.x;
+    */
+
+    // Upwards z and x
+    AddNeighbor(cell_index[0] + 1, cell_index[1], cell_index[2] + 1, id);
+    /*
+    int cube_corner_index6 = hash(cell_index[0] + 1, cell_index[1], cell_index[2] + 1),
+    original_value6 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index6] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index6], 1, original_value6);
+    if(original_value6 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index6 * max_particles_per_cube + original_value6] = id.x;
+    */
+
+    // upwards x and y
+    AddNeighbor(cell_index[0] + 1, cell_index[1] + 1, cell_index[2], id);
+    /*
+    int cube_corner_index7 = hash(cell_index[0] + 1, cell_index[1] + 1, cell_index[2]),
+    original_value7 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index7] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index7], 1, original_value7);
+    if(original_value7 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index7 * max_particles_per_cube + original_value7] = id.x;
+    */
+
+    // upwards x, y, and z
+    AddNeighbor(cell_index[0] + 1, cell_index[1] + 1, cell_index[2] + 1, id);
+    /*
+    int cube_corner_index8 = hash(cell_index[0] + 1, cell_index[1] + 1, cell_index[2] + 1),
+    original_value8 = 0;
+    if(cube_corner_neighbor_tracker[cube_corner_index8] + 1 > max_particles_per_cube) return;
+    InterlockedAdd(cube_corner_neighbor_tracker[cube_corner_index8], 1, original_value8);
+    if(original_value8 > max_particles_per_cube) return;
+    cube_corner_neighbor_list[cube_corner_index8 * max_particles_per_cube + original_value8] = id.x;
+    */
+}
+
+[numthreads(n_thread, n_thread, n_thread)]
+void compute_density(int3 id : SV_DispatchThreadID) {
+    if( id.x >= dimension[0] || id.y >= dimension[1] || id.z >= dimension[2] ) return;
+    
+    // starting from the lowest world space bound, we advance upwards to the index.
+    float3 cube_corner_pos = int3(
+        (origin[0] - (bounds[0]/2.0)) + (id.x * pointGridCellSizes[0]),
+        (origin[1] - (bounds[1]/2.0)) + (id.y * pointGridCellSizes[1]),
+        (origin[2] - (bounds[2]/2.0)) + (id.z * pointGridCellSizes[2])
+    );
+    int cube_corner_index = hash_cell(id);
+    
+    float sum = 0,
+    weight_divisor = 0,
+    weight_multiplier;
+    float3 average_particle_pos = float3(0, 0, 0);
+    for(int i = 0; i < cube_corner_neighbor_tracker[cube_corner_index]; i++) {
+        int neighbor_index = cube_corner_neighbor_list[cube_corner_index * max_particles_per_cube + i];
+        float dist = length(cube_corner_pos - particles[neighbor_index].position);
+        //if (dist < radius) {
+            weight_divisor += kernel(radius,dist);
+        //}
+    }
+    weight_multiplier = 1.0 / weight_divisor;
+    for(int j = 0; j < cube_corner_neighbor_tracker[cube_corner_index]; j++) {
+        int neighbor_index = cube_corner_neighbor_list[cube_corner_index * max_particles_per_cube + j];
+        float dist = length(cube_corner_pos - particles[neighbor_index].position);
+        //if (dist < radius) {
+            float x = dist / radius;
+            float weight_i = weight_multiplier * kernel(radius,dist);
+            average_particle_pos += weight_i * (particles[neighbor_index].position - cube_corner_pos);
+        //}
+    }
+    points[cube_corner_index] = cube_corner_pos;
+    voxel_density[cube_corner_index] = length(cube_corner_pos - (cube_corner_pos + average_particle_pos)) - particleRenderSize;
+}

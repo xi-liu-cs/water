@@ -36695,7 +36695,7 @@ MonoBehaviour:
   damping: -0.3
   gas_constant: 0
   bulkModulus: 1000
-  compute_shader: {fileID: 7200000, guid: 3ac113713dae45a419a534c13ae9a424, type: 3}
+  compute_shader: {fileID: 7200000, guid: 71d491604466ca34ab15c77a36998ff8, type: 3}
   neighborSearchType: 1
   show_gizmos: 1
   show_particles: 0
@@ -36915,8 +36915,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   particleManager: {fileID: 1996116367}
   fluidMaterial: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
-  densityShader: {fileID: 7200000, guid: fe37e8d3da18f7a498eae86a5f70b377, type: 3}
-  triangleShader: {fileID: 7200000, guid: 837d464740430d849acb632abe55316f, type: 3}
+  densityShader: {fileID: 7200000, guid: caddb635310b1ac469a9baa6aec884ae, type: 3}
+  triangleShader: {fileID: 7200000, guid: 72092789e7a84a84891f70e20ae12abb, type: 3}
   origin:
   - 0
   - 0
