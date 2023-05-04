@@ -20,7 +20,7 @@ RWStructuredBuffer<particle> particles;
 RWStructuredBuffer<float> voxel_density;
 RWStructuredBuffer<float3> points;
 
-int n_point_per_axis;
+int3 n_point_per_axis;
 float isolevel;
 
 float3 interpolate_vertex(float3 vertex1, float density1, float3 vertex2, float density2)
@@ -31,13 +31,13 @@ float3 interpolate_vertex(float3 vertex1, float density1, float3 vertex2, float 
 
 int hash(int x, int y, int z)
 {
-    return x + n_point_per_axis * (y + n_point_per_axis * z);
+    return x + (n_point_per_axis[0] * y) + (n_point_per_axis[0] * n_point_per_axis[1] * z);
 }
 
 [numthreads(n_thread, n_thread, n_thread)]
 void march(int3 id : SV_DispatchThreadID)
 {
-    if(id.x >= n_point_per_axis - 1 || id.y >= n_point_per_axis - 1 || id.z >= n_point_per_axis - 1)
+    if(id.x >= n_point_per_axis[0] - 1 || id.y >= n_point_per_axis[1] - 1 || id.z >= n_point_per_axis[2] - 1)
         return;
 
     float3 cube_corner_vertices[] =

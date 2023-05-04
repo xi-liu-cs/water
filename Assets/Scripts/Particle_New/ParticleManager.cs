@@ -7,7 +7,7 @@ using Unity.Mathematics;
 using Random = UnityEngine.Random;
 using UnityEditor;
 
-public class fluid_gpu : MonoBehaviour
+public class ParticleManager : MonoBehaviour
 {
 
     public enum NeighborSearchType {
@@ -22,15 +22,21 @@ public class fluid_gpu : MonoBehaviour
     private bool initialized = false;
 
     [Header("== WORLD CONFIGURATIONS ==")]
+        #if UNITY_EDITOR
+        [Help("These configurations can be used to adjust the simulation's world parameters. This includes how big the grid cells are, where the center of the simulation is in world space, etc.\n\n- `Bounds` is where the simulation is limited to\n- `Outer Bounds` is the world space including the buffer cells.\n- `Num Cells Per Axis` s is automatically calculated based on `Grid Cell Size` and `Outer Bounds`.\n- `Num Grid Cells` is the total number of grid cells populating `Outer Bounds` and is auto-calculated.\n- `G` is the gravitational force exerted on all particles in the simulation.", UnityEditor.MessageType.None)]
+        #endif
+        
         [Tooltip("How big are our grid cells? For Prefix Summation, recommended to match `smoothingRadius`")] 
-        public float gridCellSize = 1f;
+        public float gridCellSize = 2f;
+        
         [Tooltip("Where in world space are we centering the simulation around?")]
         public float[] origin = {0f,0f,0f};
         public Vector3 originVector3 { get => new Vector3(origin[0], origin[1], origin[2]); set {} }
+        
         [Tooltip("What are the total world space length (per axis) is the simulation?")]
         public float[] bounds = {50f, 50f, 50f};
         public Vector3 boundsVector3 { get => new Vector3(bounds[0], bounds[1], bounds[2]); set {} }
-        // In our grid space, how many buffer cells are added to each axis? Prefix Sum: 2; CubeVolume: 1
+        [ReadOnly, SerializeField, Tooltip("In our grid space, how many buffer cells are added to each axis? Prefix Sum: 2; CubeVolume: 1")]
         private int bufferCellsPerAxis;
         [ReadOnly, SerializeField, Tooltip("What is the world space size of the simulation, after taking into account grid cell size and buffer cells?")]
         private float[] _outerBounds = {60f, 60f, 60f};
@@ -45,22 +51,31 @@ public class fluid_gpu : MonoBehaviour
         public float[] g = {0f, -9.81f, 0f};
 
     [Header("== PARTICLE CONFIGURATIONS ==")]
+        #if UNITY_EDITOR
+        [Help("These configurations adjust the particles themselves, such as how many particles are present and how big they are in world scale.", UnityEditor.MessageType.None)]
+        #endif
+
         [Tooltip("How many particles will we use in the simulation?")]
-        public int numParticles = 32;
+        public int numParticles = 100000;
         [Tooltip("How big (visually only!) are each particle?")]
-        public float particleRenderSize = 8f;
+        public float particleRenderSize = 0.5f;
         public float particleRenderRadius { get => particleRenderSize / 2f; set { particleRenderSize = value * 2f; } }
         [Tooltip("The mesh used to render each particle in the simulation. Usually just the default `Sphere` mesh from Unity.")]
         public Mesh particle_mesh;
+        public Material particle_material;
         // How many particles can we realistically fit into each grid cell? Calculated from particle render size. Intentional to use radius instead of size
         private int _numParticlesPerGridCell => Mathf.CeilToInt(Mathf.Pow(gridCellSize / particleRenderRadius, 3));
         public int numParticlesPerGridCell { get => _numParticlesPerGridCell; set {} }
 
     [Header("== FLUID MECHANICS ==")]
+        #if UNITY_EDITOR
+        [Help("These configurations adjust the behavior of the SPH fluid dynamics. These can get complicated, so make sure you know SPH inside out first. Learn about them here:\nhttps://www.cs.cornell.edu/~bindel/class/cs5220-f11/code/sph.pdf\nhttps://matthias-research.github.io/pages/publications/sca03.pdf\nThe current implementation is based off of the 1st reference.\n\n- `Dt` = The time step between frames. If set to any value < 0, then defaults to `Time.deltaTime`\n- `Smoothing Radius` = `K` - the radius used for the smoothing kernel.\n- `Particle Mass` = the mass of each individual particle.\n- `Viscosity Coefficient` = `mu`, how much particles stick to each other.\n- `Rest Density` = `p_0`, the default density the fluid is meant to embody when still.\n- `Damping` = How much the boundary walls reflect particles upon contact.\n - `Gas_constant` = how much the particles are excited. Normally dependent on temperature. Not used in this implementation.\n- `Bulk Modulus` = Every fluid has a modulus value - this can be looked up online. Try to pick values that aren't too large or small.", UnityEditor.MessageType.None)]
+        #endif
+
         [Tooltip("The time difference between frames. If set to a negative number, will default to `Time.deltaTime`.")]
-        public float dt = 0.0008f;
+        public float dt = 0.0165f;
         [Tooltip("`h`: the smoothing kernel radius for SPH. Recommended to set to the same as `gridCellSize`.")]
-        public float smoothingRadius = 8f;
+        public float smoothingRadius = 1f;
         public float radius2 { get => Mathf.Pow(smoothingRadius, 2f); set {} }
         public float radius3 { get => Mathf.Pow(smoothingRadius, 3f); set {} }
         public float radius4 { get => Mathf.Pow(smoothingRadius, 4f); set {} }
@@ -72,27 +87,35 @@ public class fluid_gpu : MonoBehaviour
         [Tooltip("How much mass does each particle have?")]
         public float particleMass = 1f;
         [Tooltip("The viscosity coefficient for SPH. The higher the value, the more particles are likely to clump together.")]
-        public float viscosity_coefficient = 0.01f;
+        public float viscosity_coefficient = 12.5f;
         [Tooltip("The resting density of particles.")]
-        public float rest_density = 9f;
+        public float rest_density = 1f;
         [Tooltip("The amount of influence that boundaries have on particles when particles collide with boundaries. Must be a negative number b/w 0 and -1. Recommended: -0.5")]
-        public float damping = -1f;
+        public float damping = -0.3f;
         [Tooltip("The gas constant of the particle liquid. The higher this value, the more particles vibrate and launch themselves in the air. Depends on temperature in the real world.")]
-        public float gas_constant = 2000f;
+        public float gas_constant = 0f;
         [Tooltip("The bulk modulus of the fluid. Can be looked up on Google. Water = 300,000 psi")]
         public float bulkModulus = 1000f;
 
     [Header("== GPU SETTINGS ==")]
+        #if UNITY_EDITOR
+        [Help("GPU settings! Right now, the neighbor search type is set to `Cube Volume`, which limits the number of neighbors tracked per grid cell based on how many particles can realistically fit into a grid cell's volume based on `Grid Cell Size` and `Particle Render Size` defined above. `Prefix Sum` methodology does not work with the current implementation.", UnityEditor.MessageType.None)]
+        #endif
+
         [Tooltip("Reference to the compute shader used to control particle movement")]
         public ComputeShader compute_shader;
         [Tooltip("What kind of neighbor search and parsing should we use?")]
-        public NeighborSearchType neighborSearchType = NeighborSearchType.PrefixSum;
+        public NeighborSearchType neighborSearchType = NeighborSearchType.CubeVolume;
         // number of threads running in each thread group that runs the simulation
-        const int _BLOCK_SIZE = 1024;
+        private const int _BLOCK_SIZE = 1024;
+        public int BLOCK_SIZE { get => _BLOCK_SIZE; set {} }
+        public int NUM_THREADS_FOR_PARTICLES { get => Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE); set {} }
         // number of thread groups that run on the GPU
         private int numBlocks;
 
     [Header("== GIZMOS CONFIGURATIONS ==")]
+        [Tooltip("Toggle gizmos. Simple enough.")]
+        public bool show_gizmos = false;
         [Tooltip("Show particles via Gizmos")]
         public bool show_particles = false;
         [Tooltip("Show grid cells that have occupying particles via Gizmos")]
@@ -136,65 +159,15 @@ public class fluid_gpu : MonoBehaviour
     int integrate_kernel;
     int dampen_by_bounds_kernel;
 
-    [Header("particle")]
-    public Mesh fluid_mesh;
-    public Material material;
-    //public float grid_size = 8f; /* 4 * smoothingRadius */
-    
-    public Vector3 position_offset = new Vector3(-140, -230, -60);
-    public Vector3 velocity_initial = new Vector3(0, 10, 0);
-    [HideInInspector]
-    Vector3[] points;
-    float[] noise_densities;
-    int[] triangles;
-    triangle[] march_triangles;
+    // public Vector3 velocity_initial = new Vector3(0, 10, 0);
 
     [Header("voxel")]
     public int n_point_per_axis = 50; 
     // z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x, x ^ 3 + x ^ 2 + x = numParticles, (x = 50, numParticles = 130000)
     public float isolevel = 8;
 
-
-    public struct triangle
-    {
-        public Vector3 vertex_a,
-        vertex_b,
-        vertex_c;
-    }
-
-    public struct grid_cell
-    {
-        public Vector3[] vertex;
-        public float[] value;
-        public grid_cell(Vector3[] vert, float[] val)
-        {
-            vertex = vert;
-            value = val;
-        }
-    }
-
-    int size_property = Shader.PropertyToID("size"),
-    particle_buffer_property = Shader.PropertyToID("particle_buffer");
-
-    int n = 8,
-    n_bound = 6,
-    thread_group_size,
-    grid_size_over_2,
-    n_debug = 64;
-    Particle[] particles;
-    int[] neighbor_list,
-    neighbor_tracker,
-    int_debug;
-    uint[] hash_grid,
-    hash_grid_tracker;
-    float[] density,
-    pressure,
-    float_debug;
-    Vector3[] velocity,
-    force;
-
-    [Header("== VARIABLES ==")]
-    float[] kernel_sums;
+    int size_property = Shader.PropertyToID("size");
+    int particle_buffer_property = Shader.PropertyToID("particle_buffer");
 
     [Header("== COMPUTE BUFFERS ==")]
     public ComputeBuffer arg_buffer;
@@ -247,10 +220,10 @@ public class fluid_gpu : MonoBehaviour
     public ComputeBuffer noise_density_buffer;
     public ComputeBuffer triangle_buffer;
     public ComputeBuffer triangle_count_buffer;
-    public march_table table;
-    public float max_density = 0;
 
     void OnDrawGizmos() {
+        if (!show_gizmos) return;
+
         Gizmos.color = Color.white;
         Gizmos.DrawWireCube(originVector3, new Vector3(bounds[0], bounds[1], bounds[2]));
         Gizmos.color = Color.yellow;
@@ -383,10 +356,6 @@ public class fluid_gpu : MonoBehaviour
 
         // == GPU SETTINGS ==
         numBlocks = Mathf.CeilToInt((float)numGridCells / (float)_BLOCK_SIZE);
-
-        // == OLD SETTINGS ==
-        grid_size_over_2 = (int)gridCellSize / 2;
-        table = new march_table();
 
         Debug.Log($"Number of particle grid cells per axis: ({_numCellsPerAxis[0]}, {_numCellsPerAxis[1]}, {_numCellsPerAxis[2]})");
         Debug.Log($"Total # of particle grid cells: {numGridCells}");
@@ -606,9 +575,9 @@ public class fluid_gpu : MonoBehaviour
         if (verbose_velocity) DebugBufferFloat3("Velocities",debugNumParticles,velocity_buffer);
         
         // Render the particles
-        material.SetFloat(size_property, particleRenderSize);
-        material.SetBuffer(particle_buffer_property, particle_buffer);
-        Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
+        particle_material.SetFloat(size_property, particleRenderSize);
+        particle_material.SetBuffer(particle_buffer_property, particle_buffer);
+        Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, particle_material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
     }
 
     private void PrefixSumProcess(int debugNumGridCells, int debugNumParticles) {

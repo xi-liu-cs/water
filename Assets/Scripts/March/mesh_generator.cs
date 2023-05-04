@@ -28,23 +28,61 @@ public class mesh_generator : MonoBehaviour
 
     int size_property = Shader.PropertyToID("size"),
     particle_buffer_property = Shader.PropertyToID("particle_buffer");
+
+    public Color gridColor = Color.yellow;
     
     public struct particle
     {
         public Vector3 position;
     }
 
-    /* void OnDrawGizmos()
-    {
-        if(Application.isPlaying)
-        {
-            Gizmos.color = Color.yellow;
+    void OnDrawGizmos() {
+        /*
+        if(Application.isPlaying) {
+
+            Vector3 pointGridCellSizes = new Vector3(
+                fluid_cs.bounds[0] / (n_point_per_axis-1),
+                fluid_cs.bounds[1] / (n_point_per_axis-1),
+                fluid_cs.bounds[2] / (n_point_per_axis-1)
+            );
+            Debug.Log($"Point grid cell sizes: ({pointGridCellSizes[0]},{pointGridCellSizes[1]},{pointGridCellSizes[2]})");
+            Vector3 halfMidpoint = new Vector3(pointGridCellSizes.x/2f, pointGridCellSizes.y/2f, pointGridCellSizes.z/2f);
+            int[] temp_numbers = new int[n_point];
+            density_gen.cube_corner_neighbor_tracker_buffer.GetData(temp_numbers);
+            Gizmos.color = gridColor;
+            for(int x = 0; x < n_point_per_axis; x++) {
+                for(int y = 0; y < n_point_per_axis; y++) {
+                    for(int z = 0; z < n_point_per_axis; z++) {
+                        int proj_index = GetProjectedGridIndexFromXYZ(x,y,z);
+                        float num = Mathf.Clamp(Mathf.FloorToInt(temp_numbers[proj_index]/1f),0f,1f);
+                        //Debug.Log($"Gizmos: ({x},{y},{z}) => {proj_index} => {density}");
+                        Gizmos.color = new Color(1f,1f,0f,num);
+                        Vector3 pos = new Vector3(
+                            fluid_cs.originVector3.x - (fluid_cs.bounds[0]/2f) + (x * pointGridCellSizes.x),
+                            fluid_cs.originVector3.y - (fluid_cs.bounds[1]/2f) + (y * pointGridCellSizes.y),
+                            fluid_cs.originVector3.z - (fluid_cs.bounds[2]/2f) + (z * pointGridCellSizes.z)
+                        );
+                        Gizmos.DrawSphere(pos, 1f);
+                    }
+                }
+            }
+            
+
             particle[] debug_particles = new particle[n_particle];
             particle_buffer.GetData(debug_particles);
             for(int i = 0; i < debug_particles.Length; ++i)
                 Gizmos.DrawSphere(debug_particles[i].position, 1f);
         }
-    } */
+        */
+        Gizmos.color = Color.white;
+        Gizmos.DrawWireCube(fluid_cs.originVector3, new Vector3(fluid_cs.bounds[0], fluid_cs.bounds[1], fluid_cs.bounds[2]));
+        Gizmos.color = Color.red;
+        Gizmos.DrawSphere(fluid_cs.originVector3,0.1f);
+    }
+
+    int GetProjectedGridIndexFromXYZ(int x, int y, int z) {
+        return x + (fluid_cs.n_point_per_axis * y) + (fluid_cs.n_point_per_axis * fluid_cs.n_point_per_axis * z);
+    }
 
     void Awake()
     {
@@ -80,6 +118,7 @@ public class mesh_generator : MonoBehaviour
     unsafe void CreateBuffers()
     {
         n_point = n_point_per_axis * n_point_per_axis * n_point_per_axis;
+        Debug.Log($"N Points: {n_point}");
         n_voxel_per_axis = n_point_per_axis - 1;
         n_voxel = n_voxel_per_axis * n_voxel_per_axis * n_voxel_per_axis;
         int maxTriangleCount = n_voxel * 5;
@@ -107,11 +146,20 @@ public class mesh_generator : MonoBehaviour
         Vector3 center = - new Vector3(boundsSize, boundsSize, boundsSize) / 2 + coord * boundsSize + Vector3.one * boundsSize / 2;
         Vector3 worldBounds = new Vector3(boundsSize, boundsSize, boundsSize);
         density_gen.generate(point_buffer, n_point_per_axis, boundsSize, worldBounds, center, offset, pointSpacing);
-        
-        /* float[] a = new float[100];
+
+        /*
+        float[] a = new float[n_point];
         voxel_density_buffer.GetData(a);
-        Debug.Log("voxel");
-        for(int i = 0; i < 100; ++i) Debug.Log(a[i]); */
+        string top = "";
+        string bottom = "";
+        for(int i = 0; i < n_point; i++) {
+            if (a[i] > 0) {
+                top += $"{i}\t|";
+                bottom += $"{a[i]}\t|";
+            }
+        }
+        Debug.Log($"Voxels:\n{top}\n{bottom}");
+        */
 
         triangle_buffer.SetCounterValue (0);
         shader.Dispatch (0, numThreadsPerAxis, numThreadsPerAxis, numThreadsPerAxis);
@@ -121,13 +169,13 @@ public class mesh_generator : MonoBehaviour
         int numTris = triCountArray[0];
         tri[] tris = new tri[numTris];
         triangle_buffer.GetData(tris, 0, 0, numTris);
-        /* Debug.Log("triangle count = " + numTris);
-        for(int i = 0; i < numTris; ++i)
-        {
-            Debug.Log(tris[i].a);
-            Debug.Log(tris[i].b);
-            Debug.Log(tris[i].c);
-        } */
+        // Debug.Log("triangle count = " + numTris);
+        // for(int i = 0; i < numTris; ++i)
+        // {
+        //     Debug.Log(tris[i].a);
+        //     Debug.Log(tris[i].b);
+        //     Debug.Log(tris[i].c);
+        // }
 
         mesh.Clear();
         var vertices = new Vector3[numTris * 3];
@@ -137,18 +185,19 @@ public class mesh_generator : MonoBehaviour
         {
             for(int j = 0; j < 3; ++j)
             {
-                meshTriangles[i * 3 + j] = i * 3 + j; /* assign index */
+                meshTriangles[i * 3 + j] = i * 3 + j; // assign index
                 vertices[i * 3 + j] = tris[i][j];
             }
         }
         mesh.vertices = vertices;
         mesh.triangles = meshTriangles;
-        /* Color[] colors = new Color[vertices.Length];
-        for(int i = 0; i < vertices.Length; ++i)
-            colors[i] = Color.Lerp(Color.red, Color.green, vertices[i].y);
-        mesh.colors = colors; */
+        // Color[] colors = new Color[vertices.Length];
+        //for(int i = 0; i < vertices.Length; ++i)
+        //    colors[i] = Color.Lerp(Color.red, Color.green, vertices[i].y);
+        // mesh.colors = colors; 
         mesh.RecalculateNormals();
-        /* Graphics.DrawMeshInstancedIndirect(mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), fluid_cs.arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off); */
+        // Graphics.DrawMeshInstancedIndirect(mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), fluid_cs.arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
+        
     }
 
     void OnDestroy()

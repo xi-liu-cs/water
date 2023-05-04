@@ -172,6 +172,8 @@ void GenerateParticles(uint3 id : SV_DispatchThreadID) {
             randRange(float(0),float(10)),
             randRange(float(0),float(10))
         );
+    // Debug position - only use for one particle if needed
+    //float3 position = origin - bounds/2.0 + float3(20.1,20.1,20.1);
     particles[id.x].position = position;
     density[id.x] = 0;
     pressure[id.x] = 0;
