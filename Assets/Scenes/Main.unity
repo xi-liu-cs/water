@@ -36984,9 +36984,24 @@ MonoBehaviour:
   m_GameObject: {fileID: 2023041257}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e00510d8b9792514b8f700acb185e4a5, type: 3}
+  m_Script: {fileID: 11500000, guid: cfe2a687af967fd4e843c646717fad2f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  particleManager: {fileID: 0}
+  fluidMaterial: {fileID: 0}
+  densityShader: {fileID: 0}
+  triangleShader: {fileID: 0}
+  origin:
+  - 0
+  - 0
+  - 0
+  voxelSize: 0.1
+  numPointsPerAxis: 320000003200000032000000
+  smoothingRadius: 0
+  maxParticlesPerVoxel: 10
+  isoLevel: 8
+  gizmos_densities: 0
+  gizmos_points: 0
 --- !u!4 &2023041259
 Transform:
   m_ObjectHideFlags: 0

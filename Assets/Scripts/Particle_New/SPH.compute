@@ -509,13 +509,13 @@ void ComputeExternalAcceleration(uint3 id : SV_DispatchThreadID) {
 #pragma kernel Integrate
 [numthreads(_BLOCK_SIZE, 1, 1)]
 void Integrate(uint3 id : SV_DispatchThreadID) {
-    if (id.x < numBoids || id.x >= numParticles) return;
+    if (id.x >= numParticles) return;
 
     particle p = particles[id.x];
     float3 v = velocity[id.x];
 
     v += dt * force[id.x];
-    p.position += dt * v;
+    if (id.x >= numBoids) p.position += dt * v;
     
     particles[id.x] = p;
     velocity[id.x] = v;
