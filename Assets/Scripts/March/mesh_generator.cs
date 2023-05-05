@@ -24,7 +24,8 @@ public class mesh_generator : MonoBehaviour
     public int n_point,
     n_particle,
     n_voxel_per_axis,
-    n_voxel;
+    n_voxel,
+    maxTriangleCount;
 
     public float[] bound;
     public float voxel_size = 2;
@@ -87,7 +88,7 @@ public class mesh_generator : MonoBehaviour
         n_point = n_point_per_axis * n_point_per_axis * n_point_per_axis;
         n_voxel_per_axis = n_point_per_axis - 1;
         n_voxel = n_voxel_per_axis * n_voxel_per_axis * n_voxel_per_axis;
-        int maxTriangleCount = n_voxel * 5;
+        maxTriangleCount = n_voxel * 5;
         triangle_buffer = new ComputeBuffer(maxTriangleCount, sizeof(tri), ComputeBufferType.Append);
         triangle_count_buffer = new ComputeBuffer(1, sizeof (int), ComputeBufferType.Raw);
         voxel_density_buffer = new ComputeBuffer(n_point, sizeof(float));
@@ -138,6 +139,8 @@ public class mesh_generator : MonoBehaviour
         mesh.Clear();
         var vertices = new Vector3[numTris * 3];
         var meshTriangles = new int[numTris * 3];
+        var triangle_normals = new Vector3[numTris * 3];
+        density_gen.triangle_normal_buffer.GetData(triangle_normals);
 
         for(int i = 0; i < numTris; ++i)
         {
@@ -149,6 +152,7 @@ public class mesh_generator : MonoBehaviour
         }
         mesh.vertices = vertices;
         mesh.triangles = meshTriangles;
+        mesh.normals = triangle_normals;
         /* Color[] colors = new Color[vertices.Length];
         for(int i = 0; i < vertices.Length; ++i)
             colors[i] = Color.Lerp(Color.red, Color.green, vertices[i].y);

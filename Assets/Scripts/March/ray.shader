@@ -287,7 +287,6 @@ Shader "custom/ray"
                 float fresnel = (0.04 + (1.0-0.04)*(pow(1.0 - max(0.0, dot(-N, ray)), 5.0)));
                 
                 float3 C = fresnel * getatm(R) * 2.0 + fresnel * sun(R);
-                //tonemapping
                 return float4(aces_tonemap(C) + color_offset, 1.);
             }
             ENDCG

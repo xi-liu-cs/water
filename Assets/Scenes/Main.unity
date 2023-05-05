@@ -209,6 +209,7 @@ MonoBehaviour:
   clear_cube_corner_neighbor_tracker_kernel: 0
   compute_neighbor_list_kernel: 0
   compute_density_kernel: 0
+  compute_normal_kernel: 0
   seed: 1
   numOctaves: 8
   lacunarity: 2
@@ -474,6 +475,7 @@ MonoBehaviour:
   n_particle: 0
   n_voxel_per_axis: 0
   n_voxel: 0
+  maxTriangleCount: 0
   bound: []
   voxel_size: 2
   n_point_per_axis_vec: 
@@ -857,6 +859,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: ParticleManager
+      objectReference: {fileID: 0}
+    - target: {fileID: 827318839419512153, guid: c5849907e4a31f947afad8be1002e6f8,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 827318839419512155, guid: c5849907e4a31f947afad8be1002e6f8,
         type: 3}
@@ -2433,8 +2440,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 226704146}
-  m_LocalRotation: {x: 0.007200579, y: 0.9701371, z: 0.24081106, w: -0.02814516}
-  m_LocalPosition: {x: 408.08337, y: -123.459045, z: 145.9675}
+  m_LocalRotation: {x: -0.0023768824, y: 0.9648316, z: 0.26268253, w: 0.009607569}
+  m_LocalPosition: {x: 396.34256, y: -106.37488, z: 70.58029}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -8772,6 +8779,7 @@ MonoBehaviour:
   n_particle: 0
   n_voxel_per_axis: 0
   n_voxel: 0
+  maxTriangleCount: 0
   bound: []
   voxel_size: 0
   n_point_per_axis_vec: 
@@ -14500,6 +14508,7 @@ MonoBehaviour:
   clear_cube_corner_neighbor_tracker_kernel: 0
   compute_neighbor_list_kernel: 0
   compute_density_kernel: 0
+  compute_normal_kernel: 0
   seed: 1
   numOctaves: 8
   lacunarity: 2
@@ -22353,6 +22362,7 @@ MonoBehaviour:
   clear_cube_corner_neighbor_tracker_kernel: 0
   compute_neighbor_list_kernel: 0
   compute_density_kernel: 0
+  compute_normal_kernel: 0
   seed: 1
   numOctaves: 8
   lacunarity: 2
@@ -32204,6 +32214,16 @@ PrefabInstance:
       propertyPath: m_Name
       value: MeshManager
       objectReference: {fileID: 0}
+    - target: {fileID: 9096886849583528844, guid: 3cb02330ed9c0344881a84ca766faf1f,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9096886849583528847, guid: 3cb02330ed9c0344881a84ca766faf1f,
+        type: 3}
+      propertyPath: fluidMaterial
+      value: 
+      objectReference: {fileID: 2100000, guid: 2a90edb79670b314a8ac32fadd48b28c, type: 2}
     - target: {fileID: 9096886849583528847, guid: 3cb02330ed9c0344881a84ca766faf1f,
         type: 3}
       propertyPath: particleManager
@@ -39773,6 +39793,7 @@ MonoBehaviour:
   n_particle: 0
   n_voxel_per_axis: 0
   n_voxel: 0
+  maxTriangleCount: 0
   bound: []
   voxel_size: 0
   n_point_per_axis_vec: 

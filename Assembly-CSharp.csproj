@@ -37,7 +37,9 @@
   </PropertyGroup>
   <ItemGroup>
      <Compile Include="Assets\Scripts\Particle\march_table.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\ParticleManager.cs" />
      <Compile Include="Assets\Scripts\March Cube\MeshBuilder.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\MeshManager.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\FirstPersonCamera.cs" />
      <Compile Include="Assets\Scripts\March Fluid\mesh_fluid_generator.cs" />
      <Compile Include="Assets\Scripts\Particle\cuda.cs" />
@@ -78,6 +80,7 @@
      <Compile Include="Assets\Scripts\Rov\rov.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid.cs" />
      <Compile Include="Assets\Scripts\Particle\spatial_hash.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\ReadOnlyAttribute.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Wander1Unit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\InterposeUnit.cs" />
      <Compile Include="Assets\Style\StyleData.cs" />
@@ -88,16 +91,21 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\EvadeUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Pursue.cs" />
      <Compile Include="Assets\Scripts\Marchxi\density_generator_xi.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\fluid_gpu_2.cs" />
      <Compile Include="Assets\Scripts\Water\fog_start.cs" />
      <Compile Include="Assets\Scripts\Collider\collider.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\ScreenBoundary3D.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Hide.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\GoDirectionUnit.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\density_generator_2.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\_InspectorAttributes\HelpAttribute.cs" />
      <Compile Include="Assets\Scripts\March\mesh_generator.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Separation.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\VelocityMatch.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\mesh_generator_2.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\WanderAvoidUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\ColAvoidUnit.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\noise_density_2.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\SeekUnit.cs" />
      <Compile Include="Assets\Scripts\Water\water_start.cs" />
      <Compile Include="Assets\Scripts\Cave\DensityGenerator.cs" />
@@ -109,14 +117,6 @@
      <Compile Include="Assets\Scripts\March\ray.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
      <Compile Include="Assets\Scripts\March Cube\NoiseFieldVisualizer.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\noise_density_2.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\mesh_generator_2.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\fluid_gpu_2.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\density_generator_2.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\MeshManager.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\_InspectorAttributes\HelpAttribute.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\ReadOnlyAttribute.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\ParticleManager.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Marchxi\water.shader" />
