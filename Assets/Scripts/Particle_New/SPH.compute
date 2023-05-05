@@ -12,6 +12,7 @@ float pi;                       // Mathf.PI
 // == PARTICLE CONFIGURATIONS ==
 uint numParticles;              // How many particles will we use in the simulation?
 uint numBoids;                  // How many boids are a part of the simulation?
+uint numPointsOnObstacles;
 float particleRenderRadius;     // How big (visually only!) are each particle? For CubeVolume method, this is pretty important
 // NEEDS TO BE INCORPORATED
 uint numParticlesPerGridCell;   // How many particles can we realistically fit into each grid cell? Calculated from particle render size.
@@ -388,16 +389,6 @@ void CV_ComputeDensity(uint3 id : SV_DispatchThreadID) {
             uint otherId = particleNeighbors[j];
             if (otherId == id.x) continue;
             _density += CalculateDensity(id.x, otherId);
-            /*
-            float3 diffPosition = p.position - particles[otherId].position;
-            float diffSquare = dot(diffPosition, diffPosition);
-            if (diffSquare > radius2) continue; 
-            float z = radius2 - diffSquare;
-            float modDensity = ((4.0 * particleMass) / (pi * radius16)) * pow(z,3);
-            if (modDensity < 0.0001) continue;
-            _density += modDensity;
-            */
-            
         }
     }
 
@@ -515,7 +506,7 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
     float3 v = velocity[id.x];
 
     v += dt * force[id.x];
-    if (id.x >= numBoids) p.position += dt * v;
+    if (id.x >= numBoids+numPointsOnObstacles) p.position += dt * v;
     
     particles[id.x] = p;
     velocity[id.x] = v;
@@ -524,7 +515,7 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
 #pragma kernel DampenByBounds
 [numthreads(_BLOCK_SIZE,1,1)]
 void DampenByBounds(uint3 id : SV_DispatchThreadID) {
-    if (id.x < numBoids || id.x >= numParticles) return;
+    if (id.x < numBoids+numPointsOnObstacles || id.x >= numParticles) return;
     
     particle p = particles[id.x];
     float3 v = velocity[id.x];

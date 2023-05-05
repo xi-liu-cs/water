@@ -41,9 +41,11 @@ public class PointCloudObstacle : MonoBehaviour
     public float pointCloudResolution = 1f;
     public int numX, numY, numZ;
 
+    public bool showPoints = false;
+
     void OnDrawGizmos() {
         MeshRenderer r = GetComponent<MeshRenderer>();
-        if (r == null) return;
+        if (r == null || !showPoints) return;
         var bounds = r.bounds;
         Gizmos.matrix = Matrix4x4.identity;
         Gizmos.color = Color.blue;

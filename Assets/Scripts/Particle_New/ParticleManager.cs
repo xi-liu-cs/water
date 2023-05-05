@@ -70,12 +70,6 @@ public class ParticleManager : MonoBehaviour
         private int _numParticlesPerGridCell => Mathf.CeilToInt(Mathf.Pow(gridCellSize / particleRenderRadius, 3));
         public int numParticlesPerGridCell { get => _numParticlesPerGridCell; set {} }
 
-    [Header("== BOID CONFIGURATIONS ==")]
-        #if UNITY_EDITOR
-        [Help("The first `numBoids` particles are considered boids and will be constantly cemented to the boids from a separate boids manager. We just need to let the SPH compute shader know which of its particles are boids", UnityEditor.MessageType.None)]
-        #endif
-        public int numBoids = 100;
-
     [Header("== FLUID MECHANICS ==")]
         #if UNITY_EDITOR
         [Help("These configurations adjust the behavior of the SPH fluid dynamics. These can get complicated, so make sure you know SPH inside out first. Learn about them here:\nhttps://www.cs.cornell.edu/~bindel/class/cs5220-f11/code/sph.pdf\nhttps://matthias-research.github.io/pages/publications/sca03.pdf\nThe current implementation is based off of the 1st reference.\n\n- `Dt` = The time step between frames. If set to any value < 0, then defaults to `Time.deltaTime`\n- `Smoothing Radius` = `K` - the radius used for the smoothing kernel.\n- `Particle Mass` = the mass of each individual particle.\n- `Viscosity Coefficient` = `mu`, how much particles stick to each other.\n- `Rest Density` = `p_0`, the default density the fluid is meant to embody when still.\n- `Damping` = How much the boundary walls reflect particles upon contact.\n - `Gas_constant` = how much the particles are excited. Normally dependent on temperature. Not used in this implementation.\n- `Bulk Modulus` = Every fluid has a modulus value - this can be looked up online. Try to pick values that aren't too large or small.", UnityEditor.MessageType.None)]
@@ -105,6 +99,18 @@ public class ParticleManager : MonoBehaviour
         public float gas_constant = 0f;
         [Tooltip("The bulk modulus of the fluid. Can be looked up on Google. Water = 300,000 psi")]
         public float bulkModulus = 1000f;
+
+    [Header("== BOID CONFIGURATIONS ==")]
+        #if UNITY_EDITOR
+        [Help("The first `numBoids` particles are considered boids and will be constantly cemented to the boids from a separate boids manager. We just need to let the SPH compute shader know which of its particles are boids", UnityEditor.MessageType.None)]
+        #endif
+        public int numBoids = 100;
+        public float boidMass = 5f;
+    
+    [Header("== OBSTACLE CONFIGURATIONS ==")]
+        public PointCloudObstacle[] obstacles = new PointCloudObstacle[0];
+        [SerializeField]
+        private int numPointsOnObstacles = 0;
 
     [Header("== GPU SETTINGS ==")]
         #if UNITY_EDITOR
@@ -213,6 +219,8 @@ public class ParticleManager : MonoBehaviour
     private ComputeBuffer rearrangedParticlesBuffer;
     private ComputeBuffer numNeighborsBuffer;
 
+    // Stores the masses of each particle
+    public ComputeBuffer mass_buffer;
     // Stores the densities of each particle
     public ComputeBuffer density_buffer;
     // Stores the pressure exerted by each particle
@@ -378,6 +386,12 @@ public class ParticleManager : MonoBehaviour
         // However, we need to adjust the number of boids to ensure that it isn't larger than the # of particles in the current system.
         numBoids = Mathf.Min(numBoids, Mathf.FloorToInt((float)numParticles*0.9f));
 
+        // We also need to count number of particles attached to obstacles
+        numPointsOnObstacles = 0;
+        foreach(PointCloudObstacle obstacle in obstacles) {
+            numPointsOnObstacles += obstacle.points.Count;
+        }
+
         // == GPU SETTINGS ==
         numBlocks = Mathf.CeilToInt((float)numGridCells / (float)_BLOCK_SIZE);
 
@@ -428,6 +442,7 @@ public class ParticleManager : MonoBehaviour
         // == PARTICLE CONFIGURATIONS ==
         SPHComputeShader.SetInt("numParticles", numParticles);
         SPHComputeShader.SetInt("numBoids", numBoids);
+        SPHComputeShader.SetInt("numParticlesOnObstacles", numPointsOnObstacles);
         SPHComputeShader.SetFloat("particleRenderRadius", particleRenderRadius);
         SPHComputeShader.SetInt("numParticlesPerGridCell", _numParticlesPerGridCell);
 
@@ -479,6 +494,14 @@ public class ParticleManager : MonoBehaviour
         particleOffsetsBuffer = new ComputeBuffer(numParticles, sizeof(int));
         gridBuffer = new ComputeBuffer(numGridCells, sizeof(int));
         particleNeighborsBuffer = new ComputeBuffer(numGridCells * _numParticlesPerGridCell, sizeof(int));
+
+        //obstacleParticlesBuffer = new ComputeBuffer(numPointsOnObstacles, sizeof(Vector3))
+
+        float[] particle_masses = new float[numParticles];
+        for(int i = 0; i < numParticles; i++) particle_masses[i] = boidMass;
+        for(int j = numBlocks; j < numParticles; j++) particle_masses[j] = particleMass;
+        mass_buffer = new ComputeBuffer(numParticles, sizeof(float));
+        mass_buffer.SetData(particle_masses);
 
         density_buffer = new ComputeBuffer(numParticles, sizeof(float));
         pressure_buffer = new ComputeBuffer(numParticles, sizeof(float));
