@@ -218,6 +218,7 @@ public class ParticleManager : MonoBehaviour
     private ComputeBuffer gridSumsBuffer2;
     private ComputeBuffer rearrangedParticlesBuffer;
     private ComputeBuffer numNeighborsBuffer;
+    private ComputeBuffer obstacleParticlesBuffer;
 
     // Stores the masses of each particle
     public ComputeBuffer mass_buffer;
@@ -495,7 +496,9 @@ public class ParticleManager : MonoBehaviour
         gridBuffer = new ComputeBuffer(numGridCells, sizeof(int));
         particleNeighborsBuffer = new ComputeBuffer(numGridCells * _numParticlesPerGridCell, sizeof(int));
 
-        //obstacleParticlesBuffer = new ComputeBuffer(numPointsOnObstacles, sizeof(Vector3))
+        
+        obstacleParticlesBuffer = new ComputeBuffer(numPointsOnObstacles, sizeof(Vector3));
+
 
         float[] particle_masses = new float[numParticles];
         for(int i = 0; i < numParticles; i++) particle_masses[i] = boidMass;
