@@ -123,7 +123,8 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\PursueUnit.cs" />
      <Compile Include="Assets\Scripts\Boids\Deprecated\BoidManager.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\PointCloudObstacle.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PointCloudObstacle.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PointCloudObstacleManager.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Particle_New\SPH.compute" />
