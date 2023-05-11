@@ -145,7 +145,7 @@ public class fluid1 : MonoBehaviour
         material.SetFloat(size_property, particle_size);
         material.SetBuffer(particle_buffer_property, particle_buffer);
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
-        particle[] debug_buf = new particle[100];
+        particle[] debug_buf = new particle[100000];
         particle_buffer.GetData(debug_buf);
         for(int i = 0; i < 100; ++i) Debug.Log("position = " + debug_buf[i].position
         + ", velocity = " + debug_buf[i].velocity
@@ -153,6 +153,10 @@ public class fluid1 : MonoBehaviour
         + ", density = " + debug_buf[i].density
         + ", pressure = " + debug_buf[i].pressure
         + ", neighbor = " + debug_buf[i].neighbor);
+        /* int[] neighbor_debug_buf = new int[100];
+        neighbor_buffer.GetData(neighbor_debug_buf);
+        Debug.Log("neighbor: ");
+        for(int i = 0; i < 100; ++i) Debug.Log(debug_buf[neighbor_debug_buf[i]].position); */
     }
 
     void find_kernel()
@@ -177,6 +181,8 @@ public class fluid1 : MonoBehaviour
         compute_shader.SetFloat("radius4", radius4);
         compute_shader.SetFloat("radius5", radius5);
         compute_shader.SetFloat("radius8", radius8);
+        compute_shader.SetFloat("particle_size", particle_size);
+        compute_shader.SetFloat("particle_size2", 2 * particle_size);
         compute_shader.SetFloat("mass", mass);
         compute_shader.SetFloat("mass2", mass2);
         compute_shader.SetFloat("gas_constant", gas_constant);

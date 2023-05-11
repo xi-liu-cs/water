@@ -26,6 +26,8 @@ radius5,
 radius8,
 mass,
 mass2,
+particle_size,
+particle_size2,
 gas_constant,
 rest_density,
 viscosity_coefficient,
@@ -314,7 +316,7 @@ float3 acceleration(int a, int b)
     if(diff_square > radius2) return float3(0., 0., 0.);
     float q = sqrt(diff_square) / radius,
     q2 = 1 - q;
-    return mass / (pi * radius4 * rho_j) * q2
+    return mass / (pi * radius4 * rho_i) * q2
     * (15 * bulk_modulus * (rho_i + rho_j - 2 * rest_density)
     * q2 * diff_pos / q - 40 * viscosity_coefficient * diff_vel);
 }
@@ -340,20 +342,27 @@ void compute_acceleration(uint3 id : SV_DispatchThreadID)
     }
     particles[id.x].acceleration += g; */
     particles[id.x].acceleration = float3(0, 0, 0);
-    float particle_density2 = particles[id.x].density * particles[id.x].density;
+    /* float particle_density2 = particles[id.x].density * particles[id.x].density; */
     for(int i = 0; i < particles[id.x].neighbor; ++i)
     {
         int neighbor_index = neighbors[id.x * max_particles_per_grid * 27 + i];
         if(neighbor_index == id.x) continue;
         particles[id.x].acceleration += acceleration(id.x, neighbor_index);
-        float distance = length(particles[id.x].position - particles[neighbor_index].position);
+        /* float distance = length(particles[id.x].position - particles[neighbor_index].position);
         if(distance > 0)
         {
             float3 direction = (particles[id.x].position - particles[neighbor_index].position) / distance,
             diff_vel = particles[neighbor_index].velocity - particles[id.x].velocity;
             particles[id.x].acceleration += mass * (particles[id.x].pressure / particle_density2 + particles[neighbor_index].pressure / (particles[neighbor_index].density * particles[neighbor_index].density)) * spiky_kernel_gradient(distance, direction);
             particles[id.x].acceleration -= viscosity_coefficient * mass * diff_vel / particles[neighbor_index].density * spiky_kernel_second_derivative(distance);
-        }
+        } */
+        /* float3 diff = particles[id.x].position - particles[neighbor_index].position;
+        float dist = length(diff);
+        if(dist < particle_size)
+        {
+            particles[id.x].position -= diff;
+            particles[neighbor_index].position += diff;
+        } */
     }
     particles[id.x].acceleration += g;
 }
@@ -371,7 +380,7 @@ void integrate(uint3 id : SV_DispatchThreadID)
         p.velocity.x *= damping;
         p.position.x = bound[0] + epsilon;
     }
-    else if(p.position.x > bound[1]) 
+    else if(p.position.x > bound[1])
     {
         p.velocity.x *= damping;
         p.position.x = bound[1] - epsilon;
