@@ -23,6 +23,7 @@ public class ParticleManager : MonoBehaviour
 
     [Header("== REFERENCES ==")]
         public Boids3D boidManager;
+        public PointCloudObstacleManager obstacleManager;
 
     [Header("== WORLD CONFIGURATIONS ==")]
         #if UNITY_EDITOR
@@ -350,6 +351,8 @@ public class ParticleManager : MonoBehaviour
     public void Initialize() {
         // Initialize boids first
         boidManager.Initialize();
+        // Initialize obstacles second
+        obstacleManager.Initialize();
         // Initialize key variables once
         InitializeVariables();
         // Determine the kernels from the GPU

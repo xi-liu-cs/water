@@ -23,12 +23,16 @@ public class PointCloudObstacleManager : MonoBehaviour
     }
 
     public void Initialize() {
+        GetPoints();
+        pointsBuffer = new ComputeBuffer(_points.Length, sizeof(float)*3);
+        pointsBuffer.SetData(_points);
     }
 
     // Update is called once per frame
     void Update() {
         GetPoints();
         pointsBuffer = new ComputeBuffer(_points.Length, sizeof(float)*3);
+        pointsBuffer.SetData(_points);
     }
 
     public void GetPoints() {

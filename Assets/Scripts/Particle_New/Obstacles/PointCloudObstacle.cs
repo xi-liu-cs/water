@@ -52,7 +52,6 @@ public class PointCloudObstacle : MonoBehaviour
     public float pointCloudResolution = 1f;
     public int numX, numY, numZ;
 
-    /*
     void OnDrawGizmos() {
         MeshRenderer r = GetComponent<MeshRenderer>();
         if (r == null) return;
@@ -69,11 +68,36 @@ public class PointCloudObstacle : MonoBehaviour
             Gizmos.DrawSphere(transform.TransformPoint(point), 0.1f);
         }
     }
-    */
 
     private void Awake() {
         meshFilter = GetComponent<MeshFilter>();
         meshRenderer = GetComponent<MeshRenderer>();
+    }
+
+    private void Start() {
+        GeneratePoints();
+    }
+
+    private void GeneratePoints() {
+        // Get the SHARED mesh. Everything done here will be in local space
+        Mesh mesh = meshFilter.sharedMesh;
+        Vector3 p1,p2,p3,a1,a2,a1Closest;
+        Plane plane;
+        for(int t = 0; t < triangles.Length; t += 3) {
+            p1 = mesh.vertices[triangles[t]];
+            p2 = mesh.vertices[triangles[t+1]];
+            p3 = mesh.vertices[triangles[t+2]];
+            // Calculate vector b/w p1 and p2
+            a1 = p2 - p1;
+            // Find the closest point between p3 and the vector p1p2
+            a1Closest = ObstacleHelper.FindNearestPointOnLine(p1,p2,p3);
+            // Calcualte the vector from the 3rd point to the nearest point on the line b/w p1 and p2.
+            a2 = p3 - a1Closest;
+            // Generate plane from trianlge vertices
+            plane = new Plane(p1, p2, p3);
+            
+
+        }
     }
 
     private void Update() {
@@ -111,54 +135,31 @@ public class PointCloudObstacle : MonoBehaviour
             };
             // Calculate vector b/w p1 and p2
             a1 = worldPoints[1] - worldPoints[0];
-            // Calculate magnitude and direction of p1p2
-            //a1_mag = Mathf.Ceil(p1p2.magnitude / (pointCloudResolution*2f)) * (pointCloudResolution*2f);
-            //a1_dir = p1p2.normalized;
             // Find the closest point between p3 and the vector p1p2
             a1Closest = ObstacleHelper.FindNearestPointOnLine(worldPoints[0],worldPoints[1],worldPoints[2]);
             a2 = worldPoints[2] - a1Closest;
-            // Calcualte magnitude and direction of p3_p1p2
-            //a2_mag = Mathf.Ceil(p3_p1p2.magnitude / (pointCloudResolution*2f)) * (pointCloudResolution*2f);
-            //a2_dir = p3_p1p2.normalized;
             // Get the plane from each world point
             plane = new Plane(worldPoints[0], worldPoints[1], worldPoints[2]);
             // Save these results
             planesFromMesh.Add(new ObstaclePlane(worldPoints, plane, a1, a2, a1Closest));
         }
-        /*
-        for(int t = 0; t < triangles.Length; t+=3) {
-            // triangles[t] = first index, trianges[t+1] = second index, triangles[t+2] = 3rd index
-            worldPoints = new Vector3[3] {
-                transform.TransformPoint(mesh.vertices[triangles[t]]),
-                transform.TransformPoint(mesh.vertices[triangles[t+1]]),
-                transform.TransformPoint(mesh.vertices[triangles[t+2]])
-            };
-            Plane plane = new Plane(worldPoints[0], worldPoints[1], worldPoints[2]);
-            planesFromMesh.Add(new ObstaclePlane(plane, worldPoints));
-        }
-        */
         numPlanes = planesFromMesh.Count;
     }
 
     private void GenerateGrid() {
         Vector3 testPos, closestPointOnPlane;
         points = new List<Vector3>();
+        List<float3> tempPointsF3 = new List<float3>();
         
         for(int i = 0; i < planesFromMesh.Count; i++) {
-            /*
-            points.Add(transform.InverseTransformPoint(planesFromMesh[i].vertices[0]));
-            //points.Add(transform.InverseTransformPoint(planesFromMesh[i].vertices[1]));
-            points.Add(transform.InverseTransformPoint(planesFromMesh[i].vertices[2]));
-            //points.Add(transform.InverseTransformPoint(planesFromMesh[i].a1Closest));
-            points.Add(transform.InverseTransformPoint(planesFromMesh[i].vertices[0]+planesFromMesh[i].a1.normalized*0.1f));
-            points.Add(transform.InverseTransformPoint(planesFromMesh[i].vertices[0]+planesFromMesh[i].a2.normalized*0.1f));
-            */
+            
             // Place at least one point on the center of the mesh
-            points.Add(transform.InverseTransformPoint(
-                planesFromMesh[i].vertices[0] 
+            closestPointOnPlane = planesFromMesh[i].vertices[0] 
                 + planesFromMesh[i].a1.normalized * planesFromMesh[i].a1.magnitude * 0.05f
-                + planesFromMesh[i].a2.normalized * planesFromMesh[i].a2.magnitude * 0.05f 
-            ));
+                + planesFromMesh[i].a2.normalized * planesFromMesh[i].a2.magnitude * 0.05f;
+            points.Add(transform.InverseTransformPoint(closestPointOnPlane));
+            tempPointsF3.Add(new(closestPointOnPlane.x, closestPointOnPlane.y, closestPointOnPlane.z));
+
             for(int x = 0; x < planesFromMesh[i].A1_NumCells(pointCloudResolution); x++) {
                 for(int y = 0; y < planesFromMesh[i].A2_NumCells(pointCloudResolution); y++) {
                     testPos = planesFromMesh[i].vertices[0] 
@@ -166,17 +167,15 @@ public class PointCloudObstacle : MonoBehaviour
                         + (planesFromMesh[i].a2.normalized * (y*pointCloudResolution + pointCloudResolution));
                     closestPointOnPlane = planesFromMesh[i].plane.ClosestPointOnPlane(testPos);
                     if(ObstacleHelper.PointInTriangle(closestPointOnPlane,planesFromMesh[i].vertices)) {
+                        // Convert to local space
                         points.Add(transform.InverseTransformPoint(closestPointOnPlane));
+                        tempPointsF3.Add(new(closestPointOnPlane.x, closestPointOnPlane.y, closestPointOnPlane.z));
                     }
                  }
             }
         }
-        
-        pointsF3 = new float3[points.Count];
-        for(int i = 0; i < points.Count; i++) {
-            Vector3 worldPoint = transform.TransformPoint(points[i]);
-            pointsF3[i] = new(worldPoint.x, worldPoint.y, worldPoint.z);
-        }
+
+        pointsF3 = tempPointsF3.ToArray();
         
 
         //foreach(ObstaclePlane obstaclePlane in planesFromMesh) {
@@ -202,135 +201,6 @@ public class PointCloudObstacle : MonoBehaviour
             //points.Add(transform.InverseTransformPoint(obstaclePlane.a1Closest));
             //points.Add(transform.InverseTransformPoint(obstaclePlane.vertices[0]+obstaclePlane.a2.normalized*0.1f));
         //}
-
-        /*
-        numX = Mathf.CeilToInt((meshRenderer.bounds.max.x - meshRenderer.bounds.min.x) / (pointCloudResolution*2f)) + 10;
-        numY = Mathf.CeilToInt((meshRenderer.bounds.max.y - meshRenderer.bounds.min.y) / (pointCloudResolution*2f)) + 10;
-        numZ = Mathf.CeilToInt((meshRenderer.bounds.max.z - meshRenderer.bounds.min.z) / (pointCloudResolution*2f)) + 10;
-        Vector3Int numGridCellsPerAxis = new Vector3Int(numX, numY, numZ);
-
-        newBounds = new Vector3(
-            (float)numX * pointCloudResolution,
-            (float)numY * pointCloudResolution,
-            (float)numZ * pointCloudResolution
-        );
-
-        Vector3 halfBounds = newBounds / 2f;
-        newBoundsMin = transform.position - halfBounds;
-        newBoundsMax = transform.position + halfBounds;
-        Vector3 boundPos, closestPointOnPlane;
-        float posX, posY, posZ;
-        int projectedIndex;
-
-        points = new List<Vector3>();
-        bool[] pointsOccupied = new bool[numX * numY * numZ];
-
-        for(int x = 0; x <= numX; x++) {
-            posX = newBoundsMin.x + (x * pointCloudResolution*2f) + pointCloudResolution;
-            for(int y = 1; y < numY; y++) {
-                posY = newBoundsMin.y + (y * pointCloudResolution*2f) + pointCloudResolution;
-                boundPos = new Vector3(posX, posY, newBoundsMin.z);
-                foreach(ObstaclePlane obsPlane in planesFromMesh) {
-                    closestPointOnPlane = obsPlane.plane.ClosestPointOnPlane(boundPos);
-                    if (ObstacleHelper.PointInTriangle(closestPointOnPlane,obsPlane.points)) {
-                        if (filterSettings == FilterSettings.FilterClosePoints) {
-                            projectedIndex = Grid3DHelpers.GetProjectedGridIndexFromGivenPosition(numGridCellsPerAxis,  transform.position, pointCloudResolution, closestPointOnPlane);
-                            if(!pointsOccupied[projectedIndex]) {
-                                points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                                pointsOccupied[projectedIndex] = true;
-                            }
-                        } else {
-                            points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                        }
-                    }
-                }
-                boundPos = new Vector3(posX, posY, newBoundsMax.z);
-                foreach(ObstaclePlane obsPlane in planesFromMesh) {
-                    closestPointOnPlane = obsPlane.plane.ClosestPointOnPlane(boundPos);
-                    if (ObstacleHelper.PointInTriangle(closestPointOnPlane,obsPlane.points)) {
-                        if (filterSettings == FilterSettings.FilterClosePoints) {
-                            projectedIndex = Grid3DHelpers.GetProjectedGridIndexFromGivenPosition(numGridCellsPerAxis,  transform.position, pointCloudResolution, closestPointOnPlane);
-                            if(!pointsOccupied[projectedIndex]) {
-                                points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                                pointsOccupied[projectedIndex] = true;
-                            }
-                        } else {
-                            points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                        }
-                    }
-                }
-            }
-            for(int z = 0; z <= numZ; z++) {
-                posZ = newBoundsMin.z + (z * pointCloudResolution*2f) + pointCloudResolution;
-                boundPos = new Vector3(posX, newBoundsMin.y, posZ);
-                foreach(ObstaclePlane obsPlane in planesFromMesh) {
-                    closestPointOnPlane = obsPlane.plane.ClosestPointOnPlane(boundPos);
-                    if (ObstacleHelper.PointInTriangle(closestPointOnPlane,obsPlane.points)) {
-                        if (filterSettings == FilterSettings.FilterClosePoints) {
-                            projectedIndex = Grid3DHelpers.GetProjectedGridIndexFromGivenPosition(numGridCellsPerAxis,  transform.position, pointCloudResolution, closestPointOnPlane);
-                            if(!pointsOccupied[projectedIndex]) {
-                                points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                                pointsOccupied[projectedIndex] = true;
-                            }
-                        } else {
-                            points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                        }
-                    }
-                }
-                boundPos = new Vector3(posX, newBoundsMax.y, posZ);
-                foreach(ObstaclePlane obsPlane in planesFromMesh) {
-                    closestPointOnPlane = obsPlane.plane.ClosestPointOnPlane(boundPos);
-                    if (ObstacleHelper.PointInTriangle(closestPointOnPlane,obsPlane.points)) {
-                        if (filterSettings == FilterSettings.FilterClosePoints) {
-                            projectedIndex = Grid3DHelpers.GetProjectedGridIndexFromGivenPosition(numGridCellsPerAxis,  transform.position, pointCloudResolution, closestPointOnPlane);
-                            if(!pointsOccupied[projectedIndex]) {
-                                points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                                pointsOccupied[projectedIndex] = true;
-                            }
-                        } else {
-                            points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                        }
-                    }
-                }
-            }
-        }
-        for(int z = 0; z <= numZ; z++) {
-            posZ = newBoundsMin.z + (z * pointCloudResolution*2f) + pointCloudResolution;
-            for(int y = 0; y <= numY; y++) {
-                posY = newBoundsMin.y + (y * pointCloudResolution*2f) + pointCloudResolution;
-                boundPos = new Vector3(newBoundsMin.x, posY, posZ);
-                foreach(ObstaclePlane obsPlane in planesFromMesh) {
-                    closestPointOnPlane = obsPlane.plane.ClosestPointOnPlane(boundPos);
-                    if (ObstacleHelper.PointInTriangle(closestPointOnPlane, obsPlane.points)) {
-                        if (filterSettings == FilterSettings.FilterClosePoints) {
-                            projectedIndex = Grid3DHelpers.GetProjectedGridIndexFromGivenPosition(numGridCellsPerAxis,  transform.position, pointCloudResolution, closestPointOnPlane);
-                            if(!pointsOccupied[projectedIndex]) {
-                                points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                                pointsOccupied[projectedIndex] = true;
-                            }
-                        } else {
-                            points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                        }
-                    }
-                }
-                boundPos = new Vector3(newBoundsMax.x, posY, posZ);
-                foreach(ObstaclePlane obsPlane in planesFromMesh) {
-                    closestPointOnPlane = obsPlane.plane.ClosestPointOnPlane(boundPos);
-                    if (ObstacleHelper.PointInTriangle(closestPointOnPlane, obsPlane.points)) {
-                        if (filterSettings == FilterSettings.FilterClosePoints) {
-                            projectedIndex = Grid3DHelpers.GetProjectedGridIndexFromGivenPosition(numGridCellsPerAxis,  transform.position, pointCloudResolution, closestPointOnPlane);
-                            if(!pointsOccupied[projectedIndex]) {
-                                points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                                pointsOccupied[projectedIndex] = true;
-                            }
-                        } else {
-                            points.Add(transform.InverseTransformPoint(closestPointOnPlane));
-                        }
-                    }
-                }
-            }
-        }
-        */
     }
 }
 
