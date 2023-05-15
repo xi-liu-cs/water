@@ -65,7 +65,7 @@ public class PointCloudObstacle : MonoBehaviour
         if (points.Count == 0) return;
         Gizmos.color = new Vector4(1f,0f,0f,1f);
         foreach(Vector3 point in points) {
-            Gizmos.DrawSphere(transform.TransformPoint(point), 0.1f);
+            Gizmos.DrawSphere(transform.TransformPoint(point), pointCloudResolution);
         }
     }
 
@@ -74,35 +74,7 @@ public class PointCloudObstacle : MonoBehaviour
         meshRenderer = GetComponent<MeshRenderer>();
     }
 
-    private void Start() {
-        GeneratePoints();
-    }
-
-    private void GeneratePoints() {
-        // Get the SHARED mesh. Everything done here will be in local space
-        Mesh mesh = meshFilter.sharedMesh;
-        Vector3 p1,p2,p3,a1,a2,a1Closest;
-        Plane plane;
-        for(int t = 0; t < triangles.Length; t += 3) {
-            p1 = mesh.vertices[triangles[t]];
-            p2 = mesh.vertices[triangles[t+1]];
-            p3 = mesh.vertices[triangles[t+2]];
-            // Calculate vector b/w p1 and p2
-            a1 = p2 - p1;
-            // Find the closest point between p3 and the vector p1p2
-            a1Closest = ObstacleHelper.FindNearestPointOnLine(p1,p2,p3);
-            // Calcualte the vector from the 3rd point to the nearest point on the line b/w p1 and p2.
-            a2 = p3 - a1Closest;
-            // Generate plane from trianlge vertices
-            plane = new Plane(p1, p2, p3);
-            
-
-        }
-    }
-
     private void Update() {
-        if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
-        if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
         switch(generationFrequency) {
             case GenerateFreq.Always:
                 GeneratePlanes();
@@ -155,8 +127,8 @@ public class PointCloudObstacle : MonoBehaviour
             
             // Place at least one point on the center of the mesh
             closestPointOnPlane = planesFromMesh[i].vertices[0] 
-                + planesFromMesh[i].a1.normalized * planesFromMesh[i].a1.magnitude * 0.05f
-                + planesFromMesh[i].a2.normalized * planesFromMesh[i].a2.magnitude * 0.05f;
+                + planesFromMesh[i].a1.normalized * planesFromMesh[i].a1.magnitude * 0.5f
+                + planesFromMesh[i].a2.normalized * planesFromMesh[i].a2.magnitude * 0.5f;
             points.Add(transform.InverseTransformPoint(closestPointOnPlane));
             tempPointsF3.Add(new(closestPointOnPlane.x, closestPointOnPlane.y, closestPointOnPlane.z));
 
