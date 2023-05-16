@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Mathematics;
+using System.Linq;
 
 [RequireComponent(typeof(MeshRenderer))]
 [RequireComponent(typeof(MeshFilter))]
@@ -27,6 +28,19 @@ public class PointCloudObstacle : MonoBehaviour
         public Vector3 A2_Direction => a2.normalized;
     }
 
+    [System.Serializable]
+    public struct Point {
+        public int vertexIndex;
+        public Vector3 worldPosition, localPosition;
+        public List<int> neighbors;
+        public Point(int vertexIndex, Vector3 worldPosition, Vector3 localPosition) {
+            this.vertexIndex = vertexIndex;
+            this.worldPosition = worldPosition;
+            this.localPosition = localPosition;
+            this.neighbors = new List<int>();
+        }
+    }
+
     public enum GenerateFreq {
         Always,
         OnChange,
@@ -47,11 +61,13 @@ public class PointCloudObstacle : MonoBehaviour
     [ReadOnly, SerializeField]
     Vector3 newBounds, newBoundsMin, newBoundsMax;
     public List<Vector3> points = new List<Vector3>();
+    public List<Point> pPoints = new List<Point>();
     public float3[] pointsF3 = new float3[0];
 
     public float pointCloudResolution = 1f;
     public int numX, numY, numZ;
 
+    
     void OnDrawGizmos() {
         MeshRenderer r = GetComponent<MeshRenderer>();
         if (r == null) return;
@@ -68,6 +84,7 @@ public class PointCloudObstacle : MonoBehaviour
             Gizmos.DrawSphere(transform.TransformPoint(point), pointCloudResolution);
         }
     }
+    
 
     private void Awake() {
         meshFilter = GetComponent<MeshFilter>();
@@ -77,13 +94,15 @@ public class PointCloudObstacle : MonoBehaviour
     private void Update() {
         switch(generationFrequency) {
             case GenerateFreq.Always:
-                GeneratePlanes();
-                GenerateGrid();
+                //GeneratePlanes();
+                //GenerateGrid();
+                GeneratePoints();
                 break;
             case GenerateFreq.OnChange:
                 if (!transform.hasChanged) return;
-                GeneratePlanes();
-                GenerateGrid();
+                //GeneratePlanes();
+                //GenerateGrid();
+                GeneratePoints();
                 transform.hasChanged = false;
                 break;
             case GenerateFreq.OnceOnly:
@@ -91,6 +110,65 @@ public class PointCloudObstacle : MonoBehaviour
         }
     }
 
+    private void GeneratePoints() {
+        // Initializations
+        points = new List<Vector3>();
+        List<float3> tempPointsF3 = new List<float3>();
+
+        Mesh mesh = meshFilter.sharedMesh;
+        int[] triangles = mesh.triangles;
+        Vector3[] vertices = mesh.vertices;
+
+        // world positions for each triangle vertex, as well as centroid
+        Vector3 wv1, wv2, wv3, centroid;
+        // vector b/w wv1 and wv2, and wv3-closestPointOn_wv1-wv2
+        Vector3 wv1wv2, wv3_closest, wv3_wv1wv2;
+        // How many points can we fit on each axis?
+        int wv1wv2_num, wv3_wv1wv2_num;
+        // When we're adding points, we need reference points!
+        Vector3 tempPos;
+        // Plane data
+        Plane plane;
+
+        for(int t = 0; t < triangles.Length; t += 3) {
+            // Calculate world positions for each triangle vertex
+            wv1 = transform.TransformPoint(mesh.vertices[triangles[t]]);
+            wv2 = transform.TransformPoint(mesh.vertices[triangles[t+1]]);
+            wv3 = transform.TransformPoint(mesh.vertices[triangles[t+2]]);
+            // Calculate centroid of three points
+            centroid = (wv1 + wv2 + wv3)/3f;
+            // Calculate world-space vector b/w wv1 and wv2
+            wv1wv2 = wv2 - wv1;
+            // Calculate closest point to wv3 from `wv1_wv2`
+            wv3_closest = ObstacleHelper.FindNearestPointOnLine(wv1,wv2,wv3);
+            // Calculate vector from wv3 to wv3_closest
+            wv3_wv1wv2 = wv3 - wv3_closest;
+
+            // Calculate how many points we are allowed on each axis
+            wv1wv2_num = Mathf.CeilToInt(wv1wv2.magnitude / pointCloudResolution);
+            wv3_wv1wv2_num = Mathf.CeilToInt(wv3_wv1wv2.magnitude / pointCloudResolution);
+
+            // Get the plane that encompasses wv1,wv2,wv3
+            plane = new Plane(wv1, wv2, wv3);
+
+            // Add centroid
+            points.Add(transform.InverseTransformPoint(centroid));
+
+            // Add points by iterating across rectangle
+            for(int x = 0; x < wv1wv2_num; x++) {
+                float wv3_wv1wv2_oddOffset = (x % 2 == 1) ? pointCloudResolution : 0f;
+                for(int y = 0; y < wv3_wv1wv2_num; y++) {
+                    tempPos = wv1 + (wv1wv2.normalized * (x*pointCloudResolution + pointCloudResolution)) + (wv3_wv1wv2.normalized * (y*pointCloudResolution + pointCloudResolution));
+                    tempPos = plane.ClosestPointOnPlane(tempPos);
+                    if(ObstacleHelper.PointInTriangle(tempPos, wv1,wv2,wv3)) {
+                        // Convert to local space
+                        points.Add(transform.InverseTransformPoint(tempPos));
+                    }
+                 }
+            }
+        }
+    }
+    
     private void GeneratePlanes() {
         planesFromMesh = new List<ObstaclePlane>();
         Mesh mesh = meshFilter.sharedMesh;
@@ -150,8 +228,8 @@ public class PointCloudObstacle : MonoBehaviour
         pointsF3 = tempPointsF3.ToArray();
         
 
-        //foreach(ObstaclePlane obstaclePlane in planesFromMesh) {
-            /*
+        foreach(ObstaclePlane obstaclePlane in planesFromMesh) {
+            
             for(int x = 0; x < obstaclePlane.A1_NumCells(pointCloudResolution*2f); x++) {
                 for(int y = 0; y < obstaclePlane.A2_NumCells(pointCloudResolution*2f); y++) {
                     testPos = obstaclePlane.vertices[0] 
@@ -166,13 +244,13 @@ public class PointCloudObstacle : MonoBehaviour
                     points.Add(transform.InverseTransformPoint(testPos));
                 }
             }
-            */
+            
             //points.Add(transform.InverseTransformPoint(obstaclePlane.vertices[0]));
            // points.Add(transform.InverseTransformPoint(obstaclePlane.vertices[1]));
             //points.Add(transform.InverseTransformPoint(obstaclePlane.vertices[0]+obstaclePlane.a1.normalized*0.1f));
             //points.Add(transform.InverseTransformPoint(obstaclePlane.a1Closest));
             //points.Add(transform.InverseTransformPoint(obstaclePlane.vertices[0]+obstaclePlane.a2.normalized*0.1f));
-        //}
+        }
     }
 }
 
