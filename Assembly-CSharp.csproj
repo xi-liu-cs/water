@@ -54,7 +54,7 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\ArriveUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\OffsetPursuitUnit.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\FreeLookCam.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacle.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacleTest.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Environment\Water\Water\Scripts\PlanarReflection.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\TimedObjectActivator.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Environment\Water (Basic)\Scripts\WaterBasic.cs" />
@@ -182,6 +182,7 @@
      <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\AxisTouchButton.cs" />
      <Compile Include="Assets\Scripts\Boids\Deprecated\BoidManager.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacle.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Fog\Standard Assets\Effects\Projectors\Shaders\ProjectorLight.shader" />

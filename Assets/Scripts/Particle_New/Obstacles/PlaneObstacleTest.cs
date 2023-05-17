@@ -46,7 +46,7 @@ public class PlaneObstacleTest : MonoBehaviour
         projectionPoint = ClosestPointOnPlane(centroid, normalVector, particleTarget.position);
         isIntersecting = dotBetweenParticleAndNormal <= 0f 
             && ObstacleHelper.PointInTriangle(
-                projectionPoint, 
+                projectionPoint + ((projectionPoint - particleTarget.position).normalized * radius), 
                 vertices[0].position, 
                 vertices[1].position, 
                 vertices[2].position
