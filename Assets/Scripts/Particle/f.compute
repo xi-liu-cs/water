@@ -1,0 +1,259 @@
+struct particle
+{
+    float3 position,
+    velocity,
+    acceleration;
+    float density,
+    pressure;
+    int neighbor, /* number of neighors does each particle have */
+    cell_index, /* which cell does the particle belong */
+    index_in_cell; /* which index inside the cell does the particle locate */
+};
+
+RWStructuredBuffer<particle> particles;
+RWStructuredBuffer<float> bound;
+RWStructuredBuffer<int> cell_particle_count,
+cell_offset,
+sort_particle_index,
+neighbor_count,
+neighbor_offset,
+neighbors,
+scan_in,
+scan_out;
+
+#define thread_per_group 32
+float grid_size,
+radius,
+radius2,
+radius3,
+radius4,
+radius5,
+radius8,
+mass,
+mass2,
+particle_size,
+particle_size2,
+gas_constant,
+rest_density,
+viscosity_coefficient,
+damping,
+dt,
+epsilon,
+e,
+pi,
+bulk_modulus;
+uint n,
+n_particle,
+sequential_scan_length;
+int3 dimension;
+float g;
+float4 time;
+
+int3 get_cell(float3 position)
+{
+    return int3((position.x - bound[0]) / grid_size, (position.y - bound[2]) / grid_size, (position.z - bound[4]) / grid_size);
+}
+
+int hash(int3 cell)
+{
+    return cell.x + dimension.x * (cell.y + dimension.y * cell.z);
+}
+
+uint s,
+seed;
+float random()
+{
+    s ^= 2747636419u;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    return s / 4294967295.0;
+}
+
+float random_range(float a, float b)
+{
+    return a + random() * (b - a);
+}
+
+#pragma kernel malloc_particle
+[numthreads(thread_per_group, 1, 1)]
+void malloc_particle(uint3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_particle) return;
+    s = seed + id.x;
+    // particles[id.x].position = float3(0.3 * random_range(bound[0], bound[1]), 0.3 * random_range(bound[2], bound[3]), 0.3 * random_range(bound[4], bound[5]));
+    particles[id.x].position = float3(bound[0] + random_range(0, 3), bound[2] + random_range(0, 3), bound[4] + random_range(0, 3));
+    particles[id.x].velocity = float3(0., 0., 0.);
+    particles[id.x].acceleration = float3(0., 0., 0.);
+    particles[id.x].density = 0.;
+    particles[id.x].pressure = 0.;
+    particles[id.x].neighbor = 0;
+    particles[id.x].cell_index = hash(get_cell(particles[id.x].position));
+}
+
+#pragma kernel clear_count
+[numthreads(thread_per_group, 1, 1)]
+void clear_count(uint3 id : SV_DispatchThreadID)
+{
+    cell_particle_count[id.x] = 0;
+}
+
+#pragma kernel compute_count
+[numthreads(thread_per_group, 1, 1)]
+void compute_count(uint3 id : SV_DispatchThreadID)
+{
+    particles[id.x].cell_index = hash(get_cell(particles[id.x].position));
+    InterlockedAdd(cell_particle_count[particles[id.x].cell_index], 1, particles[id.x].index_in_cell);
+}
+
+groupshared uint2 scan_group[thread_per_group];
+void scan(uint3 did, uint gid, uint x)
+{
+    scan_group[gid].x = x;
+    scan_group[gid].y = 0;
+ 
+    [unroll]
+    for(uint step = 2; step <= thread_per_group; step <<= 1) /* up */
+    {
+        GroupMemoryBarrierWithGroupSync();
+        if((gid & (step - 1)) == (step - 1)) scan_group[gid].x += scan_group[gid - (step >> 1)].x;
+    }
+    if(gid == (thread_per_group - 1)) scan_group[gid].x = 0;
+
+    bool flag = true;
+    [unroll]
+    for(step = thread_per_group >> 1; step >= 1; step >>= 1) /* down */
+    {
+        GroupMemoryBarrierWithGroupSync();
+        uint a = step - 1,
+        b = step | a;
+        if(flag)
+        {
+            if((gid & b) == b) scan_group[gid].y = scan_group[gid - step].x + scan_group[gid].x;
+            else if((gid & a) == a) scan_group[gid].y = scan_group[gid + step].x;
+            else scan_group[gid].y = scan_group[gid].x;
+        }
+        else
+        {
+            if((gid & b) == b) scan_group[gid].x = scan_group[gid - step].y + scan_group[gid].y;
+            else if((gid & a) == a) scan_group[gid].x = scan_group[gid + step].y;
+            else scan_group[gid].x = scan_group[gid].y;
+        }
+        flag = !flag;
+    }
+    scan_out[did.x] = scan_group[gid].y + x;
+}
+
+#pragma kernel scan_inclusive
+[numthreads(thread_per_group, 1, 1)]
+void scan_inclusive(uint did : SV_DispatchThreadID, uint gid: SV_GroupIndex)
+{
+    uint x = scan_in[did];
+    scan(did, gid, x);
+}
+
+#pragma kernel scan_exclusive
+[numthreads(thread_per_group, 1, 1)]
+void scan_exclusive(uint did : SV_DispatchThreadID, uint gid: SV_GroupIndex)
+{
+    uint x = did == 0 ? 0 : scan_in[did - 1];
+    scan(did, gid, x);
+}
+
+#pragma kernel scan_result
+[numthreads(thread_per_group, 1, 1)]
+void scan_result(uint did : SV_DispatchThreadID, uint gid: SV_GroupIndex)
+{
+    uint x = scan_in[did * thread_per_group - 1];
+    scan(did, gid, x);
+}
+
+#pragma kernel scan_add_result
+[numthreads(thread_per_group, 1, 1)]
+void scan_add_result(uint gid : SV_GroupID, uint3 did : SV_DispatchThreadID)
+{
+    scan_out[did.x] = scan_out[did.x] + scan_in[gid];
+}
+
+#pragma kernel debug_test
+[numthreads(1, 1, 1)]
+void debug_test(uint3 id : SV_DispatchThreadID)
+{
+    for(int i = 0; i < sequential_scan_length; ++i)
+        scan_out[i] = scan_in[i];
+}
+
+#pragma kernel sequential_scan
+[numthreads(1, 1, 1)]
+void sequential_scan(uint3 id : SV_DispatchThreadID)
+{
+    scan_out[0] = scan_in[0];
+    for(int i = 1; i < sequential_scan_length; ++i)
+        scan_out[i] = scan_out[i - 1] + scan_in[i];
+}
+
+#pragma kernel count_sort_particle_index
+[numthreads(thread_per_group, 1, 1)]
+void count_sort_particle_index(uint3 id : SV_DispatchThreadID)
+{
+    int cell_index = particles[id.x].cell_index,
+    sort_index = cell_offset[cell_index] + particles[id.x].index_in_cell;
+    sort_particle_index[sort_index] = id.x;
+}
+
+#pragma kernel compute_neighbor_count
+[numthreads(thread_per_group, 1, 1)]
+void compute_neighbor_count(uint3 id : SV_DispatchThreadID)
+{
+    int3 origin_index = get_cell(particles[id.x].position);
+    int count = 0;
+    for(int x = -1; x < 2; ++x)
+        for(int y = -1; y < 2; ++y)
+            for(int z = -1; z < 2; ++z)
+            {
+                int3 cell = origin_index + int3(x, y, z);
+                if(cell.x < 0 || cell.x >= dimension.x || cell.y < 0 || cell.y >= dimension.y || cell.z < 0 || cell.z >= dimension.z) continue;
+                int cell_index = hash(cell),
+                cell_count = cell_particle_count[cell_index],
+                cell_start = cell_offset[cell_index];
+                for(int i = cell_start; i < cell_start + cell_count; ++i)
+                {
+                    float3 diff = particles[sort_particle_index[i]].position - particles[id.x].position;
+                    float square_distance = dot(diff, diff);
+                    if(square_distance < radius2 && square_distance > 0.0)
+                        ++count;
+                }
+            }
+    neighbor_count[hash(origin_index)] = count;
+}
+
+#pragma kernel compute_neighbor
+[numthreads(thread_per_group, 1, 1)]
+void compute_neighbor(uint3 id : SV_DispatchThreadID)
+{
+    int3 origin_index = get_cell(particles[id.x].position);
+    int count = 0,
+    write_offset = neighbor_offset[hash(origin_index)];
+    for(int x = -1; x < 2; ++x)
+        for(int y = -1; y < 2; ++y)
+            for(int z = -1; z < 2; ++z)
+            {
+                int3 cell = origin_index + int3(x, y, z);
+                if(cell.x < 0 || cell.x >= dimension.x || cell.y < 0 || cell.y >= dimension.y || cell.z < 0 || cell.z >= dimension.z) continue;
+                int cell_index = hash(cell),
+                cell_count = cell_particle_count[cell_index],
+                cell_start = cell_offset[cell_index];
+                for(int i = cell_start; i < cell_start + cell_count; ++i)
+                {
+                    float3 diff = particles[sort_particle_index[i]].position - particles[id.x].position;
+                    float square_distance = dot(diff, diff);
+                    if(square_distance < radius2 && square_distance > 0.0)
+                    {
+                        neighbors[write_offset + count] = sort_particle_index[i];
+                        ++count;
+                    }
+                }
+            }
+}

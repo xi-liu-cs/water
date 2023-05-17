@@ -981,7 +981,7 @@ MonoBehaviour:
   radius5: 0
   radius8: 0
   mass2: 0
-  n_particle: 100000
+  n_particle: 200000
   max_particles_per_grid: 12
   intial_particles_per_grid: 5
   dimension: {x: 0, y: 0, z: 0}
@@ -990,7 +990,7 @@ MonoBehaviour:
   isolevel: 0
   compute_shader: {fileID: 7200000, guid: c12b3a2da98b9214ea64858a19acac94, type: 3}
   max_density: 0
-  bulk_modulus: 500
+  bulk_modulus: 1000
 --- !u!1 &1406357849
 GameObject:
   m_ObjectHideFlags: 0
