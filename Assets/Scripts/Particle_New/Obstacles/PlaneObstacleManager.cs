@@ -1,0 +1,57 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class PlaneObstacleManager : MonoBehaviour
+{
+    public List<PlaneObstacle> obstacles = new List<PlaneObstacle>();
+    private List<PlaneObstacle.ObsPlane> obstaclePlanes;
+    private PlaneObstacle.Obs[] obs;
+    private int[] obsPlaneMap;
+
+    private ComputeBuffer obstaclesBuffer;
+    private ComputeBuffer obstaclePlanesBuffer;
+    private ComputeBuffer obstaclePlanesMapBuffer;
+
+    [ReadOnly, SerializeField] private int numPlanes;
+    
+    public void UpdateBuffers() {
+        // Update obstacles buffer
+        obs = new PlaneObstacle.Obs[obstacles.Count];
+        obstaclePlanes = new List<PlaneObstacle.ObsPlane>();
+
+        int numPlanes = 0;
+        for(int i = 0; i < obstacles.Count; i++) {
+            numPlanes += obstacles[i].obstaclePlanes.Count;
+        }
+        obsPlaneMap = new int[numPlanes];
+        
+        int start = 0;
+        for(int i = 0; i < obstacles.Count; i++) {
+            obs[i] = obstacles[i].obs;
+            obstaclePlanes.AddRange(obstacles[i].obstaclePlanes);
+            for(int j = start; j < obstaclePlanes.Count; j++) {
+                obsPlaneMap[j] = i;
+                start = j;
+            }
+            
+        }
+        obstaclesBuffer = new ComputeBuffer(obs.Length, sizeof(float)*10);
+        obstaclesBuffer.SetData(obs);
+        obstaclePlanesBuffer = new ComputeBuffer(obstaclePlanes.Count, sizeof(float)*15);
+        obstaclePlanesBuffer.SetData(obstaclePlanes.ToArray());
+        obstaclePlanesMapBuffer = new ComputeBuffer(obsPlaneMap.Length, sizeof(int));
+        obstaclePlanesMapBuffer.SetData(obsPlaneMap);
+
+        numPlanes = obstaclePlanes.Count;
+    }
+
+    void OnDestroy() {
+        DisposeBuffers();
+    }
+    public void DisposeBuffers() {
+        obstaclesBuffer.Dispose();
+        obstaclePlanesBuffer.Dispose();
+        obstaclePlanesMapBuffer.Dispose();
+    }
+}
