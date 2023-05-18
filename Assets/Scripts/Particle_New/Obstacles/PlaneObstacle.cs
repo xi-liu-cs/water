@@ -7,7 +7,7 @@ using UnityEngine;
 [ExecuteInEditMode]
 public class PlaneObstacle : MonoBehaviour
 {
-
+    [System.Serializable]
     public struct ObsPlane {
         public Vector3[] vertices;
         public Vector3 centroid;
@@ -24,18 +24,25 @@ public class PlaneObstacle : MonoBehaviour
     private Vector4 rotationV4;
     public ObstacleType obstacleType = ObstacleType.Static;
     public ObsPlane[] obstaclePlanes;
+    public float dotBetweenParticleAndNormal = 0f;
 
     public Transform particle = null;
-    private bool isIntersecting = false;
+    public bool isIntersecting = false;
+    public Vector3 projectionPoint = Vector3.zero;
+    public Vector3 worldCentroid = Vector3.zero;
 
     void OnDrawGizmos() {
         if (obstaclePlanes.Length == 0) return;
-        foreach(ObsPlane p in obstaclePlanes) {
-            Gizmos.color = Color.green;
-
-            Gizmos.DrawSphere(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.vertices[0]),0.01f);
-            Gizmos.DrawSphere(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.vertices[1]),0.01f);
-            Gizmos.DrawSphere(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.vertices[2]),0.01f);
+        Gizmos.color = Color.black;
+        Gizmos.DrawSphere(worldCentroid, 0.025f);
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawSphere(projectionPoint, 0.05f);
+        for(int i = 10000; i < 11000; i++) {
+            ObsPlane p = obstaclePlanes[i];
+            //Gizmos.color = Color.green;
+            //Gizmos.DrawSphere(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.vertices[0]),0.01f);
+            //Gizmos.DrawSphere(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.vertices[1]),0.01f);
+            //Gizmos.DrawSphere(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.vertices[2]),0.01f);
             Gizmos.color = (isIntersecting) ? Color.yellow : Color.red;
             Gizmos.DrawSphere(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.centroid),0.01f);
             Gizmos.color = Color.blue;
@@ -63,23 +70,32 @@ public class PlaneObstacle : MonoBehaviour
         ObsPlane closest = obstaclePlanes[FindClosestPlane(particle.position)];
 
         // Secondly, convert centroid to world space
-        Vector3 worldCentroid = LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, closest.centroid);
+        worldCentroid = LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, closest.centroid);
 
         // Secondly, Calculate dot product between normal vector and vector b/w centroid and target
         Vector3 targetVector = (particle.position - worldCentroid).normalized;
-        float dotBetweenParticleAndNormal = Vector3.Dot(targetVector, LocalVectorToWorldVector(transform.position, rotationV4, transform.localScale, closest.normalVector));
+        dotBetweenParticleAndNormal = Vector3.Dot(targetVector, LocalVectorToWorldVector(transform.position, rotationV4, transform.localScale, closest.normalVector));
         
         // Thirdly, calculate projection onto plane
-        Vector3 projectionPoint = ClosestPointOnPlane(worldCentroid, LocalVectorToWorldVector(transform.position, rotationV4, transform.localScale, closest.normalVector), particle.position);
+        projectionPoint = ClosestPointOnPlane(
+            worldCentroid, 
+            LocalVectorToWorldVector(transform.position, rotationV4, transform.localScale, closest.normalVector), 
+            particle.position
+        );
         
+        float d = DistanceFromPlane(worldCentroid, LocalVectorToWorldVector(transform.position, rotationV4, transform.localScale, closest.normalVector), particle.position);
+        Debug.Log($"Distance!: {d}");
+
         // Finally, check if intersecting or not
         isIntersecting = dotBetweenParticleAndNormal <= 0f 
             && ObstacleHelper.PointInTriangle(
                 projectionPoint, 
-                transform.TransformPoint(closest.vertices[0]), 
-                transform.TransformPoint(closest.vertices[1]), 
-                transform.TransformPoint(closest.vertices[2])
+                LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, closest.vertices[0]), 
+                LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, closest.vertices[1]), 
+                LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, closest.vertices[2])
         );
+
+        if (isIntersecting) Debug.Log("Intersecting!");
     }
 
     private void GeneratePlanes() {
@@ -118,7 +134,7 @@ public class PlaneObstacle : MonoBehaviour
 
     // https://forum.unity.com/threads/projection-of-point-on-plane.855958/
     public Vector3 ClosestPointOnPlane(Vector3 planeOffset, Vector3 planeNormal, Vector3 point) {
-        return point + DistanceFromPlane(planeOffset, planeNormal, point) * planeNormal;
+        return point + DistanceFromPlane(planeOffset, planeNormal.normalized, point) * planeNormal.normalized;
     }
     public float DistanceFromPlane(Vector3 planeOffset, Vector3 planeNormal, Vector3 point) {
         return Vector3.Dot(planeOffset - point, planeNormal);
