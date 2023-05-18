@@ -81,6 +81,7 @@
      <Compile Include="Assets\Scripts\Rov\rov.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid.cs" />
      <Compile Include="Assets\Scripts\Particle\spatial_hash.cs" />
+     <Compile Include="Assets\Scripts\Particle\f.cs" />
      <Compile Include="Assets\Scripts\Particle_New\ReadOnlyAttribute.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Wander1Unit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\InterposeUnit.cs" />
@@ -137,6 +138,7 @@
      <None Include="Assets\Scripts\Particle\fluid.compute" />
      <None Include="Assets\Scripts\Cave\Compute\MarchingCubes.compute" />
      <None Include="Assets\Style\Resources\FrameToTilesConverter.compute" />
+     <None Include="Assets\Scripts\Particle\f.compute" />
      <None Include="Assets\Scripts\Particle\fluid_gpu.compute" />
      <None Include="Assets\Scripts\March Cube\MarchingCubes.compute" />
      <None Include="Assets\Scripts\Water\coral.shader" />

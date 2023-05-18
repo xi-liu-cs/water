@@ -7,14 +7,13 @@ using UnityEngine;
 public class f : MonoBehaviour
 {
     [Header("particle")]
-    public Mesh particle_mesh,
-    fluid_mesh;
+    public Mesh particle_mesh;
     public Material material;
     public float mass = 1f,
     viscosity_coefficient = 0.1f,
     particle_size = 2f,
-    radius = 1f, /* h, smoothing length */
-    grid_size = 1f, /* 4 * radius */
+    radius = 2f, /* h, smoothing length */
+    grid_size = 1f,
     gas_constant = 2000f,
     dt = 0.0001f,
     rest_density = 1000f,
@@ -39,12 +38,12 @@ public class f : MonoBehaviour
     public int[] dimension_array;
 
     /* need to match compute shader file */
-    int thread_per_group = 32,
+    int thread_per_group = 512,
     dispatch_size,
     cell_dispatch_size,
     neighbor_dispatch_size,
     n_bound = 6;
-    bool exclusive = true;
+    bool exclusive = false;
 
     public struct particle /* struct alignment */
     {
@@ -68,7 +67,10 @@ public class f : MonoBehaviour
     cell_particle_count_buffer,
     cell_offset_buffer,
     sort_particle_index_buffer,
-    neighbor_count_buffer;
+    neighbor_count_buffer,
+    neighbor_offset_buffer,
+    neighbor_buffer,
+    total_neighbor_count_buffer;
 
     public ComputeShader compute_shader;
     int malloc_particle_kernel,
@@ -82,8 +84,13 @@ public class f : MonoBehaviour
     sequential_scan_kernel,
     count_sort_particle_index_kernel,
     compute_neighbor_count_kernel,
+    compute_total_neighbor_count_kernel,
     compute_neighbor_kernel,
-    debug_test_kernel;
+    debug_test_kernel,
+    compute_density_kernel,
+    reset_acceleration_kernel,
+    compute_acceleration_kernel,
+    integrate_kernel;
 
     public float max_density = 0,
     bulk_modulus = 500f;
@@ -91,7 +98,10 @@ public class f : MonoBehaviour
     particle[] particles;
     int[] sort_particle,
     cell_particle_count,
-    cell_offset;
+    cell_offset,
+    neighbor_count,
+    neighbor_offset,
+    neighbors;
 
     public void Awake()
     {
@@ -114,7 +124,7 @@ public class f : MonoBehaviour
         compute_shader.Dispatch(malloc_particle_kernel, thread_per_group, 1, 1);
     }
 
-    public void Update()
+    unsafe public void Update() /* debug_particle(); */
     {
         compute_shader.SetBuffer(clear_count_kernel, "cell_particle_count", cell_particle_count_buffer);
         compute_shader.Dispatch(clear_count_kernel, cell_dispatch_size, 1, 1);
@@ -125,19 +135,21 @@ public class f : MonoBehaviour
         compute_shader.Dispatch(compute_count_kernel, dispatch_size, 1, 1);
 
         /* debug_compute_count();
-        debug_particle();
         cpu_sequential_cell_offset();
         debug_test();
         sequential_cell_offset(); debug_cell_offset(); */
 
         scan(cell_particle_count_buffer, cell_offset_buffer, dimension3); /* debug_cell_offset(); */
 
+        /* compare_gpu_cpu_cell_offset(); */
+
         compute_shader.SetBuffer(count_sort_particle_index_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(count_sort_particle_index_kernel, "bound", bound_buffer);
         compute_shader.SetBuffer(count_sort_particle_index_kernel, "cell_offset", cell_offset_buffer);
         compute_shader.SetBuffer(count_sort_particle_index_kernel, "sort_particle_index", sort_particle_index_buffer);
         compute_shader.Dispatch(count_sort_particle_index_kernel, dispatch_size, 1, 1);
 
-        debug_sort_particle_index();
+        /* debug_sort_particle_index(); */
         
         compute_shader.SetBuffer(compute_neighbor_count_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(compute_neighbor_count_kernel, "bound", bound_buffer);
@@ -147,7 +159,52 @@ public class f : MonoBehaviour
         compute_shader.SetBuffer(compute_neighbor_count_kernel, "neighbor_count", neighbor_count_buffer);
         compute_shader.Dispatch(compute_neighbor_count_kernel, dispatch_size, 1, 1);
 
-        int[] total_neighbor_count = {0};
+        /* debug_neighbor_count();
+        sequential_neighbor_offset(); */
+
+        scan(neighbor_count_buffer, neighbor_offset_buffer, n_particle);
+
+        /* debug_neighbor_offset();
+        compare_gpu_cpu_neighbor_offset(); */
+        
+        int[] total_neighbor_count = new int[1];
+        neighbor_offset_buffer.GetData(total_neighbor_count, 0, n_particle - 1, 1);
+        /* Debug.Log("total_neighbor_count = " + total_neighbor_count[0]); */
+
+        neighbor_buffer = new ComputeBuffer(total_neighbor_count[0], sizeof(int));
+        compute_shader.SetBuffer(compute_neighbor_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(compute_neighbor_kernel, "bound", bound_buffer);
+        compute_shader.SetBuffer(compute_neighbor_kernel, "cell_particle_count", cell_particle_count_buffer);
+        compute_shader.SetBuffer(compute_neighbor_kernel, "cell_offset", cell_offset_buffer);
+        compute_shader.SetBuffer(compute_neighbor_kernel, "sort_particle_index", sort_particle_index_buffer);
+        compute_shader.SetBuffer(compute_neighbor_kernel, "neighbor_count", neighbor_count_buffer);
+        compute_shader.SetBuffer(compute_neighbor_kernel, "neighbor_offset", neighbor_offset_buffer);
+        compute_shader.SetBuffer(compute_neighbor_kernel, "neighbors", neighbor_buffer);
+        compute_shader.Dispatch(compute_neighbor_kernel, dispatch_size, 1, 1);
+        /* debug_neighbor(total_neighbor_count[0]); */
+
+        compute_shader.SetBuffer(compute_density_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(compute_density_kernel, "neighbor_offset", neighbor_offset_buffer);
+        compute_shader.SetBuffer(compute_density_kernel, "neighbors", neighbor_buffer);
+        compute_shader.Dispatch(compute_density_kernel, dispatch_size, 1, 1);
+
+        compute_shader.SetBuffer(reset_acceleration_kernel, "particles", particle_buffer);
+        compute_shader.Dispatch(reset_acceleration_kernel, dispatch_size, 1, 1);
+
+        compute_shader.SetBuffer(compute_acceleration_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(compute_acceleration_kernel, "bound", bound_buffer);
+        compute_shader.SetBuffer(compute_acceleration_kernel, "neighbor_offset", neighbor_offset_buffer);
+        compute_shader.SetBuffer(compute_acceleration_kernel, "neighbors", neighbor_buffer);
+        compute_shader.Dispatch(compute_acceleration_kernel, dispatch_size, 1, 1);
+
+        compute_shader.SetBuffer(integrate_kernel, "particles", particle_buffer);
+        compute_shader.SetBuffer(integrate_kernel, "bound", bound_buffer);
+        compute_shader.Dispatch(integrate_kernel, dispatch_size, 1, 1);
+
+        material.SetFloat(size_property, particle_size);
+        material.SetBuffer(particle_buffer_property, particle_buffer); 
+        Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
+        debug_particle();
     }
 
     void debug_particle()
@@ -200,6 +257,21 @@ public class f : MonoBehaviour
         }
     }
 
+    void compare_gpu_cpu_cell_offset()
+    {
+        cell_offset = new int[dimension3];
+        cell_offset_buffer.GetData(cell_offset);
+        cell_particle_count = new int[dimension3];
+        cell_particle_count_buffer.GetData(cell_particle_count);
+        int[] scan_out = new int[dimension3];
+        scan_out[0] = cell_particle_count[0];
+        for(int i = 1; i < 1000; ++i)
+        {
+            scan_out[i] = scan_out[i - 1] + cell_particle_count[i];
+            Debug.LogFormat("i = {0}, cpu_scan_out = {1}, gpu_cell_offset = {2}, diff = {3}", i - 1, scan_out[i - 1], cell_offset[i - 1], scan_out[i - 1] - cell_offset[i - 1]);
+        }
+    }
+
     void sequential_cell_offset()
     {
         compute_shader.SetInt("sequential_scan_length", dimension3);
@@ -228,15 +300,72 @@ public class f : MonoBehaviour
         for(int i = 0; i < 100; ++i)
         {
             int id = sort_particle[i];
-            Debug.Log("position = " + particles[id].position
+            Debug.Log("id = " + id
+            + ", position = " + particles[id].position
             + ", velocity = " + particles[id].velocity
             + ", acceleration = " + particles[id].acceleration
             + ", density = " + particles[id].density
             + ", pressure = " + particles[id].pressure
-            + ", neighbor = " + particles[id].neighbor
             + ", cell_index = " + particles[id].cell_index
             + ", index_in_cell = " + particles[id].index_in_cell);
         }
+    }
+
+    void debug_neighbor_count()
+    {
+        neighbor_count = new int[n_particle];
+        neighbor_count_buffer.GetData(neighbor_count);
+        for(int i = 0; i < 1000; ++i)
+            Debug.LogFormat("neighbor_count[{0}] = {1}", i, neighbor_count[i]);
+    }
+
+    void debug_neighbor_offset()
+    {
+        neighbor_offset = new int[n_particle];
+        neighbor_offset_buffer.GetData(neighbor_offset);
+        for(int i = 0; i < 1000; ++i)
+            Debug.LogFormat("neighbor_offset[{0}] = {1}", i, neighbor_offset[i]);
+    }
+
+    void compare_gpu_cpu_neighbor_offset()
+    {
+        neighbor_offset = new int[n_particle];
+        neighbor_offset_buffer.GetData(neighbor_offset);
+        neighbor_count = new int[n_particle];
+        neighbor_count_buffer.GetData(neighbor_count);
+        int[] scan_out = new int[n_particle];
+        scan_out[0] = neighbor_count[0];
+        for(int i = 1; i < 1000; ++i)
+        {
+            scan_out[i] = scan_out[i - 1] + neighbor_count[i];
+            Debug.LogFormat("i = {0}, cpu_scan_out = {1}, gpu_neighbor_offset = {2}, diff = {3}", i - 1, scan_out[i - 1], neighbor_offset[i - 1], scan_out[i - 1] - neighbor_offset[i - 1]);
+        }
+    }
+
+    void sequential_neighbor_offset()
+    {
+        compute_shader.SetInt("sequential_scan_length", n_particle);
+        compute_shader.SetBuffer(sequential_scan_kernel, "scan_in", neighbor_count_buffer);
+        compute_shader.SetBuffer(sequential_scan_kernel, "scan_out", neighbor_offset_buffer);
+        compute_shader.Dispatch(sequential_scan_kernel, 1, 1, 1);
+    }
+
+    void debug_total_neighbor_count()
+    {
+        compute_shader.SetBuffer(compute_total_neighbor_count_kernel, "neighbor_offset", neighbor_offset_buffer);
+        compute_shader.SetBuffer(compute_total_neighbor_count_kernel, "total_neighbor_count", total_neighbor_count_buffer);
+        compute_shader.Dispatch(compute_total_neighbor_count_kernel, 1, 1, 1);
+        int[] total_neighbor_count = new int[1];
+        total_neighbor_count_buffer.GetData(total_neighbor_count);
+        Debug.Log("total_neighbor_count = " + total_neighbor_count[0]);
+    }
+
+    void debug_neighbor(int n_neighbor)
+    {
+        neighbors = new int[n_neighbor];
+        neighbor_buffer.GetData(neighbors);
+        for(int i = 0; i < 1000; ++i)
+            Debug.LogFormat("neighbor_buffer[{0}] = {1}", i, neighbors[i]);
     }
 
     void find_kernel()
@@ -253,6 +382,10 @@ public class f : MonoBehaviour
         compute_neighbor_count_kernel = compute_shader.FindKernel("compute_neighbor_count");
         compute_neighbor_kernel = compute_shader.FindKernel("compute_neighbor");
         debug_test_kernel = compute_shader.FindKernel("debug_test");
+        compute_density_kernel = compute_shader.FindKernel("compute_density");
+        reset_acceleration_kernel = compute_shader.FindKernel("reset_acceleration");
+        compute_acceleration_kernel = compute_shader.FindKernel("compute_acceleration");
+        integrate_kernel = compute_shader.FindKernel("integrate");
     }
 
     void compute_shader_init()
@@ -296,6 +429,8 @@ public class f : MonoBehaviour
         cell_offset_buffer = new ComputeBuffer(dimension3, sizeof(int));
         sort_particle_index_buffer = new ComputeBuffer(n_particle, sizeof(int));
         neighbor_count_buffer = new ComputeBuffer(n_particle, sizeof(int));
+        neighbor_offset_buffer = new ComputeBuffer(n_particle, sizeof(int));
+        total_neighbor_count_buffer = new ComputeBuffer(1, sizeof(int));
 
         compute_shader.SetBuffer(malloc_particle_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(malloc_particle_kernel, "bound", bound_buffer);
@@ -335,5 +470,14 @@ public class f : MonoBehaviour
     {
         particle_buffer.Dispose();
         arg_buffer.Dispose();
+        bound_buffer.Dispose();
+        aux_buffer.Dispose();
+        cell_particle_count_buffer.Dispose();
+        cell_offset_buffer.Dispose();
+        sort_particle_index_buffer.Dispose();
+        neighbor_count_buffer.Dispose();
+        neighbor_offset_buffer.Dispose();
+        neighbor_buffer.Dispose();
+        total_neighbor_count_buffer.Dispose();
     }
 }
