@@ -21,6 +21,7 @@ public class PlaneObstacle : MonoBehaviour
 
     [ReadOnly, SerializeField] private MeshFilter meshFilter;
     [ReadOnly, SerializeField] private  MeshRenderer meshRenderer;
+    private Vector4 rotationV4;
     public ObstacleType obstacleType = ObstacleType.Static;
     public ObsPlane[] obstaclePlanes;
 
@@ -31,13 +32,14 @@ public class PlaneObstacle : MonoBehaviour
         if (obstaclePlanes.Length == 0) return;
         foreach(ObsPlane p in obstaclePlanes) {
             Gizmos.color = Color.green;
-            Gizmos.DrawSphere(transform.TransformPoint(p.vertices[0]),0.01f);
-            Gizmos.DrawSphere(transform.TransformPoint(p.vertices[1]),0.01f);
-            Gizmos.DrawSphere(transform.TransformPoint(p.vertices[2]),0.01f);
+
+            Gizmos.DrawSphere(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.vertices[0]),0.01f);
+            Gizmos.DrawSphere(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.vertices[1]),0.01f);
+            Gizmos.DrawSphere(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.vertices[2]),0.01f);
             Gizmos.color = (isIntersecting) ? Color.yellow : Color.red;
-            Gizmos.DrawSphere(transform.TransformPoint(p.centroid),0.01f);
+            Gizmos.DrawSphere(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.centroid),0.01f);
             Gizmos.color = Color.blue;
-            Gizmos.DrawLine(transform.TransformPoint(p.centroid), transform.TransformPoint(p.centroid + p.normalVector));
+            Gizmos.DrawLine(LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.centroid), LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, p.centroid + p.normalVector));
         }
     }
 
@@ -49,6 +51,7 @@ public class PlaneObstacle : MonoBehaviour
     }
 
     private void Update() {
+        rotationV4 =  new Vector4(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
         if (obstacleType != ObstacleType.Static && transform.hasChanged) {
             GeneratePlanes();
             transform.hasChanged = false;
@@ -59,12 +62,15 @@ public class PlaneObstacle : MonoBehaviour
         // First, find closest centroid to current target
         ObsPlane closest = obstaclePlanes[FindClosestPlane(particle.position)];
 
+        // Secondly, convert centroid to world space
+        Vector3 worldCentroid = LocalPointToWorldPoint(transform.position, rotationV4, transform.localScale, closest.centroid);
+
         // Secondly, Calculate dot product between normal vector and vector b/w centroid and target
-        Vector3 targetVector = (particle.position - transform.TransformPoint(closest.centroid)).normalized;
-        float dotBetweenParticleAndNormal = Vector3.Dot(targetVector, transform.TransformVector(closest.normalVector));
+        Vector3 targetVector = (particle.position - worldCentroid).normalized;
+        float dotBetweenParticleAndNormal = Vector3.Dot(targetVector, LocalVectorToWorldVector(transform.position, rotationV4, transform.localScale, closest.normalVector));
         
         // Thirdly, calculate projection onto plane
-        Vector3 projectionPoint = ClosestPointOnPlane(transform.TransformPoint(closest.centroid), transform.TransformVector(closest.normalVector), particle.position);
+        Vector3 projectionPoint = ClosestPointOnPlane(worldCentroid, LocalVectorToWorldVector(transform.position, rotationV4, transform.localScale, closest.normalVector), particle.position);
         
         // Finally, check if intersecting or not
         isIntersecting = dotBetweenParticleAndNormal <= 0f 
@@ -110,11 +116,53 @@ public class PlaneObstacle : MonoBehaviour
         return closest;
     }
 
+    // https://forum.unity.com/threads/projection-of-point-on-plane.855958/
     public Vector3 ClosestPointOnPlane(Vector3 planeOffset, Vector3 planeNormal, Vector3 point) {
         return point + DistanceFromPlane(planeOffset, planeNormal, point) * planeNormal;
     }
-
     public float DistanceFromPlane(Vector3 planeOffset, Vector3 planeNormal, Vector3 point) {
         return Vector3.Dot(planeOffset - point, planeNormal);
+    }
+
+    // https://forum.unity.com/threads/whats-the-math-behind-transform-transformpoint.107401/
+    public static Vector3 LocalPointToWorldPoint(Vector3 pos, Vector4 rot, Vector3 scale, Vector3 localPoint) {
+        Vector3 s = new Vector3(localPoint.x * scale.x, localPoint.y * scale.y, localPoint.z * scale.z);
+        return RotMultVec3(rot, s) + pos;
+    }
+    // https://answers.unity.com/questions/372371/multiply-quaternion-by-vector3-how-is-done.html
+    public static Vector3 RotMultVec3(Vector4 quat, Vector3 vec){
+        float num = quat.x * 2f;
+        float num2 = quat.y * 2f;
+        float num3 = quat.z * 2f;
+        float num4 = quat.x * num;
+        float num5 = quat.y * num2;
+        float num6 = quat.z * num3;
+        float num7 = quat.x * num2;
+        float num8 = quat.x * num3;
+        float num9 = quat.y * num3;
+        float num10 = quat.w * num;
+        float num11 = quat.w * num2;
+        float num12 = quat.w * num3;
+        Vector3 result;
+        result.x = (1f - (num5 + num6)) * vec.x + (num7 - num12) * vec.y + (num8 + num11) * vec.z;
+        result.y = (num7 + num12) * vec.x + (1f - (num4 + num6)) * vec.y + (num9 - num10) * vec.z;
+        result.z = (num8 - num11) * vec.x + (num9 + num10) * vec.y + (1f - (num4 + num5)) * vec.z;
+        return result;
+    }
+    public static Vector3 LocalVectorToWorldVector(Vector3 pos, Vector4 rot, Vector3 scale, Vector3 v) {
+        Vector3 start = LocalPointToWorldPoint(pos, rot, scale, Vector3.zero);
+        Vector3 end = LocalPointToWorldPoint(pos, rot, scale, v);
+        return end - start;
+    }
+    // https://github.com/HardlyDifficult/Tutorials/blob/master/Quaternions.md#361-quaternioninverse
+    public static Quaternion InverseQuaternion(Quaternion rotation) {
+        // Split the Quaternion component
+        Vector3 vector = new Vector3(rotation.x, rotation.y, rotation.z);
+        float scalar = rotation.w;
+        // Calculate inverse
+        vector = -vector;
+        // Store results
+        Quaternion inverseRotation = new Quaternion(vector.x, vector.y, vector.z, scalar);
+        return inverseRotation;
     }
 }
