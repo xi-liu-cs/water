@@ -119,6 +119,7 @@
      <Compile Include="Assets\Scripts\March\ray.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
      <Compile Include="Assets\Scripts\March Cube\NoiseFieldVisualizer.cs" />
+     <Compile Include="Assets\Scripts\Particle\boid.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Marchxi\water.shader" />
@@ -153,6 +154,7 @@
      <None Include="Assets\Scripts\Marchxi\noise.compute" />
      <None Include="Assets\Scripts\March Cube\NoiseFieldGenerator.compute" />
      <None Include="Assets\Scripts\Cave\Compute\Includes\Noise.compute" />
+     <None Include="Assets\Scripts\Particle\boid.compute" />
      <None Include="Assets\Scripts\Cave\Compute\Includes\MarchTables.compute" />
      <None Include="Assets\Scripts\March\march_table.compute" />
      <None Include="Assets\Scripts\March Fluid\march_table.compute" />
