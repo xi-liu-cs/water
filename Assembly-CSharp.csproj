@@ -55,6 +55,7 @@
      <Compile Include="Assets\Scripts\Input\input.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\OffsetPursuit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\ThirdPersonUnit.cs" />
+     <Compile Include="Assets\Scripts\Particle\boid.cs" />
      <Compile Include="Assets\Scripts\Cave\Chunk.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\ArriveUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\OffsetPursuitUnit.cs" />
@@ -119,7 +120,6 @@
      <Compile Include="Assets\Scripts\March\ray.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
      <Compile Include="Assets\Scripts\March Cube\NoiseFieldVisualizer.cs" />
-     <Compile Include="Assets\Scripts\Particle\boid.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Marchxi\water.shader" />

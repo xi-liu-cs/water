@@ -84,7 +84,7 @@ void malloc_particle(uint3 id : SV_DispatchThreadID)
 {
     if(id.x >= n_particle) return;
     s = seed + id.x;
-    particles[id.x].position = float3(bound[0] + random_range(0, 10), bound[2] + random_range(0, 10), bound[4] + random_range(0, 10));
+    particles[id.x].position = float3(bound[0] + random_range(0, 5), bound[2] + random_range(0, 5), bound[4] + random_range(0, 5));
     // particles[id.x].position = float3(0.3 * random_range(bound[0], bound[1]), 0.3 * random_range(bound[2], bound[3]), 0.3 * random_range(bound[4], bound[5]));
     particles[id.x].velocity = float3(0., 0., 0.);
     particles[id.x].acceleration = float3(0., 0., 0.);
@@ -366,4 +366,5 @@ void integrate(uint3 id : SV_DispatchThreadID)
         p.position.z = bound[5] - epsilon;
     }
     particles[id.x] = p;
+    particles[id.x].cell_index = hash(get_cell(particles[id.x].position));
 }
