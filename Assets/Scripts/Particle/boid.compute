@@ -3,8 +3,7 @@ struct particle
     float3 position,
     velocity,
     acceleration;
-    float density,
-    pressure;
+    float mass;
     int neighbor,
     cell_index, /* which cell does the particle belong */
     index_in_cell; /* which index inside the cell does the particle locate */
@@ -84,12 +83,10 @@ void malloc_particle(uint3 id : SV_DispatchThreadID)
 {
     if(id.x >= n_particle) return;
     s = seed + id.x;
-    particles[id.x].position = float3(bound[0] + random_range(0, 10), bound[2] + random_range(0, 10), bound[4] + random_range(0, 10));
-    // particles[id.x].position = float3(0.3 * random_range(bound[0], bound[1]), 0.3 * random_range(bound[2], bound[3]), 0.3 * random_range(bound[4], bound[5]));
+    // particles[id.x].position = float3(bound[0] + random_range(0, 10), bound[2] + random_range(0, 10), bound[4] + random_range(0, 10));
+    particles[id.x].position = float3(0.3 * random_range(bound[0], bound[1]), 0.3 * random_range(bound[2], bound[3]), 0.3 * random_range(bound[4], bound[5]));
     particles[id.x].velocity = float3(0., 0., 0.);
     particles[id.x].acceleration = float3(0., 0., 0.);
-    particles[id.x].density = 0.;
-    particles[id.x].pressure = 0.;
     particles[id.x].neighbor = 0;
     particles[id.x].cell_index = hash(get_cell(particles[id.x].position));
     particles[id.x].index_in_cell = 0;
@@ -263,68 +260,6 @@ void compute_neighbor(uint3 id : SV_DispatchThreadID)
                     }
                 }
             }
-}
-
-float density(int a, int b)
-{
-    float3 diff = particles[a].position - particles[b].position;
-    float diff_square = dot(diff, diff);
-    if(diff_square > radius2) return 0.;
-    return ((4. * mass) / (pi * radius8)) * pow(radius2 - diff_square, 3);
-}
-
-/* \rho_i = \frac{4m}{\pi h ^ 8} \sum_j (h ^ 2 - r ^ 2) ^ 3 */
-#pragma kernel compute_density
-[numthreads(thread_per_group, 1, 1)]
-void compute_density(uint3 id : SV_DispatchThreadID)
-{
-    if(id.x >= n_particle) return;
-    int write_offset = neighbor_offset[id.x];
-    float sum = 0;
-    particles[id.x].density = (4. * mass) / (pi * radius2);
-    for(int i = 0; i < particles[id.x].neighbor; ++i)
-    {
-        int neighbor_index = neighbors[write_offset + i];
-        if(neighbor_index == id.x) continue;
-        particles[id.x].density += density(id.x, neighbor_index);
-    }
-    particles[id.x].pressure = gas_constant * (particles[id.x].density - rest_density);
-}
-
-#pragma kernel reset_acceleration
-[numthreads(thread_per_group, 1, 1)]
-void reset_acceleration(uint3 id : SV_DispatchThreadID)
-{
-    particles[id.x].acceleration = float3(0, g, 0);
-}
-
-float3 acceleration(int a, int b)
-{
-    float rho_i = particles[a].density,
-    rho_j = particles[b].density;
-    float3 diff_pos = particles[a].position - particles[b].position,
-    diff_vel = particles[a].velocity - particles[b].velocity;
-    float diff_square = dot(diff_pos, diff_pos);
-    if(diff_square > radius2) return float3(0., 0., 0.);
-    float q = sqrt(diff_square) / radius,
-    q2 = 1 - q;
-    return mass * q2 / (pi * radius4 * rho_j)
-    * (15 * bulk_modulus * (rho_i + rho_j - 2 * rest_density)
-    * q2 * diff_pos / q - 40 * viscosity_coefficient * diff_vel);
-}
-
-#pragma kernel compute_acceleration
-[numthreads(thread_per_group, 1, 1)]
-void compute_acceleration(uint3 id : SV_DispatchThreadID)
-{
-    if(id.x >= n_particle) return;
-    int write_offset = neighbor_offset[id.x];
-    for(int i = 0; i < particles[id.x].neighbor; ++i)
-    {
-        int neighbor_index = neighbors[write_offset + i];
-        if(neighbor_index == id.x) continue;
-        particles[id.x].acceleration += acceleration(id.x, neighbor_index);
-    }
 }
 
 #pragma kernel integrate

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
-public class f : MonoBehaviour
+public class boid : MonoBehaviour
 {
     [Header("particle")]
     public Mesh particle_mesh;
@@ -13,7 +13,7 @@ public class f : MonoBehaviour
     viscosity_coefficient = 0.1f,
     particle_size = 2f,
     radius = 2f, /* h, smoothing length */
-    grid_size = 1f,
+    grid_size = 2f,
     gas_constant = 2000f,
     dt = 0.0001f,
     rest_density = 1000f,
@@ -31,7 +31,7 @@ public class f : MonoBehaviour
     mass2;
 
     [Header("fluid")]
-    public int n_particle = 100000; /* max = 1000000 */
+    public int n_particle = 50000; /* max = 1000000 */
     public Vector3Int dimension;
     int dimension2,
     dimension3;
@@ -50,8 +50,7 @@ public class f : MonoBehaviour
         public Vector3 position,
         velocity,
         acceleration;
-        public float density,
-        pressure;
+        public float mass;
         public int neighbor,
         cell_index,
         index_in_cell;
@@ -87,9 +86,6 @@ public class f : MonoBehaviour
     compute_total_neighbor_count_kernel,
     compute_neighbor_kernel,
     debug_test_kernel,
-    compute_density_kernel,
-    reset_acceleration_kernel,
-    compute_acceleration_kernel,
     integrate_kernel;
 
     public float max_density = 0,
@@ -122,6 +118,7 @@ public class f : MonoBehaviour
         scan_kernel = exclusive ? scan_exclusive_kernel : scan_inclusive_kernel;
         compute_shader_init();
         compute_buffer_init();
+        /* malloc_particle(); */
         compute_shader.Dispatch(malloc_particle_kernel, thread_per_group, 1, 1);
     }
 
@@ -185,20 +182,6 @@ public class f : MonoBehaviour
         compute_shader.Dispatch(compute_neighbor_kernel, dispatch_size, 1, 1);
         /* debug_neighbor(total_neighbor_count[0]); */
 
-        compute_shader.SetBuffer(compute_density_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(compute_density_kernel, "neighbor_offset", neighbor_offset_buffer);
-        compute_shader.SetBuffer(compute_density_kernel, "neighbors", neighbor_buffer);
-        compute_shader.Dispatch(compute_density_kernel, dispatch_size, 1, 1);
-
-        compute_shader.SetBuffer(reset_acceleration_kernel, "particles", particle_buffer);
-        compute_shader.Dispatch(reset_acceleration_kernel, dispatch_size, 1, 1);
-
-        compute_shader.SetBuffer(compute_acceleration_kernel, "particles", particle_buffer);
-        compute_shader.SetBuffer(compute_acceleration_kernel, "bound", bound_buffer);
-        compute_shader.SetBuffer(compute_acceleration_kernel, "neighbor_offset", neighbor_offset_buffer);
-        compute_shader.SetBuffer(compute_acceleration_kernel, "neighbors", neighbor_buffer);
-        compute_shader.Dispatch(compute_acceleration_kernel, dispatch_size, 1, 1);
-
         compute_shader.SetBuffer(integrate_kernel, "particles", particle_buffer);
         compute_shader.SetBuffer(integrate_kernel, "bound", bound_buffer);
         compute_shader.Dispatch(integrate_kernel, dispatch_size, 1, 1);
@@ -209,6 +192,24 @@ public class f : MonoBehaviour
         debug_particle_neighbor();
     }
 
+    void malloc_particle()
+    {
+        particles = new particle[n_particle];
+        for(int i = 0; i < n_particle; ++i)
+            particles[i] = boid_data();
+        particle_buffer.SetData(particles);
+    }
+
+    particle boid_data()
+    {
+        particle b = new particle();
+        Vector3 pos = new Vector3(UnityEngine.Random.Range(bound[0], bound[1]), UnityEngine.Random.Range(bound[2], bound[3]), UnityEngine.Random.Range(bound[4], bound[5]));
+        b.position = pos;
+        b.velocity = new Vector3(UnityEngine.Random.Range(bound[0], bound[1]), UnityEngine.Random.Range(bound[2], bound[3]), UnityEngine.Random.Range(bound[4], bound[5]));
+        b.mass = UnityEngine.Random.Range(0.5f, 1.5f);
+        return b;
+    }
+
     void debug_particle()
     {
         particles = new particle[n_particle];
@@ -217,8 +218,6 @@ public class f : MonoBehaviour
             Debug.Log("position = " + particles[i].position
             + ", velocity = " + particles[i].velocity
             + ", acceleration = " + particles[i].acceleration
-            + ", density = " + particles[i].density
-            + ", pressure = " + particles[i].pressure
             + ", neighbor = " + particles[i].neighbor
             + ", cell_index = " + particles[i].cell_index
             + ", index_in_cell = " + particles[i].index_in_cell);
@@ -237,8 +236,6 @@ public class f : MonoBehaviour
             string s = "position = " + particles[i].position
             + ", velocity = " + particles[i].velocity
             + ", acceleration = " + particles[i].acceleration
-            + ", density = " + particles[i].density
-            + ", pressure = " + particles[i].pressure
             + ", neighbor = " + particles[i].neighbor
             + ", cell_index = " + particles[i].cell_index
             + ", index_in_cell = " + particles[i].index_in_cell;
@@ -335,8 +332,6 @@ public class f : MonoBehaviour
             + ", position = " + particles[id].position
             + ", velocity = " + particles[id].velocity
             + ", acceleration = " + particles[id].acceleration
-            + ", density = " + particles[id].density
-            + ", pressure = " + particles[id].pressure
             + ", cell_index = " + particles[id].cell_index
             + ", index_in_cell = " + particles[id].index_in_cell);
         }
@@ -413,9 +408,6 @@ public class f : MonoBehaviour
         compute_neighbor_count_kernel = compute_shader.FindKernel("compute_neighbor_count");
         compute_neighbor_kernel = compute_shader.FindKernel("compute_neighbor");
         debug_test_kernel = compute_shader.FindKernel("debug_test");
-        compute_density_kernel = compute_shader.FindKernel("compute_density");
-        reset_acceleration_kernel = compute_shader.FindKernel("reset_acceleration");
-        compute_acceleration_kernel = compute_shader.FindKernel("compute_acceleration");
         integrate_kernel = compute_shader.FindKernel("integrate");
     }
 
