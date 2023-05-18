@@ -3,17 +3,41 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class PlaneObstacleManager : MonoBehaviour
-{
+{   
+    // We store a global reference to this specific script via the `current` method.
+    public static PlaneObstacleManager current;
+
+    // We store all obstacles inside of this list. We'll reference this list many times.
+    // Note: we store both static and dynamic obstacles in this script, so we need to filter through them during each update.
     public List<PlaneObstacle> obstacles = new List<PlaneObstacle>();
+    
+
+
+
+    
     private List<PlaneObstacle.ObsPlane> obstaclePlanes;
     private PlaneObstacle.Obs[] obs;
     private int[] obsPlaneMap;
 
+    // These are compute buffers that'll be passed onto the particle GPU
     private ComputeBuffer obstaclesBuffer;
     private ComputeBuffer obstaclePlanesBuffer;
     private ComputeBuffer obstaclePlanesMapBuffer;
 
+    // Stores the # of obstacle planes in total
     [ReadOnly, SerializeField] private int numPlanes;
+
+    public bool waitForInitialization = false;
+
+    private void Awake() {
+        current = this;
+        if (!waitForInitialization) Initialize();
+    }
+
+    public void Initialize() {
+
+        UpdateBuffers();
+    }
     
     public void UpdateBuffers() {
         // Update obstacles buffer
