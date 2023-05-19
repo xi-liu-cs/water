@@ -3,7 +3,8 @@ struct particle
     float3 position,
     velocity,
     acceleration;
-    float density,
+    float mass,
+    density,
     pressure;
     int neighbor,
     cell_index, /* which cell does the particle belong */
@@ -43,8 +44,7 @@ epsilon,
 e,
 pi,
 bulk_modulus;
-uint n,
-n_particle,
+uint n_particle,
 sequential_scan_length;
 int3 dimension;
 float g;
@@ -84,8 +84,13 @@ void malloc_particle(uint3 id : SV_DispatchThreadID)
 {
     if(id.x >= n_particle) return;
     s = seed + id.x;
-    particles[id.x].position = float3(bound[0] + random_range(0, 5), bound[2] + random_range(0, 5), bound[4] + random_range(0, 5));
-    // particles[id.x].position = float3(0.3 * random_range(bound[0], bound[1]), 0.3 * random_range(bound[2], bound[3]), 0.3 * random_range(bound[4], bound[5]));
+    /* particles[id.x].position = float3(0.3 * random_range(bound[0], bound[1]), 0.3 * random_range(bound[2], bound[3]), 0.3 * random_range(bound[4], bound[5]));
+    particles[id.x].position = float3(bound[0] + random_range(0, 10), bound[2] + random_range(0, 10), bound[4] + random_range(0, 10));
+    particles[id.x].position = float3(random_range(bound[0] + 1, bound[1] - 1), random_range(bound[2] + 1, bound[3] - 1), random_range(bound[4] + 1, bound[5] - 1));
+    particles[id.x].position = float3(0.8 * random_range(bound[0] + 1, bound[1] - 1), 0.8 * random_range(bound[2] + 1, bound[3] - 1), 0.8 * random_range(bound[4] + 1, bound[5] - 1));
+    particles[id.x].position = float3(bound[1] - random_range(0, 0.5 * (bound[1] - bound[0])), bound[3] - 0.5 * (bound[3] - bound[2]), bound[5] - 0.5 * (bound[5] - bound[4]));
+    particles[id.x].position = float3(bound[1] - random_range(0, 10), bound[3] - random_range(0, 10), bound[5] - random_range(0, 10)); */
+    particles[id.x].position = float3(0.2 * random_range(bound[0], bound[1]), 0.2 * random_range(bound[2], bound[3]), 0.2 * random_range(bound[4], bound[5]));
     particles[id.x].velocity = float3(0., 0., 0.);
     particles[id.x].acceleration = float3(0., 0., 0.);
     particles[id.x].density = 0.;
@@ -182,7 +187,7 @@ void scan_add_result(uint gid : SV_GroupID, uint3 did : SV_DispatchThreadID)
 [numthreads(1, 1, 1)]
 void debug_test(uint3 id : SV_DispatchThreadID)
 {
-    for(int i = 0; i < sequential_scan_length; ++i)
+    for(uint i = 0; i < sequential_scan_length; ++i)
         scan_out[i] = scan_in[i];
 }
 
@@ -190,9 +195,9 @@ void debug_test(uint3 id : SV_DispatchThreadID)
 [numthreads(1, 1, 1)]
 void sequential_scan(uint3 id : SV_DispatchThreadID)
 {
-    scan_out[0] = scan_in[0];
-    for(int i = 1; i < sequential_scan_length; ++i)
-        scan_out[i] = scan_out[i - 1] + scan_in[i];
+    scan_out[0] = 0;
+    for(uint i = 1; i < sequential_scan_length; ++i)
+        scan_out[i] = scan_out[i - 1] + scan_in[i - 1];
 }
 
 #pragma kernel count_sort_particle_index
@@ -221,7 +226,7 @@ void compute_neighbor_count(uint3 id : SV_DispatchThreadID)
                 {
                     float3 diff = particles[sort_particle_index[i]].position - particles[id.x].position;
                     float square_distance = dot(diff, diff);
-                    if(square_distance < radius2 && square_distance > 0.0)
+                    if(square_distance < radius2)
                         ++count;
                 }
             }
@@ -256,7 +261,7 @@ void compute_neighbor(uint3 id : SV_DispatchThreadID)
                 {
                     float3 diff = particles[sort_particle_index[i]].position - particles[id.x].position;
                     float square_distance = dot(diff, diff);
-                    if(square_distance < radius2 && square_distance > 0.0)
+                    if(square_distance < radius2)
                     {
                         neighbors[write_offset + count] = sort_particle_index[i];
                         ++count;
@@ -284,7 +289,7 @@ void compute_density(uint3 id : SV_DispatchThreadID)
     particles[id.x].density = (4. * mass) / (pi * radius2);
     for(int i = 0; i < particles[id.x].neighbor; ++i)
     {
-        int neighbor_index = neighbors[write_offset + i];
+        uint neighbor_index = neighbors[write_offset + i];
         if(neighbor_index == id.x) continue;
         particles[id.x].density += density(id.x, neighbor_index);
     }
@@ -321,7 +326,7 @@ void compute_acceleration(uint3 id : SV_DispatchThreadID)
     int write_offset = neighbor_offset[id.x];
     for(int i = 0; i < particles[id.x].neighbor; ++i)
     {
-        int neighbor_index = neighbors[write_offset + i];
+        uint neighbor_index = neighbors[write_offset + i];
         if(neighbor_index == id.x) continue;
         particles[id.x].acceleration += acceleration(id.x, neighbor_index);
     }

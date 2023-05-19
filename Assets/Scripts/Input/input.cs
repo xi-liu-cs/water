@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class input : MonoBehaviour
 {
-    public float speed = 1f,
+    public float speed = 10f,
     sensitivity = 1f;
     public bool move = true;
 
