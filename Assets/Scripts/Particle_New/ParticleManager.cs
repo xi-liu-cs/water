@@ -352,7 +352,7 @@ public class ParticleManager : MonoBehaviour
         // Initialize boids first
         boidManager.Initialize();
         // Initialize obstacles second
-        obstacleManager.Initialize();
+        //obstacleManager.Initialize();
         // Initialize key variables once
         InitializeVariables();
         // Determine the kernels from the GPU
@@ -500,7 +500,7 @@ public class ParticleManager : MonoBehaviour
         particleNeighborsBuffer = new ComputeBuffer(numGridCells * _numParticlesPerGridCell, sizeof(int));
 
         
-        obstacleParticlesBuffer = new ComputeBuffer(numPointsOnObstacles, sizeof(Vector3));
+        //obstacleParticlesBuffer = new ComputeBuffer(numPointsOnObstacles, sizeof(Vector3));
 
 
         float[] particle_masses = new float[numParticles];
