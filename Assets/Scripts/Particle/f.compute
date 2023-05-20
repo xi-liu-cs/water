@@ -52,7 +52,7 @@ float4 time;
 
 int3 get_cell(float3 position)
 {
-    return int3((position.x - bound[0]) / grid_size, (position.y - bound[2]) / grid_size, (position.z - bound[4]) / grid_size);
+    return int3((int)((position.x - bound[0]) / grid_size), (int)((position.y - bound[2]) / grid_size), (int)((position.z - bound[4]) / grid_size));
 }
 
 int hash(int3 cell)
@@ -93,6 +93,7 @@ void malloc_particle(uint3 id : SV_DispatchThreadID)
     particles[id.x].position = float3(0.2 * random_range(bound[0], bound[1]), 0.2 * random_range(bound[2], bound[3]), 0.2 * random_range(bound[4], bound[5]));
     particles[id.x].velocity = float3(0., 0., 0.);
     particles[id.x].acceleration = float3(0., 0., 0.);
+    particles[id.x].mass = mass;
     particles[id.x].density = 0.;
     particles[id.x].pressure = 0.;
     particles[id.x].neighbor = 0;
