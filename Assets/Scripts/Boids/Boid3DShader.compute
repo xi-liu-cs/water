@@ -24,6 +24,7 @@ float deltaTime;
 float cohesionFactor;
 float separationFactor;
 float alignmentFactor;
+float sphFactor;
 float turnSpeed;
 
 uint numGridCells;
@@ -36,6 +37,13 @@ struct Boid3D {
     int3 gridIndices;
     int projectedGridIndex;
 };
+struct particle {
+    float3 position;
+    float speed;
+    int isBoid;
+    int touchedByBoid;
+    float3 boidInfluence;
+};
 
 RWStructuredBuffer<Boid3D> boids;
 RWStructuredBuffer<float3> velocities;
@@ -47,6 +55,9 @@ RWStructuredBuffer<int> gridOffsetBufferIn;
 RWStructuredBuffer<int> gridOffsetBuffer;
 RWStructuredBuffer<int> gridSumsBuffer;
 RWStructuredBuffer<int> gridSumsBufferIn;
+
+RWStructuredBuffer<particle> particles;
+RWStructuredBuffer<float3> particleVelocities;
 
 int3 GetGridXYZIndices(float3 position) {
     return int3(
@@ -225,6 +236,10 @@ void MergedBehaviors(inout Boid3D boid, uint id) {
   }
 
   velocities[id] += close * (separationFactor * deltaTime);
+
+  //if (particles[id].)
+  //velocities[id] += float3(0,-9.81,0) * deltaTime;
+  velocities[id] += particleVelocities[id] * sphFactor;
 }
 
 void LimitSpeed(inout Boid3D boid, uint id) {

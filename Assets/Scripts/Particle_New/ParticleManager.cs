@@ -10,6 +10,8 @@ using UnityEditor;
 public class ParticleManager : MonoBehaviour
 {
 
+    public static ParticleManager current;
+
     public enum NeighborSearchType {
         PrefixSum,
         CubeVolume
@@ -17,6 +19,10 @@ public class ParticleManager : MonoBehaviour
 
     public struct Particle {
         public float3 position;
+        public float speed;
+        public int isBoid;
+        public int touchedByBoid;
+        public float3 boidInfluence;
     }
 
     private bool initialized = false;
@@ -105,7 +111,7 @@ public class ParticleManager : MonoBehaviour
         #if UNITY_EDITOR
         [Help("The first `numBoids` particles are considered boids and will be constantly cemented to the boids from a separate boids manager. We just need to let the SPH compute shader know which of its particles are boids", UnityEditor.MessageType.None)]
         #endif
-        public int numBoids = 100;
+        [ReadOnly] public int numBoids = 100;
         public float boidMass = 5f;
     
     [Header("== OBSTACLE CONFIGURATIONS ==")]
@@ -136,6 +142,8 @@ public class ParticleManager : MonoBehaviour
         public bool show_particles = false;
         [Tooltip("Show boids")]
         public bool show_boids = false;
+        [Tooltip("Show boid influence")]
+        public bool show_boid_influence = false;
         [Tooltip("Show grid cells that have occupying particles via Gizmos")]
         public bool show_grid_cells = false;
         [Tooltip("Show the velocity vectors of each particle")]
@@ -270,6 +278,14 @@ public class ParticleManager : MonoBehaviour
                 Gizmos.color = gizmos_particle_color;
                 Gizmos.DrawSphere(temp_particles[i].position, particleRenderRadius);
             }
+            if (show_boid_influence) {
+                if (temp_particles[i].touchedByBoid > 0) {
+                    Gizmos.color = Color.red;
+                    Gizmos.DrawRay(temp_particles[i].position, temp_particles[i].boidInfluence);
+                    Gizmos.color = Color.blue;
+                    Gizmos.DrawRay(temp_particles[i].position, temp_velocities_array[i]);
+                }
+            }
             if (show_grid_cells) {
                 Gizmos.color = gridColor;
                 Gizmos.DrawCube(GetGridCellWorldPositionFromGivenPosition(temp_particles[i].position), gridCellSize3D);
@@ -342,6 +358,7 @@ public class ParticleManager : MonoBehaviour
     }
 
     private void Awake() {
+        current = this;
         // If this game object is its own active gameobject, we run initialize;
         if (!initialized) Initialize();
     }
@@ -359,6 +376,7 @@ public class ParticleManager : MonoBehaviour
         InitializeKernels();
         InitializeShaderVariables();
         InitializeBuffers();
+        boidManager.AddParticleBuffer();
         SPHComputeShader.Dispatch(clear_grid_kernel, numBlocks,1,1);
         SPHComputeShader.Dispatch(generate_particles_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
         initialized = true;
@@ -388,7 +406,7 @@ public class ParticleManager : MonoBehaviour
         // For volumetric neighbor search, the # of particles per grid cell is calculated automatically. No need to calculate it here.
 
         // However, we need to adjust the number of boids to ensure that it isn't larger than the # of particles in the current system.
-        numBoids = Mathf.Min(numBoids, Mathf.FloorToInt((float)numParticles*0.9f));
+        numBoids = Mathf.Min(boidManager.numBoids, Mathf.FloorToInt((float)numParticles*0.9f));
 
         // We also need to count number of particles attached to obstacles
         numPointsOnObstacles = 0;
@@ -494,7 +512,7 @@ public class ParticleManager : MonoBehaviour
         arg_buffer = new ComputeBuffer(1, arg.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
         arg_buffer.SetData(arg);
 
-        particle_buffer = new ComputeBuffer(numParticles, sizeof(float)*3);
+        particle_buffer = new ComputeBuffer(numParticles, sizeof(float)*7 + sizeof(int)*2);
         particleOffsetsBuffer = new ComputeBuffer(numParticles, sizeof(int));
         gridBuffer = new ComputeBuffer(numGridCells, sizeof(int));
         particleNeighborsBuffer = new ComputeBuffer(numGridCells * _numParticlesPerGridCell, sizeof(int));
@@ -677,7 +695,8 @@ public class ParticleManager : MonoBehaviour
     private void CubeVolumeProcess(int debugNumGridCells, int debugNumParticles) {
         SPHComputeShader.Dispatch(cv_compute_density_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_density_pressure) {
-            DebugBufferFloat("Densities",debugNumParticles,density_buffer);
+            //DebugBufferFloat("Densities",debugNumParticles,density_buffer);
+            DebugBufferParticleTouched("Touched by Boid", 15000, particle_buffer);
         }
         SPHComputeShader.Dispatch(cv_compute_interact_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
     }
@@ -746,6 +765,20 @@ public class ParticleManager : MonoBehaviour
             bottom += $"{temp[i].position}\t|";
         }
         Debug.Log($"{debugText} positions:\n{top}\n{bottom}");
+        temp = null;
+    }
+    private void DebugBufferParticleTouched(string debugText, int debugSize, ComputeBuffer b) {
+        Particle[] temp = new Particle[numBoids + debugSize];
+        b.GetData(temp);
+        string top = "";
+        string bottom = "";
+        for(int i = numBoids; i < numBoids + debugSize; i++) {
+            if (temp[i].touchedByBoid > 0) {
+                top += $"{i}\t|";
+                bottom += $"{temp[i].touchedByBoid}\t|";
+            }
+        }
+        Debug.Log($"{debugText} touched:\n{top}\n{bottom}");
         temp = null;
     }
 }

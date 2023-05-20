@@ -6,6 +6,7 @@ using Random = UnityEngine.Random;
 
 public class Boids3D : Grid3D
 {
+    public static Boids3D current;
 
     struct Boid3D {
         public float3 position;
@@ -28,6 +29,7 @@ public class Boids3D : Grid3D
     public float cohesionFactor = 1;
     public float separationFactor = 30;
     public float alignmentFactor = 5;
+    public float sphFactor = 1f;
     public float turnSpeed = 2f;
 
     private Vector3[] velocities;
@@ -137,6 +139,7 @@ public class Boids3D : Grid3D
     }
 
     private void Awake() {
+        current = this;
         if (!awaitInitialization) Initialize();
     }
 
@@ -293,6 +296,11 @@ public class Boids3D : Grid3D
         boidsShader.SetBuffer(updateBoidsKernel, "gridOffsetBuffer", gridOffsetBuffer);
     }
 
+    public void AddParticleBuffer() {
+        boidsShader.SetBuffer(updateBoidsKernel, "particles", ParticleManager.current.particle_buffer);
+        boidsShader.SetBuffer(updateBoidsKernel, "particleVelocities", ParticleManager.current.velocity_buffer);
+    }
+
     // Update is called once per frame
     void Update() {
         if (useGPU) GPU_Process(Time.deltaTime);
@@ -366,6 +374,7 @@ public class Boids3D : Grid3D
         boidsShader.SetFloat("cohesionFactor", cohesionFactor);
         boidsShader.SetFloat("separationFactor", separationFactor);
         boidsShader.SetFloat("alignmentFactor", alignmentFactor);
+        boidsShader.SetFloat("sphFactor", sphFactor);
         boidsShader.SetFloat("turnSpeed", turnSpeed);
         if (deltaTime >= 0f) {
             boidsShader.SetFloat("deltaTime", deltaTime);
