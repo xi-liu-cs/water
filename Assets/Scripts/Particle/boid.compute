@@ -3,7 +3,6 @@ struct particle
     float3 position,
     velocity,
     acceleration;
-    float mass;
     int neighbor,
     cell_index, /* which cell does the particle belong */
     index_in_cell; /* which index inside the cell does the particle locate */
@@ -262,12 +261,50 @@ void compute_neighbor(uint3 id : SV_DispatchThreadID)
             }
 }
 
+float protect_range,
+visible_range,
+match_factor,
+center_factor;
+
 #pragma kernel integrate
 [numthreads(thread_per_group, 1, 1)]
 void integrate(uint3 id : SV_DispatchThreadID)
 {
     if(id.x >= n_particle) return;
+
     particle p = particles[id.x];
+    float3 average_position = float3(0, 0, 0),
+    average_velocity = float3(0, 0, 0),
+    close = float3(0, 0, 0);
+    float sep = 0;
+    int visible_count = 0,
+    offset = neighbor_offset[id.x];
+    for(int i = 0; i < particles[id.x].neighbor; ++i)
+    {
+        uint neighbor_index = neighbors[offset + i];
+        float3 d = p.position - particles[neighbor_index].position;
+        float len = length(d);
+        if(len < protect_range)
+        {
+            close += d;
+            sep = clamp(1 - d / protect_range, 0, 1);
+        }
+        if(len < visible_range)
+        {
+            average_position += particles[neighbor_index].position;
+            average_velocity += particles[neighbor_index].velocity;
+            ++visible_count;
+        }
+    }
+    if(visible_count > 0)
+    {
+        average_position /= visible_count;
+        average_velocity /= visible_count;
+    }
+    p.velocity += sep * close; /* separation */
+    p.velocity += match_factor * (average_velocity - p.velocity); /* alignment */
+    p.velocity += center_factor * (average_position - p.position); /* cohesion */
+
     p.velocity += p.acceleration * dt;
     p.position += p.velocity * dt;
     if(p.position.x < bound[0])

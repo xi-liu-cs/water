@@ -13,7 +13,7 @@ public class f : MonoBehaviour
     viscosity_coefficient = 0.1f,
     particle_size = 2f,
     radius = 2f, /* h, smoothing length */
-    grid_size = 1f,
+    grid_size = 2f,
     gas_constant = 2000f,
     dt = 0.0001f,
     rest_density = 1000f,

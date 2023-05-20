@@ -398,6 +398,10 @@ MonoBehaviour:
   radius5: 0
   radius8: 0
   mass2: 0
+  protect_range: 2
+  visible_range: 4
+  match_factor: 0.5
+  center_factor: 0.5
   n_particle: 50000
   dimension: {x: 0, y: 0, z: 0}
   dimension_array: 
