@@ -61,7 +61,7 @@ public abstract class density_generator : MonoBehaviour
         clear_cube_corner_neighbor_tracker_kernel = densityShader.FindKernel("clear_cube_corner_neighbor_tracker");
         compute_neighbor_list_kernel = densityShader.FindKernel("compute_neighbor_list");
         compute_density_kernel = densityShader.FindKernel("compute_density");
-        compute_normal_kernel = densityShader.FindKernel("compute_normal");
+        /* compute_normal_kernel = densityShader.FindKernel("compute_normal"); */
     }
 
     public virtual ComputeBuffer generate (ComputeBuffer point_buffer, int n_point_per_axis, float boundsSize, Vector3 worldBounds, Vector3 center, Vector3 offset, float spacing) {
