@@ -51,6 +51,7 @@
      <Compile Include="Assets\Scripts\March Cube\VolumeDataVisualizer.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\CollisionAvoidance.cs" />
      <Compile Include="Assets\Scripts\Cave\SeaWorldColours.cs" />
+     <Compile Include="Assets\Scripts\Particle\cpu.cs" />
      <Compile Include="Assets\Scripts\Marchxi\noise_density_xi.cs" />
      <Compile Include="Assets\Scripts\Input\input.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\OffsetPursuit.cs" />
@@ -77,6 +78,7 @@
      <Compile Include="Assets\Scripts\Cave\NoiseDensity.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\FollowPathUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Wander1.cs" />
+     <Compile Include="Assets\Scripts\Particle\cpu_neighbor.cs" />
      <Compile Include="Assets\Scripts\Marchxi\mesh_generator_xi.cs" />
      <Compile Include="Assets\Style\TextureScaler.cs" />
      <Compile Include="Assets\Scripts\Rov\rov.cs" />

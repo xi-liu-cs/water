@@ -123,6 +123,18 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!114 &802712074 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 827318839419512152, guid: c5849907e4a31f947afad8be1002e6f8,
+    type: 3}
+  m_PrefabInstance: {fileID: 1715501804}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8dd4df2c33fac5d47b116ff65e5d832c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1281977597
 GameObject:
   m_ObjectHideFlags: 0
@@ -287,7 +299,7 @@ PrefabInstance:
     - target: {fileID: 9096886849583528844, guid: 3cb02330ed9c0344881a84ca766faf1f,
         type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 9096886849583528847, guid: 3cb02330ed9c0344881a84ca766faf1f,
         type: 3}
@@ -298,7 +310,7 @@ PrefabInstance:
         type: 3}
       propertyPath: particleManager
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 802712074}
     - target: {fileID: 9096886849583528847, guid: 3cb02330ed9c0344881a84ca766faf1f,
         type: 3}
       propertyPath: smoothingRadius
