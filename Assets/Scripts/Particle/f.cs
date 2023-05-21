@@ -10,18 +10,19 @@ public class f : MonoBehaviour
     public Mesh particle_mesh;
     public Material material;
     public float mass = 1f,
-    viscosity_coefficient = 0.1f,
+    viscosity_coefficient = 10f,
     particle_size = 2f,
     radius = 2f, /* h, smoothing length */
     grid_size = 2f,
     gas_constant = 2000f,
-    dt = 0.0001f,
-    rest_density = 1000f,
+    dt = 0.01f,
+    rest_density = 1f,
     damping = -0.5f,
-    g = -9.81f;
+    g = -9.81f,
+    bulk_modulus = 1000f;
     public Vector3 position_offset = new Vector3(0, 0, 0),
     velocity_initial = new Vector3(0, 0, 0);
-    public float[] bound = {-50, 50, -50, 50, -50, 50}; /* {-160, 140, -250, -150, -100, 100} */
+    public float[] bound = new float[]{-50, 50, -50, 50, -50, 50}; /* {-160, 140, -250, -150, -100, 100} */
     [HideInInspector]
     public float radius2,
     radius3,
@@ -35,6 +36,7 @@ public class f : MonoBehaviour
     public Vector3Int dimension;
     int dimension2,
     dimension3;
+    Vector3 center;
     public int[] dimension_array;
 
     /* need to match compute shader file */
@@ -93,9 +95,6 @@ public class f : MonoBehaviour
     compute_acceleration_kernel,
     integrate_kernel;
 
-    public float max_density = 0,
-    bulk_modulus = 1000f;
-
     particle[] particles;
     int[] sort_particle,
     cell_particle_count,
@@ -107,18 +106,22 @@ public class f : MonoBehaviour
     total_particle_in_cell, /* 1 particle can be in multiple cells */
     total_neighbor;
 
+    public bool is_debug_particle_neighbor = true,
+    is_debug_particle_neighbor_outside_bound = false;
+
     public void Awake()
     {
         dimension = new Vector3Int((int)((bound[1] - bound[0]) / grid_size), (int)((bound[3] - bound[2]) / grid_size), (int)((bound[5] - bound[4]) / grid_size));
         dimension_array = new int[]{dimension.x, dimension.y, dimension.z};
         dimension3 = dimension.x * dimension.y * dimension.z;
+        center = new Vector3(0.5f * (bound[1] - bound[0]), 0.5f * (bound[3] - bound[2]), 0.5f * (bound[5] - bound[4]));
         radius2 = radius * radius;
         radius3 = radius2 * radius;
         radius4 = radius3 * radius;
         radius5 = radius4 * radius;
         radius8 = radius2 * radius4;
         mass2 = mass * mass;
-        n_cell = (int)((bound[1] - bound[0]) / grid_size) + dimension.x * ((int)((bound[3] - bound[2]) / grid_size) + dimension.y * (int)((bound[5] - bound[4]) / grid_size));
+        n_cell = dimension.x + dimension.x * (dimension.y + dimension.y * dimension.z);
         dispatch_size = Mathf.CeilToInt((float)n_particle / (float)thread_per_group);
         cell_dispatch_size = Mathf.CeilToInt((float)(n_cell + 1) / (float)thread_per_group);
 
@@ -224,8 +227,9 @@ public class f : MonoBehaviour
 
         material.SetFloat(size_property, particle_size);
         material.SetBuffer(particle_buffer_property, particle_buffer); 
-        Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
-        debug_particle_neighbor();
+        Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, material, new Bounds(center, dimension), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
+        if(is_debug_particle_neighbor) debug_particle_neighbor();
+        else if(is_debug_particle_neighbor_outside_bound) debug_particle_neighbor_outside_bound();
     }
 
     void debug_particle()
@@ -243,6 +247,37 @@ public class f : MonoBehaviour
             + ", index_in_cell = " + particles[i].index_in_cell);
     }
 
+    void debug_particle_neighbor_outside_bound()
+    {
+        particles = new particle[n_particle];
+        particle_buffer.GetData(particles);
+        neighbor_offset = new int[n_particle];
+        neighbor_offset_buffer.GetData(neighbor_offset);
+        neighbors = new int[total_neighbor];
+        neighbor_buffer.GetData(neighbors);
+        for(int i = n_particle - 1; i >= 0; --i)
+        {
+            Vector3 p = particles[i].position;
+            if(bound[0] <= p.x && p.x <= bound[1] && bound[2] <= p.y && p.y <= bound[3] && bound[4] <= p.z && p.z <= bound[5]) continue;
+            string s = "position = " + particles[i].position
+            + ", velocity = " + particles[i].velocity
+            + ", acceleration = " + particles[i].acceleration
+            + ", density = " + particles[i].density
+            + ", pressure = " + particles[i].pressure
+            + ", neighbor = " + particles[i].neighbor
+            + ", cell_index = " + particles[i].cell_index
+            + ", index_in_cell = " + particles[i].index_in_cell;
+            s += ", neighbor positions = ";
+            for(int j = 0; j < particles[i].neighbor; ++j)
+            {
+                Vector3 neighbor_position = particles[neighbors[neighbor_offset[i] + j]].position;
+                float distance = Vector3.Distance(neighbor_position, particles[i].position);
+                s += particles[neighbors[neighbor_offset[i] + j]].position + ", d = " + distance + ", ";
+            }
+            Debug.Log(s);
+        }
+    }
+
     void debug_particle_neighbor()
     {
         particles = new particle[n_particle];
@@ -253,6 +288,7 @@ public class f : MonoBehaviour
         neighbor_buffer.GetData(neighbors);
         for(int i = 0; i < 100; ++i)
         {
+            Vector3 p = particles[i].position;
             string s = "position = " + particles[i].position
             + ", velocity = " + particles[i].velocity
             + ", acceleration = " + particles[i].acceleration
@@ -494,6 +530,7 @@ public class f : MonoBehaviour
         compute_shader.SetVector("time", Shader.GetGlobalVector("_Time"));
         compute_shader.SetInts("dimension", dimension_array);
         compute_shader.SetInt("n_particle", n_particle);
+        compute_shader.SetInt("n_cell", n_cell);
         compute_shader.SetInt("seed", UnityEngine.Random.Range(0, int.MaxValue));
     }
 

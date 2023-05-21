@@ -44,7 +44,8 @@ epsilon,
 e,
 pi,
 bulk_modulus;
-uint n_particle,
+uint n_cell,
+n_particle,
 sequential_scan_length;
 int3 dimension;
 float g;
@@ -90,11 +91,11 @@ void malloc_particle(uint3 id : SV_DispatchThreadID)
     particles[id.x].position = float3(0.8 * random_range(bound[0] + 1, bound[1] - 1), 0.8 * random_range(bound[2] + 1, bound[3] - 1), 0.8 * random_range(bound[4] + 1, bound[5] - 1));
     particles[id.x].position = float3(bound[1] - random_range(0, 0.5 * (bound[1] - bound[0])), bound[3] - 0.5 * (bound[3] - bound[2]), bound[5] - 0.5 * (bound[5] - bound[4]));
     particles[id.x].position = float3(bound[1] - random_range(0, 10), bound[3] - random_range(0, 10), bound[5] - random_range(0, 10)); */
-    particles[id.x].position = float3(0.2 * random_range(bound[0], bound[1]), 0.2 * random_range(bound[2], bound[3]), 0.2 * random_range(bound[4], bound[5]));
+    particles[id.x].position = -float3(random_range(0, 15), random_range(0, 15), random_range(0, 15)) + 0.3 * float3(random_range(bound[0] + epsilon, bound[1] - epsilon), random_range(bound[2] + epsilon, bound[3] - epsilon), random_range(bound[4] + epsilon, bound[5] - epsilon));
     particles[id.x].velocity = float3(0., 0., 0.);
     particles[id.x].acceleration = float3(0., 0., 0.);
     particles[id.x].mass = mass;
-    particles[id.x].density = 0.;
+    particles[id.x].density = rest_density;
     particles[id.x].pressure = 0.;
     particles[id.x].neighbor = 0;
     particles[id.x].cell_index = hash(get_cell(particles[id.x].position));
@@ -105,6 +106,7 @@ void malloc_particle(uint3 id : SV_DispatchThreadID)
 [numthreads(thread_per_group, 1, 1)]
 void clear_count(uint3 id : SV_DispatchThreadID)
 {
+    if(id.x >= n_cell + 1) return;
     cell_particle_count[id.x] = 0;
 }
 
@@ -112,6 +114,7 @@ void clear_count(uint3 id : SV_DispatchThreadID)
 [numthreads(thread_per_group, 1, 1)]
 void compute_count(uint3 id : SV_DispatchThreadID)
 {
+    if(id.x >= n_particle) return;
     InterlockedAdd(cell_particle_count[particles[id.x].cell_index], 1, particles[id.x].index_in_cell);
 }
 
@@ -205,6 +208,8 @@ void sequential_scan(uint3 id : SV_DispatchThreadID)
 [numthreads(thread_per_group, 1, 1)]
 void count_sort_particle_index(uint3 id : SV_DispatchThreadID)
 {
+    if(id.x >= n_particle) return;
+    particles[id.x].cell_index = hash(get_cell(particles[id.x].position));
     sort_particle_index[cell_offset[particles[id.x].cell_index] + particles[id.x].index_in_cell] = id.x;
 }
 
@@ -212,6 +217,7 @@ void count_sort_particle_index(uint3 id : SV_DispatchThreadID)
 [numthreads(thread_per_group, 1, 1)]
 void compute_neighbor_count(uint3 id : SV_DispatchThreadID)
 {
+    if(id.x >= n_particle) return;
     int3 origin_index = get_cell(particles[id.x].position);
     int count = 0;
     for(int x = -1; x < 2; ++x)
@@ -246,6 +252,7 @@ void compute_total_neighbor_count(uint3 id : SV_DispatchThreadID)
 [numthreads(thread_per_group, 1, 1)]
 void compute_neighbor(uint3 id : SV_DispatchThreadID)
 {
+    if(id.x >= n_particle) return;
     int3 origin_index = get_cell(particles[id.x].position);
     int count = 0,
     write_offset = neighbor_offset[id.x];
@@ -301,6 +308,7 @@ void compute_density(uint3 id : SV_DispatchThreadID)
 [numthreads(thread_per_group, 1, 1)]
 void reset_acceleration(uint3 id : SV_DispatchThreadID)
 {
+    if(id.x >= n_particle) return;
     particles[id.x].acceleration = float3(0, g, 0);
 }
 
@@ -311,7 +319,7 @@ float3 acceleration(int a, int b)
     float3 diff_pos = particles[a].position - particles[b].position,
     diff_vel = particles[a].velocity - particles[b].velocity;
     float diff_square = dot(diff_pos, diff_pos);
-    if(diff_square > radius2) return float3(0., 0., 0.);
+    if(diff_square > radius2 || diff_square == 0) return float3(0., 0., 0.);
     float q = sqrt(diff_square) / radius,
     q2 = 1 - q;
     return mass * q2 / (pi * radius4 * rho_j)
@@ -341,32 +349,32 @@ void integrate(uint3 id : SV_DispatchThreadID)
     particle p = particles[id.x];
     p.velocity += p.acceleration * dt;
     p.position += p.velocity * dt;
-    if(p.position.x < bound[0])
+    if(p.position.x < bound[0] + epsilon)
     {
         p.velocity.x *= damping;
         p.position.x = bound[0] + epsilon;
     }
-    else if(p.position.x > bound[1])
+    else if(p.position.x > bound[1] - epsilon)
     {
         p.velocity.x *= damping;
         p.position.x = bound[1] - epsilon;
     }
-    if(p.position.y < bound[2])
+    if(p.position.y < bound[2] + epsilon)
     {
         p.velocity.y *= damping;
         p.position.y = bound[2] + epsilon;
     }
-    else if(p.position.y > bound[3]) 
+    else if(p.position.y > bound[3] - epsilon) 
     {
         p.velocity.y *= damping;
         p.position.y = bound[3] - epsilon;
     }
-    if(p.position.z < bound[4])
+    if(p.position.z < bound[4] + epsilon)
     {
         p.velocity.z *= damping;
         p.position.z = bound[4] + epsilon;
     }
-    else if(p.position.z > bound[5]) 
+    else if(p.position.z > bound[5] - epsilon) 
     {
         p.velocity.z *= damping;
         p.position.z = bound[5] - epsilon;
