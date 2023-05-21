@@ -31,6 +31,7 @@ public class Boids3D : Grid3D
     public float alignmentFactor = 5;
     public float sphFactor = 1f;
     public float turnSpeed = 2f;
+    public float dt = -1f;
 
     private Vector3[] velocities;
     private int[] offsets;
@@ -67,6 +68,7 @@ public class Boids3D : Grid3D
     [Header("== DEBUGGING CONFIGURATIONS ==")]
     public bool verbose = false;
     public bool visualizeBoidGridCells = false;
+    public bool visualizeBoidVelocities = false;
     private Vector3 debugPos;
     
     //public MeshFilter[] environmentMeshes = new MeshFilter[0];
@@ -111,6 +113,8 @@ public class Boids3D : Grid3D
                 boidsBuffer.GetData(tempBoids);
                 int[] tempGrid = new int[numGridCells];
                 gridBuffer.GetData(tempGrid);
+                float3[] tempVelocities = new float3[numBoids];
+                boidVelocitiesBuffer.GetData(tempVelocities);
                 for(int i = 0; i < numBoids; i++) {
                     Boid3D boid = tempBoids[i];
                     Gizmos.color = boidColor;
@@ -120,7 +124,11 @@ public class Boids3D : Grid3D
                         Gizmos.color = new Vector4(0f,0f,1f,Mathf.Clamp((float)tempGrid[boid.projectedGridIndex]/2f,0f,1f));
                         Vector3 debugPosGridPos = Grid3DHelpers.GetGridCellWorldPositionFromGivenPosition(numGridCellsPerAxis, origin, gridCellSize, pos);
                         Gizmos.DrawCube(debugPosGridPos, new Vector3(gridCellSize, gridCellSize, gridCellSize));
-                    }        
+                    }
+                    if (visualizeBoidVelocities) {
+                        Gizmos.color = Color.yellow;
+                        Gizmos.DrawRay(pos, tempVelocities[i]);
+                    }     
                 }
             } else {
                 for(int i = 0; i < numBoids; i++) {
@@ -303,13 +311,13 @@ public class Boids3D : Grid3D
 
     // Update is called once per frame
     void Update() {
-        if (useGPU) GPU_Process(Time.deltaTime);
+        if (useGPU) GPU_Process();
         else CPU_Process();
     }
 
     
-    private void GPU_Process(float deltaTime = -1f) {
-        UpdateShaderVariables(deltaTime);
+    private void GPU_Process() {
+        UpdateShaderVariables();
         // Clean up `grid` so that all values = 0
         boidsShader.Dispatch(clearGridKernel, numBlocks,1,1);
         // We should update each boid with their current indice and projected index, while also declaring offset and performing atomic addition
@@ -368,7 +376,8 @@ public class Boids3D : Grid3D
         */
     }
 
-    private void UpdateShaderVariables(float deltaTime = -1) {
+    private void UpdateShaderVariables() {
+        float deltaTime = (dt < 0) ? Time.deltaTime : dt;
         boidsShader.SetFloat("maxSpeed", maxSpeed);
         boidsShader.SetFloat("minSpeed", minSpeed);
         boidsShader.SetFloat("cohesionFactor", cohesionFactor);
@@ -376,9 +385,7 @@ public class Boids3D : Grid3D
         boidsShader.SetFloat("alignmentFactor", alignmentFactor);
         boidsShader.SetFloat("sphFactor", sphFactor);
         boidsShader.SetFloat("turnSpeed", turnSpeed);
-        if (deltaTime >= 0f) {
-            boidsShader.SetFloat("deltaTime", deltaTime);
-        }
+        boidsShader.SetFloat("deltaTime", deltaTime);
     }
 
     private void CPU_Process() {
@@ -464,6 +471,7 @@ public class Boids3D : Grid3D
     }
 
     private void MergedBehaviours(ref Boid3D boid, int i) {
+        float deltaTime = (dt < 0) ? Time.deltaTime : dt;
         Vector3 center = Vector3.zero;
         Vector3 close = Vector3.zero;
         Vector3 avgVel = Vector3.zero;
@@ -509,12 +517,12 @@ public class Boids3D : Grid3D
         if (neighbors > 0) {
             center /= neighbors;
             avgVel /= neighbors;
-            Vector3 centerEffect = (center - currentPosition) * (cohesionFactor * Time.deltaTime);
-            Vector3 alignmentEffect = (avgVel - currentVelocity) * (alignmentFactor * Time.deltaTime);
+            Vector3 centerEffect = (center - currentPosition) * (cohesionFactor * deltaTime);
+            Vector3 alignmentEffect = (avgVel - currentVelocity) * (alignmentFactor * deltaTime);
             velocities[i] += centerEffect;
             velocities[i] += alignmentEffect;
         }
-        Vector3 closeEffect = close * (separationFactor * Time.deltaTime);
+        Vector3 closeEffect = close * (separationFactor * deltaTime);
         velocities[i] += closeEffect;
     }
 
@@ -530,15 +538,16 @@ public class Boids3D : Grid3D
         float vX = velocities[i].x;
         float vY = velocities[i].y;
         float vZ = velocities[i].z;
+        float deltaTime = (dt < 0) ? Time.deltaTime : dt;
 
-        if (boid.position[0] < -bounds.x/2f) vX += Time.deltaTime * turnSpeed;
-        else if (boid.position[0] > bounds.x/2f) vX -= Time.deltaTime * turnSpeed;
+        if (boid.position[0] < -bounds.x/2f) vX += deltaTime * turnSpeed;
+        else if (boid.position[0] > bounds.x/2f) vX -= deltaTime * turnSpeed;
 
-        if (boid.position[1] < -bounds.y/2f) vY += Time.deltaTime * turnSpeed;
-        else if (boid.position[1] > bounds.y/2f) vY -= Time.deltaTime * turnSpeed;
+        if (boid.position[1] < -bounds.y/2f) vY += deltaTime * turnSpeed;
+        else if (boid.position[1] > bounds.y/2f) vY -= deltaTime * turnSpeed;
     
-        if (boid.position[2] < -bounds.z/2f) vZ += Time.deltaTime * turnSpeed;
-        else if (boid.position[2] > bounds.z/2f) vZ -= Time.deltaTime * turnSpeed;
+        if (boid.position[2] < -bounds.z/2f) vZ += deltaTime * turnSpeed;
+        else if (boid.position[2] > bounds.z/2f) vZ -= deltaTime * turnSpeed;
 
         velocities[i] = new Vector3(vX,vY,vZ);
     }

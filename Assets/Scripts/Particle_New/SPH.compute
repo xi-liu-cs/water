@@ -423,12 +423,14 @@ float3 CalculateAcceleration(uint currentIndex, uint otherIndex) {
     float wP = wZero * 15.0 * bulkModulus * (currentDensity + neighborDensity - (2.0 * rest_density)) * (u/q);
     float wV = wZero * 40.0 * viscosity_coefficient;
 
+    float3 toReturn = wP * diffPosition - wV * diffVelocity;
+
     if (particles[otherIndex].isBoid > 0) {
         particles[currentIndex].touchedByBoid += 1;
-        particles[currentIndex].boidInfluence += wP * diffPosition - wV * diffVelocity;
+        particles[currentIndex].boidInfluence += toReturn;
     }
 
-    return wP * diffPosition - wV * diffVelocity;
+    return toReturn;
 }
 
 #pragma kernel PS_ComputeInteractAcceleration
@@ -477,6 +479,8 @@ void CV_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
             uint otherId = particleNeighbors[j];
             // Skip if we encountered each other
             if (otherId == id.x) continue;
+            // Skip if both are boids
+            if (particles[id.x].isBoid == 1 && particles[otherId].isBoid == 1) continue;
             /*
             float neighborDensity = density[otherId];
             float3 diffPosition = p.position - particles[otherId].position;
@@ -504,11 +508,12 @@ void CV_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
 void ComputeExternalAcceleration(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
     particle p = particles[id.x];
-    
+    float3 sumForces = float3(0,0,0);
+
     float3 gravityForce = g * particleMass;
     
     // Additional forces can be applied here!
-    float3 sumForces = gravityForce;
+    if (p.isBoid == 0) sumForces += gravityForce;
 
     force[id.x] += sumForces / particleMass;
 }

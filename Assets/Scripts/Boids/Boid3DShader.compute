@@ -251,14 +251,14 @@ void LimitSpeed(inout Boid3D boid, uint id) {
 void KeepInBounds(inout Boid3D boid, uint id) {
   float3 v = velocities[id];
 
-  if (boid.position[0] < -boundsX/2.0) v[0] += deltaTime * turnSpeed;
-  else if (boid.position[0] > boundsX/2.0) v[0] -= deltaTime * turnSpeed;
+  if (boid.position[0] < origin.x - boundsX/2.0) v[0] += deltaTime * turnSpeed;
+  else if (boid.position[0] > origin.x + boundsX/2.0) v[0] -= deltaTime * turnSpeed;
 
-  if (boid.position[1] < -boundsY/2.0) v[1] += deltaTime * turnSpeed;
-  else if (boid.position[1] > boundsY/2.0) v[1] -= deltaTime * turnSpeed;
+  if (boid.position[1] < origin.y - boundsY/2.0) v[1] += deltaTime * turnSpeed;
+  else if (boid.position[1] > origin.y + boundsY/2.0) v[1] -= deltaTime * turnSpeed;
 
-  if (boid.position[2] < -boundsZ/2.0) v[2] += deltaTime * turnSpeed;
-  else if (boid.position[2] > boundsZ/2.0) v[2] -= deltaTime * turnSpeed;
+  if (boid.position[2] < origin.z - boundsZ/2.0) v[2] += deltaTime * turnSpeed;
+  else if (boid.position[2] > origin.z + boundsZ/2.0) v[2] -= deltaTime * turnSpeed;
 
   velocities[id] = v;
 }

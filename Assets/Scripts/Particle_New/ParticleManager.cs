@@ -279,7 +279,7 @@ public class ParticleManager : MonoBehaviour
                 Gizmos.DrawSphere(temp_particles[i].position, particleRenderRadius);
             }
             if (show_boid_influence) {
-                if (temp_particles[i].touchedByBoid > 0) {
+                if (temp_particles[i].isBoid > 0) {
                     Gizmos.color = Color.red;
                     Gizmos.DrawRay(temp_particles[i].position, temp_particles[i].boidInfluence);
                     Gizmos.color = Color.blue;
@@ -377,6 +377,7 @@ public class ParticleManager : MonoBehaviour
         InitializeShaderVariables();
         InitializeBuffers();
         boidManager.AddParticleBuffer();
+        boidManager.dt = dt;
         SPHComputeShader.Dispatch(clear_grid_kernel, numBlocks,1,1);
         SPHComputeShader.Dispatch(generate_particles_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
         initialized = true;
