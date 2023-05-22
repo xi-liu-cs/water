@@ -6,6 +6,7 @@ public class mesh_generator_2 : MonoBehaviour
 {
     const int thread_group_size = 8;
     public density_generator density_gen;
+    public density_generator_2 density_gen2;
     public ComputeShader shader;
     public fluid_gpu_2 fluid_cs;
     public Material material;
@@ -180,6 +181,8 @@ public class mesh_generator_2 : MonoBehaviour
         mesh.Clear();
         var vertices = new Vector3[numTris * 3];
         var meshTriangles = new int[numTris * 3];
+        var triangle_normal = new Vector3[numTris * 3];
+        density_gen2.normal_buffer.GetData(triangle_normal);
 
         for(int i = 0; i < numTris; ++i)
         {
@@ -191,6 +194,7 @@ public class mesh_generator_2 : MonoBehaviour
         }
         mesh.vertices = vertices;
         mesh.triangles = meshTriangles;
+        mesh.normals = triangle_normal;
         // Color[] colors = new Color[vertices.Length];
         //for(int i = 0; i < vertices.Length; ++i)
         //    colors[i] = Color.Lerp(Color.red, Color.green, vertices[i].y);

@@ -1,6 +1,7 @@
 #pragma kernel clear_cube_corner_neighbor_tracker
 #pragma kernel compute_neighbor_list
 #pragma kernel compute_density
+#pragma kernel compute_normal
 //#include "../../Noise/noise.compute"
 
 // Copied from `fluid_shader_2.compute`
@@ -23,11 +24,13 @@ int3 dimension;
 
 RWStructuredBuffer<particle> particles;
 RWStructuredBuffer<float> voxel_density;
-RWStructuredBuffer<float3> points;
+RWStructuredBuffer<float3> points,
+normals;
 
 RWStructuredBuffer<int> cube_corner_neighbor_list,
 cube_corner_neighbor_tracker;
 int max_particles_per_cube;
+float grid_size;
 
 float kernel(float r, float x) {
     return pow(r*r - x*x, 3);
@@ -56,7 +59,6 @@ int hash_cell(int3 xyz) {
     return xyz.x + (dimension[0] * xyz.y) + (dimension[0] * dimension[1] * xyz.z);
      
 }
-
 
 [numthreads(n_thread, n_thread, n_thread)]
 void clear_cube_corner_neighbor_tracker(uint3 id : SV_DispatchThreadID) {
@@ -202,4 +204,16 @@ void compute_density(int3 id : SV_DispatchThreadID) {
     }
     points[cube_corner_index] = cube_corner_pos;
     voxel_density[cube_corner_index] = length(cube_corner_pos - (cube_corner_pos + average_particle_pos)) - particleRenderSize;
+}
+
+[numthreads(n_thread, n_thread, n_thread)]
+void compute_normal(int3 id : SV_DispatchThreadID)
+{
+    int cube_corner_index = hash_cell(id);
+    normals[cube_corner_index] = float3
+    (
+        (voxel_density[hash(id.x + 1, id.y, id.z)] - voxel_density[hash(id.x - 1, id.y, id.z)]) / grid_size,
+        (voxel_density[hash(id.x, id.y + 1, id.z)] - voxel_density[hash(id.x, id.y - 1, id.z)]) / grid_size,
+        (voxel_density[hash(id.x, id.y, id.z + 1)] - voxel_density[hash(id.x, id.y, id.z - 1)]) / grid_size
+    );
 }

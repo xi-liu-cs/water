@@ -55,6 +55,7 @@ public class MeshManager : MonoBehaviour
     private int maxTriangleCount;
     private int numPoints;
     public float isoLevel = 8f;
+    public float grid_size = 2f;
 
     [Header("== GPU CONFIGURATIONS  ==")]
     const int threadGroupSize = 8;
@@ -67,6 +68,7 @@ public class MeshManager : MonoBehaviour
     private int compute_neighbor_list_kernel;
     private int compute_density_kernel;
     private int compute_triangles_kernel;
+    private int compute_normal_kernel;
 
     [Header("== GPU BUFFERS ==")]
     private ComputeBuffer pointsBuffer;
@@ -75,6 +77,7 @@ public class MeshManager : MonoBehaviour
     private ComputeBuffer cubeCornerNeighborTrackerBuffer;
     private ComputeBuffer triangleBuffer;
     private ComputeBuffer triangleCountBuffer;
+    private ComputeBuffer normal_buffer;
 
     [Header("== DEBUGGING CONFIGURATIONS ==")]
     public bool gizmos_densities = false;
@@ -190,16 +193,19 @@ public class MeshManager : MonoBehaviour
         // Retrieved from ParticleManager
         densityShader.SetInt("numParticles", particleManager.numParticles);
         densityShader.SetFloat("particleRenderSize", particleManager.particleRenderSize);
+        densityShader.SetFloat("grid_size", grid_size);
     }
 
     private void InitializeShaderKernels() {
         clear_cube_corner_neighbor_tracker_kernel = densityShader.FindKernel("clear_cube_corner_neighbor_tracker");
         compute_neighbor_list_kernel = densityShader.FindKernel("compute_neighbor_list");
         compute_density_kernel = densityShader.FindKernel("compute_density");
+        compute_normal_kernel = densityShader.FindKernel("compute_normal");
     }
     
     private void InitializeShaderBuffers() {
         pointsBuffer = new ComputeBuffer(numPoints, sizeof(float) * 3);
+        normal_buffer = new ComputeBuffer(numPoints, sizeof(float) * 3);
         pointDensitiesBuffer = new ComputeBuffer(numPoints, sizeof(float));
         cubeCornerNeighborListBuffer = new ComputeBuffer(numPoints * maxParticlesPerVoxel, sizeof(int));
         cubeCornerNeighborTrackerBuffer = new ComputeBuffer(numPoints, sizeof(int));
@@ -219,13 +225,15 @@ public class MeshManager : MonoBehaviour
         densityShader.SetBuffer(compute_density_kernel, "cube_corner_neighbor_list", cubeCornerNeighborListBuffer);
         densityShader.SetBuffer(compute_density_kernel, "cube_corner_neighbor_tracker", cubeCornerNeighborTrackerBuffer);
 
+        densityShader.SetBuffer(compute_normal_kernel, "voxel_density", pointDensitiesBuffer);
+        densityShader.SetBuffer(compute_normal_kernel, "normals", normal_buffer);
+
         triangleShader.SetBuffer(0, "triangles", triangleBuffer);
         triangleShader.SetInts("n_point_per_axis", numPointsPerAxis);
         triangleShader.SetFloat("isolevel", isoLevel);
         triangleShader.SetBuffer(0, "voxel_density", pointDensitiesBuffer);
         triangleShader.SetBuffer(0, "particles", particleManager.particle_buffer);
         triangleShader.SetBuffer(0, "points", pointsBuffer);
-
 
         fluidMaterial.SetFloat(size_property, particleManager.particleRenderSize);
         fluidMaterial.SetBuffer(particle_buffer_property, particleManager.particle_buffer);
@@ -236,6 +244,7 @@ public class MeshManager : MonoBehaviour
         particleManager.UpdateParticles();
         UpdateDensities();
         UpdateTriangles();
+        UpdateNormal();
         UpdateMesh();
     }
 
@@ -272,10 +281,21 @@ public class MeshManager : MonoBehaviour
         Debug.Log($"Number of triangles / total max count: {(float)numTriangles / (float)maxTriangleCount}");
     }
 
+    private void UpdateNormal()
+    {
+        densityShader.Dispatch(
+            compute_normal_kernel,
+            numThreadsPerAxis[0], 
+            numThreadsPerAxis[1],
+            numThreadsPerAxis[2]
+        );
+    }
+
     private void UpdateMesh() {
         fluidMesh.Clear();
         Vector3[] vertices = new Vector3[numTriangles * 3];
         int[] meshTriangles = new int[numTriangles * 3];
+        Vector3[] triangle_normal = new Vector3[numTriangles * 3];
 
         for(int i = 0; i < numTriangles; i++) {
             for(int j = 0; j < 3; j++) {
@@ -285,6 +305,7 @@ public class MeshManager : MonoBehaviour
         }
         fluidMesh.vertices = vertices;
         fluidMesh.triangles = meshTriangles;
+        fluidMesh.normals = triangle_normal;
         fluidMesh.RecalculateNormals();
     }
 
