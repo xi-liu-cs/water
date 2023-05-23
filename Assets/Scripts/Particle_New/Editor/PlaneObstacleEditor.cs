@@ -9,8 +9,10 @@ public class PlaneObstacleEditor : Editor
     public override void OnInspectorGUI() {
         PlaneObstacle obstacle = (PlaneObstacle)target;
         DrawDefaultInspector();
+        /*
         if(GUILayout.Button("Generate Planes from Mesh Triangles")) {
             if (obstacle.GeneratePlanes()) Debug.Log("Planes generated");
         }
+        */
     }
 }
