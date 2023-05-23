@@ -1,0 +1,244 @@
+#include "../Noise/noise.cginc"
+
+struct particle
+{
+    float3 position,
+    velocity,
+    acceleration;
+    float density,
+    pressure;
+    int neighbor; /* number of neighors does each particle have */
+};
+
+RWStructuredBuffer<particle> particles;
+RWStructuredBuffer<int> hash_grid, /* track particles for each grid at grid_index * max_particles_per_grid */
+hash_grid_tracker, /* number of particles at each grid */
+neighbors; /* neighbors of a particle at particle_index * max_particles_per_grid * 27 */
+RWStructuredBuffer<float> bound;
+
+#define thread_group_size 512
+float grid_size,
+radius,
+radius2,
+radius3,
+radius4,
+radius5,
+radius8,
+mass,
+mass2,
+particle_size,
+particle_size2,
+gas_constant,
+rest_density,
+viscosity_coefficient,
+damping,
+dt,
+epsilon,
+e,
+pi,
+bulk_modulus;
+uint n,
+n_particle,
+max_particles_per_grid;
+int3 dimension;
+float3 g;
+float4 time;
+
+int3 get_cell(float3 position)
+{
+    return int3((position.x - bound[0]) / grid_size, (position.y - bound[2]) / grid_size, (position.z - bound[4]) / grid_size);
+}
+
+int hash(int3 cell)
+{
+    return cell.x + dimension.x * (cell.y + dimension.y * cell.z);
+}
+
+int hash_grid_index_to_offset(int index)
+{/* convert a hash to the starting offset in hash_grid */
+    return index * max_particles_per_grid;
+}
+
+uint s,
+seed;
+/* https://www.cs.ubc.ca/~rbridson/docs/schechter-sca08-turbulence.pdf, https://gist.github.com/keijiro/24f9d505fac238c9a2982c0d6911d8e3 */
+float random()
+{
+    s ^= 2747636419u;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    return s / 4294967295.0;
+}
+
+float random_range(float a, float b)
+{
+    return a + random() * (b - a);
+}
+
+#pragma kernel malloc_particle
+[numthreads(thread_group_size, 1, 1)]
+void malloc_particle(uint3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_particle) return;
+    s = seed + id.x;
+    particles[id.x].position = 0.5 * float3(random_range(bound[0], bound[1]), random_range(bound[2], bound[3]), random_range(bound[4], bound[5])); /* particles[id.x].position = float3(noise_range(float3(id), bound[0], bound[1]), noise_range(float3(id), bound[2], bound[3]), noise_range(float3(id), bound[4], bound[5])); */
+    particles[id.x].velocity = float3(0., 0., 0.);
+    particles[id.x].acceleration = float3(0., 0., 0.);
+    particles[id.x].density = 0.;
+    particles[id.x].pressure = 0.;
+    particles[id.x].neighbor = 0;
+}
+
+#pragma kernel clear_hash_grid
+[numthreads(thread_group_size, 1, 1)]
+void clear_hash_grid(uint3 id : SV_DispatchThreadID)
+{
+    hash_grid_tracker[id.x] = 0;
+}
+
+#pragma kernel compute_hash_grid
+[numthreads(thread_group_size, 1, 1)]
+void compute_hash_grid(uint3 id : SV_DispatchThreadID)
+{/* stores the index of a particle into the grid that it belongs */
+    uint original_value = 0;
+    const int hash_grid_position = hash(get_cell(particles[id.x].position));
+    if(hash_grid_tracker[hash_grid_position] >= max_particles_per_grid) return;
+    InterlockedAdd(hash_grid_tracker[hash_grid_position], 1, original_value); /* 'original_value' is an output variable that will be set to the original value of dest */
+    if(original_value >= max_particles_per_grid) return;
+    hash_grid[hash_grid_index_to_offset(hash_grid_position) + original_value] = id.x;
+}
+
+void get_nearby_key(int3 origin_index, out int nearby_key[27])
+{/* 'nearby_key' stores the hashed 1d indices of cells that are near the particle at 'position' */
+    int3 nearby_index[27];
+    int idx = 0;
+    for(int i = -1; i <= 1; ++i)
+        for(int j = -1; j <= 1; ++j)
+            for(int k = -1; k <= 1; ++k)
+                nearby_index[idx++] = origin_index + int3(i, j, k);
+
+    for(uint a = 0; a < 27; ++a)
+    {
+        int3 cell = nearby_index[a];
+        if(cell.x < 0 || cell.x >= dimension.x || cell.y < 0 || cell.y >= dimension.y || cell.z < 0 || cell.z >= dimension.z)
+            nearby_key[a] = -1;
+        else
+            nearby_key[a] = hash(nearby_index[a]);
+    }
+}
+
+float density(int a, int b)
+{
+    float3 diff = particles[a].position - particles[b].position;
+    float diff_square = dot(diff, diff);
+    if(diff_square > radius2) return 0.;
+    return ((4. * mass) / (pi * radius8)) * pow(radius2 - diff_square, 3);
+}
+
+#pragma kernel compute_density
+[numthreads(thread_group_size, 1, 1)]
+void compute_density(uint3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_particle) return;
+    float3 origin = particles[id.x].position;
+    float sum = 0;
+    particles[id.x].density = (4. * mass) / (pi * radius8);
+    int near[27];
+    get_nearby_key(get_cell(origin), near);
+    for(int i = 0; i < 27; ++i)
+    {
+        int index1d = near[i];
+        if(index1d == -1) continue;
+        int cell_start = hash_grid_index_to_offset(index1d),
+        n_particle_in_cell = hash_grid_tracker[index1d];
+        for(int j = cell_start; j < cell_start + min(n_particle_in_cell, max_particles_per_grid); ++j)
+        {
+            int id2 = hash_grid[j];
+            if(id.x == id2) continue;
+            particles[id.x].density += density(id.x, id2);
+        }
+    }
+}
+
+float3 acceleration(int a, int b)
+{
+    float rho_i = particles[a].density,
+    rho_j = particles[b].density;
+    float3 diff_pos = particles[a].position - particles[b].position,
+    diff_vel = particles[a].velocity - particles[b].velocity;
+    float diff_square = dot(diff_pos, diff_pos);
+    if(diff_square > radius2) return float3(0., 0., 0.);
+    float q = sqrt(diff_square) / radius,
+    q2 = 1 - q;
+    return mass / (pi * radius4 * rho_i) * q2
+    * (15 * bulk_modulus * (rho_i + rho_j - 2 * rest_density)
+    * q2 * diff_pos / q - 40 * viscosity_coefficient * diff_vel);
+}
+
+#pragma kernel compute_acceleration
+[numthreads(thread_group_size, 1, 1)]
+void compute_acceleration(uint3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_particle) return;
+    float3 origin = particles[id.x].position;
+    particles[id.x].acceleration = g;
+    int near[27];
+    get_nearby_key(get_cell(origin), near);
+    for(int i = 0; i < 27; ++i)
+    {
+        int index1d = near[i];
+        if(index1d == -1) continue;
+        int cell_start = hash_grid_index_to_offset(index1d),
+        n_particle_in_cell = hash_grid_tracker[index1d];
+        for(int j = cell_start; j < cell_start + min(n_particle_in_cell, max_particles_per_grid); ++j)
+        {
+            int id2 = hash_grid[j];
+            if(id.x == id2) continue;
+            particles[id.x].acceleration += acceleration(id.x, id2);
+        }
+    }
+}
+
+#pragma kernel integrate
+[numthreads(thread_group_size, 1, 1)]
+void integrate(uint3 id : SV_DispatchThreadID)
+{
+    if(id.x >= n_particle) return;
+    particle p = particles[id.x];
+    p.velocity += p.acceleration * dt;
+    p.position += p.velocity * dt;
+    if(p.position.x < bound[0])
+    {
+        p.velocity.x *= damping;
+        p.position.x = bound[0] + epsilon;
+    }
+    else if(p.position.x > bound[1])
+    {
+        p.velocity.x *= damping;
+        p.position.x = bound[1] - epsilon;
+    }
+    if(p.position.y < bound[2])
+    {
+        p.velocity.y *= damping;
+        p.position.y = bound[2] + epsilon;
+    }
+    else if(p.position.y > bound[3]) 
+    {
+        p.velocity.y *= damping;
+        p.position.y = bound[3] - epsilon;
+    }
+    if(p.position.z < bound[4])
+    {
+        p.velocity.z *= damping;
+        p.position.z = bound[4] + epsilon;
+    }
+    else if(p.position.z > bound[5]) 
+    {
+        p.velocity.z *= damping;
+        p.position.z = bound[5] - epsilon;
+    }
+    particles[id.x] = p;
+}

@@ -1,0 +1,71 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel main
+
+#define BLOCK_SIZE 32
+
+struct Boid
+{
+    float3 position;
+    float3 forward;
+};
+
+
+// Boid state data
+RWStructuredBuffer<Boid> boidsBuffer;
+// Buffer for Boid average value calculation
+RWStructuredBuffer<Boid> boidsPrefixSumBuffer;
+
+// Number of Boids
+int numBoids;
+// Amount of elapsed time per frame
+float deltaTime;
+// Separation weight to prevent boids from getting too close
+float separationWeight;
+// Alignment weight to allow nearby boids to move in a similar direction
+float alignmentWeight;
+// Weight to move towards a target, if provided
+float targetWeight;
+// Boid movement speed
+float moveSpeed;
+// Target position, if provided
+float3 targetPosition;
+
+// normalize function to avoid division by 0
+float3 normalizeSafe(float3 v) {
+    return length(v) > 0 ? normalize(v) : 0;
+}
+
+[numthreads(BLOCK_SIZE,1,1)]
+void main (uint3 id : SV_DispatchThreadID) {
+    // index of the current Boid
+    uint boidIndex = id.x;
+    
+    // Current boid and its state
+    Boid _boid = boidsBuffer[boidIndex];                        
+
+    // Alignment vector, averaged
+    float3 cellAlignment = boidsPrefixSumBuffer[0].forward / numBoids;   
+    
+    // Separation vector, averaged
+    float3 cellSeparation = boidsPrefixSumBuffer[0].position / numBoids; 
+
+    // Boid orientation after alignment
+    float3 alignmentVector = alignmentWeight * normalizeSafe(cellAlignment - _boid.forward);
+
+    // Direction of movement when keeping a distance from the herd
+    float3 separationVector = separationWeight * normalizeSafe(_boid.position - cellSeparation);
+
+    // Boid direction when chasing a goal
+    float3 targetVector = targetWeight * normalizeSafe(targetPosition - _boid.position);
+
+    // Normal vectors in the above three directions
+    float3 normalVector = normalizeSafe(alignmentVector + separationVector + targetVector);
+
+    // Movement vector considering time and velocity
+    const float3 nextVector = normalizeSafe(_boid.forward + deltaTime * (normalVector - _boid.forward));
+
+    // Update the agent's position and orientation with the computed results
+    _boid.position = _boid.position + (nextVector * moveSpeed * deltaTime);
+    _boid.forward = nextVector;
+    boidsBuffer[boidIndex] = _boid;
+}

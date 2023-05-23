@@ -38,6 +38,7 @@ public class MeshManager : MonoBehaviour
     public float[] origin = new float[3] { 0f, 0f, 0f };
     public Vector3 originVector3 => new Vector3(origin[0], origin[1], origin[2]);
     private float[] bounds = new float[3] {100f,100f,100f}; // Set based on voxelSize and numVoxelsPerAxis
+    public float[] bound = new float[]{-50, 50, -50, 50, -50, 50};
     private Vector3 boundsVector3 => new Vector3(bounds[0], bounds[1], bounds[2]);
 
     [Header("== Marching Cubes Configurations ==")]
@@ -71,6 +72,7 @@ public class MeshManager : MonoBehaviour
     private int compute_normal_kernel;
 
     [Header("== GPU BUFFERS ==")]
+    private ComputeBuffer bound_buffer;
     private ComputeBuffer pointsBuffer;
     private ComputeBuffer pointDensitiesBuffer;
     private ComputeBuffer cubeCornerNeighborListBuffer;
@@ -204,6 +206,8 @@ public class MeshManager : MonoBehaviour
     }
     
     private void InitializeShaderBuffers() {
+        bound_buffer = new ComputeBuffer(6, sizeof(float));
+        bound_buffer.SetData(bound);
         pointsBuffer = new ComputeBuffer(numPoints, sizeof(float) * 3);
         normal_buffer = new ComputeBuffer(numPoints, sizeof(float) * 3);
         pointDensitiesBuffer = new ComputeBuffer(numPoints, sizeof(float));
@@ -218,12 +222,14 @@ public class MeshManager : MonoBehaviour
         densityShader.SetBuffer(compute_neighbor_list_kernel, "particles", particleManager.particle_buffer);
         densityShader.SetBuffer(compute_neighbor_list_kernel, "cube_corner_neighbor_list", cubeCornerNeighborListBuffer);
         densityShader.SetBuffer(compute_neighbor_list_kernel, "cube_corner_neighbor_tracker", cubeCornerNeighborTrackerBuffer);
+        densityShader.SetBuffer(compute_neighbor_list_kernel, "bound", bound_buffer);
 
         densityShader.SetBuffer(compute_density_kernel, "particles", particleManager.particle_buffer);
         densityShader.SetBuffer(compute_density_kernel, "voxel_density", pointDensitiesBuffer);
         densityShader.SetBuffer(compute_density_kernel, "points", pointsBuffer);
         densityShader.SetBuffer(compute_density_kernel, "cube_corner_neighbor_list", cubeCornerNeighborListBuffer);
         densityShader.SetBuffer(compute_density_kernel, "cube_corner_neighbor_tracker", cubeCornerNeighborTrackerBuffer);
+        densityShader.SetBuffer(compute_density_kernel, "bound", bound_buffer);
 
         densityShader.SetBuffer(compute_normal_kernel, "voxel_density", pointDensitiesBuffer);
         densityShader.SetBuffer(compute_normal_kernel, "normals", normal_buffer);
@@ -243,6 +249,7 @@ public class MeshManager : MonoBehaviour
     private void Update() {
         particleManager.UpdateParticles();
         UpdateDensities();
+        debug_density();
         UpdateTriangles();
         UpdateNormal();
         UpdateMesh();
@@ -267,6 +274,14 @@ public class MeshManager : MonoBehaviour
             numThreadsPerAxis[1], 
             numThreadsPerAxis[2]
         );
+    }
+
+    void debug_density()
+    {
+        float[] a = new float[100];
+        pointDensitiesBuffer.GetData(a);
+        Debug.Log("voxel");
+        for(int i = 0; i < 100; ++i) Debug.Log(a[i]);
     }
 
     private void UpdateTriangles() {

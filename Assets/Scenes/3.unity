@@ -220,9 +220,93 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56fd07c53fbebbf4ea6f4dcd702a136e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 10
+  speed: 100
   sensitivity: 1
   move: 1
+--- !u!1 &619208244
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 619208245}
+  - component: {fileID: 619208246}
+  m_Layer: 0
+  m_Name: fluid2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &619208245
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 619208244}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 1.0940814, y: -43.71434, z: 14.137329}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1377372596}
+  m_RootOrder: 1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &619208246
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 619208244}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 55c1c3fc007cca1448be905464440005, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  fluid_mesh: {fileID: 0}
+  material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
+  mass: 1
+  viscosity_coefficient: 10
+  particle_size: 2
+  radius: 1
+  grid_size: 2
+  gas_constant: 2000
+  dt: 0.0001
+  rest_density: 1000
+  damping: -0.5
+  bulk_modulus: 1000
+  position_offset: {x: 0, y: 0, z: 0}
+  velocity_initial: {x: 0, y: 0, z: 0}
+  g:
+  - 0
+  - -9.81
+  - 0
+  bound:
+  - -50
+  - 50
+  - -50
+  - 50
+  - -50
+  - 50
+  radius2: 0
+  radius3: 0
+  radius4: 0
+  radius5: 0
+  radius8: 0
+  mass2: 0
+  n_particle: 100000
+  max_particles_per_grid: 12
+  intial_particles_per_grid: 5
+  dimension: {x: 0, y: 0, z: 0}
+  dimension_array: 
+  n_point_per_axis: 84
+  isolevel: 0
+  compute_shader: {fileID: 7200000, guid: 5c35d7a4d03c4f84e81907863a3ea383, type: 3}
 --- !u!1 &974850393
 GameObject:
   m_ObjectHideFlags: 0
@@ -346,6 +430,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1423669800}
+  - {fileID: 619208245}
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -365,7 +450,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1423669800
 Transform:
   m_ObjectHideFlags: 0

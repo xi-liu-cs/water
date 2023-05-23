@@ -1,0 +1,276 @@
+#define _BLOCK_SIZE 256
+
+uint numBoids;
+float visualRange;
+float innerRange;
+int randomSeed;
+int state;
+
+float3 origin;
+
+float boundsX;
+float boundsY;
+float boundsZ;
+
+float gridCellSize;
+float dimensionsX;
+float dimensionsY;
+float dimensionsZ;
+
+float maxSpeed;
+float minSpeed;
+
+float deltaTime;
+float cohesionFactor;
+float separationFactor;
+float alignmentFactor;
+float sphFactor;
+float turnSpeed;
+
+uint numGridCells;
+
+uint numBlocks;
+uint d;
+
+struct Boid3D {
+    float3 position;
+    int3 gridIndices;
+    int projectedGridIndex;
+};
+struct particle {
+    float3 position;
+    float speed;
+    int isBoid;
+    int touchedByBoid;
+    float3 boidInfluence;
+};
+
+RWStructuredBuffer<Boid3D> boids;
+RWStructuredBuffer<float3> velocities;
+RWStructuredBuffer<int> offsets;
+
+RWStructuredBuffer<uint> rearrangedBoids;
+RWStructuredBuffer<int> grid;
+RWStructuredBuffer<int> gridOffsetBufferIn;
+RWStructuredBuffer<int> gridOffsetBuffer;
+RWStructuredBuffer<int> gridSumsBuffer;
+RWStructuredBuffer<int> gridSumsBufferIn;
+
+RWStructuredBuffer<particle> particles;
+RWStructuredBuffer<float3> particleVelocities;
+
+int3 GetGridXYZIndices(float3 position) {
+    return int3(
+        (int) floor((position[0]-(origin[0] - (dimensionsX * gridCellSize)/2.0)) / gridCellSize),
+        (int) floor((position[1]-(origin[1] - (dimensionsY * gridCellSize)/2.0)) / gridCellSize),
+        (int) floor((position[2]-(origin[2] - (dimensionsZ * gridCellSize)/2.0)) / gridCellSize)
+    );
+}
+
+int GetProjectedGridIndexFromXYZ(int3 xyz) {
+    return (dimensionsX * dimensionsY * xyz[2]) + (dimensionsX * xyz[1]) + xyz[0];
+}
+int GetProjectedGridIndexFromXYZ(int x, int y, int z) {
+    return (dimensionsX * dimensionsY * z) + (dimensionsX * y) + x;
+}
+
+
+#pragma kernel ClearGrid
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void ClearGrid(uint3 id : SV_DispatchThreadID) {
+    if (id.x > numGridCells) return;
+    grid[id.x] = 0;
+}
+
+#pragma kernel UpdateGridCellCounts
+[numthreads(_BLOCK_SIZE,1,1)]
+void UpdateGridCellCounts(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= numBoids) return;
+    Boid3D boid = boids[id.x];
+    int3 gridIndices = GetGridXYZIndices(boid.position);
+    int projectedGridIndex = GetProjectedGridIndexFromXYZ(gridIndices);
+    boid.gridIndices = gridIndices;
+    boid.projectedGridIndex = projectedGridIndex;
+    InterlockedAdd(grid[projectedGridIndex], 1, offsets[id.x]);
+    boids[id.x] = boid;
+}
+
+#pragma kernel PrefixSum
+groupshared int temp[_BLOCK_SIZE * 2];
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void PrefixSum(uint projectedCellID : SV_DispatchThreadID, uint threadID : SV_GroupThreadID, uint groupID : SV_GroupID) {
+    int pout = 0;
+    int pin = 1;
+    // Our input is `grid`
+    temp[threadID] = gridOffsetBufferIn[projectedCellID];
+    GroupMemoryBarrierWithGroupSync();
+
+    [unroll]
+    for(uint offset = 1; offset < _BLOCK_SIZE; offset *= 2) {
+        pout = 1 - pout;
+        pin = 1 - pin;
+        if (threadID >= offset) {
+            temp[pout * _BLOCK_SIZE + threadID] = temp[pin * _BLOCK_SIZE + threadID] + temp[pin * _BLOCK_SIZE + threadID - offset];
+        } else {
+            temp[pout * _BLOCK_SIZE + threadID] = temp[pin * _BLOCK_SIZE + threadID];
+        }
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (projectedCellID >= numGridCells) return;
+
+    // We output to `gridOffsetBuffer`
+    gridOffsetBuffer[projectedCellID] = temp[pout * _BLOCK_SIZE + threadID];
+    if (threadID == 0) {
+        // We output to `gridSumsBuffer2`
+        gridSumsBuffer[groupID] = temp[pout * _BLOCK_SIZE + _BLOCK_SIZE - 1];
+    }
+}
+
+#pragma kernel SumBlocks
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void SumBlocks(uint3 id : SV_DISPATCHTHREADID) {
+  if (id.x >= numBlocks) return;
+
+  uint k = id.x;
+  if (k < d) gridSumsBuffer[k] = gridSumsBufferIn[k];
+  else gridSumsBuffer[k] = gridSumsBufferIn[k] + gridSumsBufferIn[k - d];
+}
+
+#pragma kernel AddSums
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void AddSums(uint projectedGridIndex : SV_DispatchThreadID, uint groupID : SV_GroupID) {
+  if (groupID == 0 || projectedGridIndex > numGridCells) return;
+  // Output to `gridOffsetBuffer`
+  gridOffsetBuffer[projectedGridIndex] += gridSumsBufferIn[groupID - 1];
+}
+
+#pragma kernel RearrangeBoids
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void RearrangeBoids(uint3 id : SV_DispatchThreadID) {
+  if (id.x >= numBoids) return;
+  
+  int projectedGridIndex = boids[id.x].projectedGridIndex;
+  int index = gridOffsetBuffer[projectedGridIndex] - 1 - offsets[id.x];
+  rearrangedBoids[index] = id.x;
+}
+
+
+
+
+// Everything below is for boid stuff
+
+#pragma kernel GenerateGrid
+[numthreads(_BLOCK_SIZE,1,1)]
+void GenerateGrid(uint3 id : SV_DispatchThreadID) {
+  if (id.x >= numGridCells) return;
+  grid[id.x] = 0;
+}
+
+// Basic random generation
+float wangHash() {
+  state = (state ^ 61) ^(state >> 16);
+  state *= 9;
+  state = state ^(state >> 4);
+  state *= 0x27d4eb2d;
+  state = state ^(state >> 15);
+  return state / 4294967296.0;
+}
+
+float randRange(float a, float b) {
+  return wangHash() * (b - a) + a;
+}
+
+#pragma kernel GenerateBoids
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void GenerateBoids(uint3 id : SV_DispatchThreadID) {
+  if (id.x >= numBoids) return;
+  state = randomSeed + id.x;
+  boids[id.x].position = float3(
+    randRange(-((float)boundsX)/2.0, ((float)boundsX)/2.0), 
+    randRange(-((float)boundsY)/2.0, ((float)boundsY)/2.0), 
+    randRange(-((float)boundsZ)/2.0, ((float)boundsZ)/2.0)
+  );
+  velocities[id.x] = float3(
+    randRange(-maxSpeed, maxSpeed), 
+    randRange(-maxSpeed, maxSpeed), 
+    randRange(-maxSpeed, maxSpeed)
+  );
+}
+
+
+void MergedBehaviors(inout Boid3D boid, uint id) {
+  float3 center = 0;
+  float3 close = 0;
+  float3 avgVel = 0;
+  int neighbors = 0;
+
+  int zStep = dimensionsX * dimensionsY;
+
+  for (int z = boid.projectedGridIndex - zStep; z <= boid.projectedGridIndex + zStep; z += zStep) {
+    for (int y = z - dimensionsX; y <= z + dimensionsX; y += dimensionsX) {
+      int start = gridOffsetBuffer[y - 2];
+      int end = gridOffsetBuffer[y + 1];
+
+      for (int i = start; i < end; i++) {
+        uint otherId = rearrangedBoids[i];
+        float dist = distance(boid.position, boids[otherId].position);
+        if (dist > 0 && dist < visualRange) {
+          if (dist < innerRange) {
+            close += boid.position - boids[otherId].position;
+          }
+          center += boids[otherId].position;
+          avgVel += velocities[otherId];
+          neighbors++;
+        }
+      }
+    }
+  }
+
+  if (neighbors > 0) {
+    center /= neighbors;
+    avgVel /= neighbors;
+
+    velocities[id] += (center - boid.position) * (cohesionFactor * deltaTime);
+    velocities[id] += (avgVel - velocities[id]) * (alignmentFactor * deltaTime);
+  }
+
+  velocities[id] += close * (separationFactor * deltaTime);
+
+  //if (particles[id].)
+  //velocities[id] += float3(0,-9.81,0) * deltaTime;
+  velocities[id] += particleVelocities[id] * sphFactor;
+}
+
+void LimitSpeed(inout Boid3D boid, uint id) {
+  float speed = length(velocities[id]);
+  if (speed > maxSpeed) velocities[id] = (velocities[id] / speed) * maxSpeed;
+  else if (speed < minSpeed) velocities[id] = (velocities[id] / speed) * minSpeed;
+}
+
+void KeepInBounds(inout Boid3D boid, uint id) {
+  float3 v = velocities[id];
+
+  if (boid.position[0] < origin.x - boundsX/2.0) v[0] += deltaTime * turnSpeed;
+  else if (boid.position[0] > origin.x + boundsX/2.0) v[0] -= deltaTime * turnSpeed;
+
+  if (boid.position[1] < origin.y - boundsY/2.0) v[1] += deltaTime * turnSpeed;
+  else if (boid.position[1] > origin.y + boundsY/2.0) v[1] -= deltaTime * turnSpeed;
+
+  if (boid.position[2] < origin.z - boundsZ/2.0) v[2] += deltaTime * turnSpeed;
+  else if (boid.position[2] > origin.z + boundsZ/2.0) v[2] -= deltaTime * turnSpeed;
+
+  velocities[id] = v;
+}
+
+# pragma kernel UpdateBoids
+[numthreads(_BLOCK_SIZE, 1, 1)]
+void UpdateBoids(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= numBoids) return;
+    Boid3D boid = boids[id.x];
+    MergedBehaviors(boid, id.x);
+    LimitSpeed(boid, id.x);
+    KeepInBounds(boid, id.x);
+    boid.position += velocities[id.x] * deltaTime;
+    boids[id.x] = boid;
+}

@@ -1,0 +1,46 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel main
+
+struct Boid
+{
+    float3 position;
+    float3 forward;
+};
+
+#define BLOCK_SIZE 32
+
+groupshared Boid prefix_sums[BLOCK_SIZE];
+
+StructuredBuffer<Boid> boidsBuffer;
+RWStructuredBuffer<Boid> boidsPrefixSumBuffer;   
+
+[numthreads(BLOCK_SIZE,1,1)]
+void main (uint3 threadID : SV_GroupThreadID, uint3 dispatchID : SV_DispatchThreadID) {
+    // copy first element to thread group shared buffer
+    prefix_sums[threadID.x] = boidsBuffer[dispatchID.x];
+
+     // add the elements around the first element
+    // each thread checks 1, 2, 4, 8, 16 locations apart
+    for (uint t = 1; t < BLOCK_SIZE; t <<= 1) {
+        // wait for other threads to write
+        GroupMemoryBarrierWithGroupSync();
+
+        // do the addition
+        Boid tmp = prefix_sums[threadID.x];
+        if (threadID.x >= t)
+        {
+            const Boid other = prefix_sums[threadID.x - t];
+            tmp.forward += other.forward;
+            tmp.position += other.position;
+        }
+
+        // wait for other threads to load
+        GroupMemoryBarrierWithGroupSync();
+
+        // write the result of the addition
+        prefix_sums[threadID.x] = tmp;
+    }
+
+    // write the result of addition for each thread
+    boidsPrefixSumBuffer[dispatchID.x] = prefix_sums[threadID.x];
+}

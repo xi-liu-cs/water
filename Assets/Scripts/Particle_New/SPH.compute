@@ -11,6 +11,8 @@ float pi;                       // Mathf.PI
 
 // == PARTICLE CONFIGURATIONS ==
 uint numParticles;              // How many particles will we use in the simulation?
+uint numBoids;                  // How many boids are a part of the simulation?
+uint numPointsOnObstacles;
 float particleRenderRadius;     // How big (visually only!) are each particle? For CubeVolume method, this is pretty important
 // NEEDS TO BE INCORPORATED
 uint numParticlesPerGridCell;   // How many particles can we realistically fit into each grid cell? Calculated from particle render size.
@@ -44,6 +46,15 @@ int state;
 // == STRUCTS ==
 struct particle {
     float3 position;
+    float speed;
+    int isBoid;
+    int touchedByBoid;
+    float3 boidInfluence;
+};
+struct Boid {
+    float3 position;
+    int3 gridIndices;
+    int projectedGridIndex;
 };
 
 // == BUFFERS ==
@@ -56,6 +67,9 @@ RWStructuredBuffer<uint> grid;
 // Stores all particle data in the system. 
     // Length = numParticles
 RWStructuredBuffer<particle> particles;
+// Stores all boid data in the other manager.
+RWStructuredBuffer<Boid> boids;
+RWStructuredBuffer<float3> boidVelocities;
 // Stores the "offsets" of each particle.
     // Length = numParticles
     // For example, each grid cell has `n` number of particles; `offset` is the index of the particle in their grid cell (max: `n-1`)
@@ -173,6 +187,11 @@ void GenerateParticles(uint3 id : SV_DispatchThreadID) {
     // Debug position - only use for one particle if needed
     //float3 position = origin - bounds/2.0 + float3(20.1,20.1,20.1);
     particles[id.x].position = position;
+    particles[id.x].speed = 0;
+    if (id.x < numBoids) particles[id.x].isBoid = 1;
+    else particles[id.x].isBoid = 0;
+    particles[id.x].touchedByBoid = 0;
+    particles[id.x].boidInfluence = float3(0,0,0);
     density[id.x] = 0;
     pressure[id.x] = 0;
     force[id.x] = float3(0,0,0);
@@ -379,16 +398,6 @@ void CV_ComputeDensity(uint3 id : SV_DispatchThreadID) {
             uint otherId = particleNeighbors[j];
             if (otherId == id.x) continue;
             _density += CalculateDensity(id.x, otherId);
-            /*
-            float3 diffPosition = p.position - particles[otherId].position;
-            float diffSquare = dot(diffPosition, diffPosition);
-            if (diffSquare > radius2) continue; 
-            float z = radius2 - diffSquare;
-            float modDensity = ((4.0 * particleMass) / (pi * radius16)) * pow(z,3);
-            if (modDensity < 0.0001) continue;
-            _density += modDensity;
-            */
-            
         }
     }
 
@@ -413,7 +422,15 @@ float3 CalculateAcceleration(uint currentIndex, uint otherIndex) {
     float wZero = (particleMass * u) / (pi * radius4 * currentDensity * neighborDensity);
     float wP = wZero * 15.0 * bulkModulus * (currentDensity + neighborDensity - (2.0 * rest_density)) * (u/q);
     float wV = wZero * 40.0 * viscosity_coefficient;
-    return wP * diffPosition - wV * diffVelocity;
+
+    float3 toReturn = wP * diffPosition - wV * diffVelocity;
+
+    if (particles[otherIndex].isBoid > 0) {
+        particles[currentIndex].touchedByBoid += 1;
+        particles[currentIndex].boidInfluence += toReturn;
+    }
+
+    return toReturn;
 }
 
 #pragma kernel PS_ComputeInteractAcceleration
@@ -421,8 +438,9 @@ float3 CalculateAcceleration(uint currentIndex, uint otherIndex) {
 void PS_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
 
-    particle p = particles[id.x];
-    int projected_index = GetProjectedGridIndexFromGivenPosition(p.position); 
+    particles[id.x].boidInfluence = float3(0,0,0);
+    particles[id.x].touchedByBoid = 0;
+    int projected_index = GetProjectedGridIndexFromGivenPosition(particles[id.x].position); 
     float3 _acceleration = float3(0,0,0);
 
     int zStep = numCellsPerAxis[0] * numCellsPerAxis[1];
@@ -447,11 +465,11 @@ void PS_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
 void CV_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
 
-    particle p = particles[id.x];
+    particles[id.x].boidInfluence = float3(0,0,0);
+    particles[id.x].touchedByBoid = 0;
     float3 _acceleration = float3(0,0,0);
-
     int neighborCells[27];
-    GetNeighborCellProjectedIDs(GetGridXYZIndices(p.position), neighborCells);
+    GetNeighborCellProjectedIDs(GetGridXYZIndices(particles[id.x].position), neighborCells);
     for(int i = 0; i < 27; i++) {
         int neighborProjectedID = neighborCells[i];
         if (neighborProjectedID == -1) break;
@@ -461,6 +479,8 @@ void CV_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
             uint otherId = particleNeighbors[j];
             // Skip if we encountered each other
             if (otherId == id.x) continue;
+            // Skip if both are boids
+            if (particles[id.x].isBoid == 1 && particles[otherId].isBoid == 1) continue;
             /*
             float neighborDensity = density[otherId];
             float3 diffPosition = p.position - particles[otherId].position;
@@ -488,11 +508,12 @@ void CV_ComputeInteractAcceleration(uint3 id : SV_DispatchThreadID) {
 void ComputeExternalAcceleration(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numParticles) return;
     particle p = particles[id.x];
-    
+    float3 sumForces = float3(0,0,0);
+
     float3 gravityForce = g * particleMass;
     
     // Additional forces can be applied here!
-    float3 sumForces = gravityForce;
+    if (p.isBoid == 0) sumForces += gravityForce;
 
     force[id.x] += sumForces / particleMass;
 }
@@ -506,8 +527,10 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
     float3 v = velocity[id.x];
 
     v += dt * force[id.x];
-    p.position += dt * v;
-    
+    if (id.x >= numBoids+numPointsOnObstacles) p.position += dt * v;
+    float3 bInf = dt * p.boidInfluence;
+    p.boidInfluence = bInf;
+
     particles[id.x] = p;
     velocity[id.x] = v;
 }
@@ -515,7 +538,7 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
 #pragma kernel DampenByBounds
 [numthreads(_BLOCK_SIZE,1,1)]
 void DampenByBounds(uint3 id : SV_DispatchThreadID) {
-    if (id.x >= numParticles) return;
+    if (id.x < numBoids+numPointsOnObstacles || id.x >= numParticles) return;
     
     particle p = particles[id.x];
     float3 v = velocity[id.x];
@@ -562,5 +585,21 @@ void DampenByBounds(uint3 id : SV_DispatchThreadID) {
     //}
 
     velocity[id.x] = v;
+    p.speed = abs(length(v));
     particles[id.x] = p;
+}
+
+#pragma kernel IntegrateBoidsParticles
+[numthreads(_BLOCK_SIZE,1,1)]
+void IntegrateBoidsParticles(uint3 id : SV_DispatchThreadID) {
+    if (id.x >= numBoids) return;
+    particles[id.x].position = boids[id.x].position;
+    velocity[id.x] = boidVelocities[id.x];
+}
+
+#pragma kernel IntegrateObstacleParticles
+[numthreads(_BLOCK_SIZE, 1,1)]
+void IntegrateObstacleParticles(uint3 id : SV_DispatchThreadID) {
+    if (id.x < numBoids || id.x >= numBoids + numPointsOnObstacles) return;
+    
 }
