@@ -950,16 +950,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f7137f881d7d30744b48482fdf0836a5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particle_mesh: {fileID: 4300000, guid: 9a818e172ec464d5ea40b0084b0f92d7, type: 3}
+  particle_mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
   fluid_mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 8ab985200bd114041a66a7d2dd1b0929, type: 2}
   mass: 1
-  viscosity_coefficient: 0.1
+  viscosity_coefficient: 10
   particle_size: 2
   radius: 2
   grid_size: 2
   gas_constant: 2000
-  dt: 0.0001
+  dt: 0.001
   rest_density: 1000
   damping: -0.5
   position_offset: {x: 0, y: 0, z: 0}

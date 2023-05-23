@@ -99,7 +99,7 @@ void malloc_particle(uint3 id : SV_DispatchThreadID)
 {
     if(id.x >= n_particle) return;
     s = seed + id.x;
-    particles[id.x].position = float3(random_range(bound[0], bound[1]), random_range(bound[2], bound[3]), random_range(bound[4], bound[5])); /* particles[id.x].position = float3(noise_range(float3(id), bound[0], bound[1]), noise_range(float3(id), bound[2], bound[3]), noise_range(float3(id), bound[4], bound[5])); */
+    particles[id.x].position = 0.5 * float3(random_range(bound[0], bound[1]), random_range(bound[2], bound[3]), random_range(bound[4], bound[5])); /* particles[id.x].position = float3(noise_range(float3(id), bound[0], bound[1]), noise_range(float3(id), bound[2], bound[3]), noise_range(float3(id), bound[4], bound[5])); */
     particles[id.x].velocity = float3(0., 0., 0.);
     particles[id.x].acceleration = float3(0., 0., 0.);
     particles[id.x].density = 0.;
