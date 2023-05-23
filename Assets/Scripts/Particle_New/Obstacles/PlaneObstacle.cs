@@ -71,12 +71,14 @@ public class PlaneObstacle : MonoBehaviour
 
         // Initialize some local-global variables
         Mesh mesh = meshFilter.sharedMesh;
+        int vertIndex = 0;
 
         // First, we initialize a map so that if we call any verts from the mesh, we'll have a map to the new vertices map        
         oldToNewVertMap = new int[mesh.vertices.Length];
         // Second, we initialize our new vertex list and our normals list
         vertices = new List<float3>();
         normals = new List<float3>();
+        List<int> normalCounts = new List<int>();
         
         // We iterate through the existing vertices array
         for(int i = 0; i < mesh.vertices.Length; i++) {
@@ -95,10 +97,21 @@ public class PlaneObstacle : MonoBehaviour
             if (!vertices.Contains(newVert)) {
                 vertices.Add(newVert);
                 normals.Add(norm);
+                vertIndex = vertices.IndexOf(newVert);
+                normalCounts.Add(1);
+            } else {
+                // Since this one does exist, we merely grab the vert index and update the normal associated with it
+                vertIndex = vertices.IndexOf(newVert);
+                normals[vertIndex] = normals[vertIndex] + norm;
+                normalCounts[vertIndex] = normalCounts[vertIndex] + 1;
             }
             // Get the index, then set the mapping
-            int vertIndex = vertices.IndexOf(newVert);
             oldToNewVertMap[i] = vertIndex;
+        }
+
+        // As a last step, we normalize the normals
+        for(int i = 0; i < normals.Count; i++) {
+            normals[i] = normals[i] / (float)normalCounts[i];
         }
     }
 

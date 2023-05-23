@@ -39,151 +39,151 @@
      <Compile Include="Assets\Scripts\Particle\march_table.cs" />
      <Compile Include="Assets\Scripts\March Cube\MeshBuilder.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\FirstPersonCamera.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Characters\FirstPersonCharacter\Scripts\FirstPersonController.cs" />
+     <Compile Include="Assets\Scripts\Boids\Deprecated\Obstacle.cs" />
      <Compile Include="Assets\Scripts\March Fluid\mesh_fluid_generator.cs" />
-     <Compile Include="Assets\Scripts\Particle\cuda.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\FleeUnit.cs" />
-     <Compile Include="Assets\Scripts\March\density_generator.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Flee.cs" />
-     <Compile Include="Assets\Scripts\Cave\MeshGenerator.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Wander2Unit.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\TargetFieldOfView.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\DynamicShadowSettings.cs" />
-     <Compile Include="Assets\Scripts\March Cube\VolumeDataVisualizer.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Utility\SimpleMouseRotator.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\CollisionAvoidance.cs" />
      <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\ButtonHandler.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\LerpControlledBob.cs" />
-     <Compile Include="Assets\Scripts\Cave\SeaWorldColours.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\PlatformSpecificContent.cs" />
      <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\VirtualInput.cs" />
-     <Compile Include="Assets\Scripts\Input\input.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\ProtectCameraFromWallClip.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\OffsetPursuit.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\ThirdPersonUnit.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Environment\Water\Water\Scripts\Displace.cs" />
-     <Compile Include="Assets\Scripts\Cave\Chunk.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\HandHeldCam.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\AbstractTargetFollower.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\ArriveUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\OffsetPursuitUnit.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Utility\SmoothFollow.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\FreeLookCam.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\HideUnit.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacleTest.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Environment\Water\Water\Scripts\PlanarReflection.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\LinePath.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\TimedObjectActivator.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\NearSensor.cs" />
-     <Compile Include="Assets\Scripts\March Cube\TriangleTable.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Camera\InfiniteGrid.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Environment\Water (Basic)\Scripts\WaterBasic.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid_gpu.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Spawner.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Utility\WaypointCircuit.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\CameraRefocus.cs" />
      <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\TouchPad.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\CameraMovement.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\FlockingUnit.cs" />
      <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\Joystick.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\TiltInput.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Wander2.cs" />
+     <Compile Include="Assets\Scripts\Cave\NoiseDensity.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\FollowPathUnit.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\AutoCam.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\_InspectorAttributes\HelpAttribute.cs" />
+     <Compile Include="Assets\Scripts\Particle\spatial_hash.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Utility\CurveControlledBob.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\MovementAIRigidbody.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Characters\FirstPersonCharacter\Scripts\MouseLook.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\WallAvoidanceUnit.cs" />
+     <Compile Include="Assets\Scripts\Boids\Deprecated\BoidManager2.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Characters\FirstPersonCharacter\Scripts\RigidbodyFirstPersonController.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Environment\Water\Water\Scripts\GerstnerDisplace.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\PivotBasedCameraRig.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PointCloudObstacleManager.cs" />
+     <Compile Include="Assets\Scripts\Water\fog_start.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\MeshManager.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\density_generator_2.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Utility\AutoMoveAndRotate.cs" />
+     <Compile Include="Assets\Scripts\Collider\collider.cs" />
+     <Compile Include="Assets\TestMeshGenerator.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\GoDirectionUnit.cs" />
+     <Compile Include="Assets\Scripts\March\mesh_generator.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacle.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\PlatformSpecific\MobileInput.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\WanderAvoidUnit.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\SeekUnit.cs" />
+     <Compile Include="Assets\Scripts\Water\water_start.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\ScreenBoundary2D.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\FollowPath.cs" />
+     <Compile Include="Assets\Style\BarracudaStyleTransfer.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Camera\ThirdPersonCamera.cs" />
+     <Compile Include="Assets\Scripts\March Cube\NoiseFieldVisualizer.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\ReadOnlyAttribute.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Utility\FPSCounter.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Utility\SimpleActivatorMenu.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Characters\FirstPersonCharacter\Scripts\FirstPersonController.cs" />
+     <Compile Include="Assets\Scripts\Particle\cuda.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\mesh_generator_2.cs" />
+     <Compile Include="Assets\Scripts\Boids\Deprecated\BoidManager_GPU.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\FleeUnit.cs" />
+     <Compile Include="Assets\Scripts\March\density_generator.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Flee.cs" />
+     <Compile Include="Assets\Scripts\Cave\MeshGenerator.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\TargetFieldOfView.cs" />
+     <Compile Include="Assets\Scripts\March Cube\VolumeDataVisualizer.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Utility\SimpleMouseRotator.cs" />
+     <Compile Include="Assets\Scripts\Cave\SeaWorldColours.cs" />
+     <Compile Include="Assets\Scripts\Input\input.cs" />
+     <Compile Include="Assets\Scripts\Boids\Boids3D.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\fluid_gpu_2.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\OffsetPursuit.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\ThirdPersonUnit.cs" />
+     <Compile Include="Assets\Scripts\Cave\Chunk.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\AbstractTargetFollower.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Utility\SmoothFollow.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\HideUnit.cs" />
+     <Compile Include="Assets\Scripts\Boids\ObstacleManager.cs" />
+     <Compile Include="Assets\Scripts\Boids\Boid3DHelpers.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\LinePath.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\NearSensor.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Camera\InfiniteGrid.cs" />
+     <Compile Include="Assets\Scripts\March Cube\TriangleTable.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Spawner.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\noise_density_2.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Utility\WaypointCircuit.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\TimedObjectDestructor.cs" />
      <Compile Include="Assets\Scripts\March\noise_density.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Cohesion.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Environment\Water\Water\Scripts\WaterTile.cs" />
      <Compile Include="Assets\Scripts\March Cube\Util.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\TiltInput.cs" />
+     <Compile Include="Assets\Fog\Standard Assets\Environment\Water\Water\Scripts\WaterTile.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\WallAvoidance.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Wander2.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\ParticleManager.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Environment\Water\Water\Scripts\SpecularLighting.cs" />
-     <Compile Include="Assets\Scripts\Cave\NoiseDensity.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\FollowPathUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Wander1.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\AutoCam.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\WaypointProgressTracker.cs" />
      <Compile Include="Assets\Style\TextureScaler.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\DragRigidbody.cs" />
      <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\PlatformSpecific\StandaloneInput.cs" />
      <Compile Include="Assets\Scripts\Rov\rov.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PointCloudObstacle.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid.cs" />
-     <Compile Include="Assets\Scripts\Particle\spatial_hash.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Environment\Water\Water\Scripts\WaterBase.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Wander1Unit.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Environment\Water\Water\Scripts\MeshContainer.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\InterposeUnit.cs" />
      <Compile Include="Assets\Style\StyleData.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Utility\CurveControlledBob.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\Grid3D.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\FollowTarget.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\MovementAIRigidbody.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Characters\FirstPersonCharacter\Scripts\MouseLook.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid_cpu.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\WallAvoidanceUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Evade.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\EvadeUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Pursue.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\ForcedReset.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\ParticleSystemDestroyer.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\ObjectResetter.cs" />
+     <Compile Include="Assets\Scripts\Boids\TestGrid.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\AutoMobileShaderSwitch.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Characters\FirstPersonCharacter\Scripts\RigidbodyFirstPersonController.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\AlphaButtonClickMask.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Environment\Water\Water\Scripts\GerstnerDisplace.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\PivotBasedCameraRig.cs" />
-     <Compile Include="Assets\Scripts\Water\fog_start.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Utility\AutoMoveAndRotate.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\FOVKick.cs" />
-     <Compile Include="Assets\Scripts\Collider\collider.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\ScreenBoundary3D.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Hide.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\GoDirectionUnit.cs" />
-     <Compile Include="Assets\Scripts\March\mesh_generator.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Separation.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\VelocityMatch.cs" />
      <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\CrossPlatformInputManager.cs" />
+     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacleManager.cs" />
      <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\InputAxisScrollbar.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\EventSystemChecker.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\PlatformSpecific\MobileInput.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Utility\ActivateTrigger.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\WanderAvoidUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\ColAvoidUnit.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\SeekUnit.cs" />
-     <Compile Include="Assets\Scripts\Water\water_start.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Environment\Water\Water\Scripts\Water.cs" />
      <Compile Include="Assets\Scripts\Cave\DensityGenerator.cs" />
      <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\MobileControlRig.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\PursueUnit.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Characters\FirstPersonCharacter\Scripts\HeadBob.cs" />
      <Compile Include="Assets\Fog\Standard Assets\Cameras\Scripts\LookatTarget.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\ScreenBoundary2D.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\FollowPath.cs" />
-     <Compile Include="Assets\Style\BarracudaStyleTransfer.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Camera\ThirdPersonCamera.cs" />
      <Compile Include="Assets\Fog\Standard Assets\CrossPlatformInput\Scripts\AxisTouchButton.cs" />
-     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
-     <Compile Include="Assets\Scripts\March Cube\NoiseFieldVisualizer.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Utility\FPSCounter.cs" />
-     <Compile Include="Assets\Fog\Standard Assets\Utility\SimpleActivatorMenu.cs" />
-     <Compile Include="Assets\Scripts\Boids\Deprecated\Obstacle.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\mesh_generator_2.cs" />
-     <Compile Include="Assets\Scripts\Boids\Deprecated\BoidManager_GPU.cs" />
-     <Compile Include="Assets\Scripts\Boids\Boids3D.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\fluid_gpu_2.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacleTest.cs" />
-     <Compile Include="Assets\Scripts\Boids\ObstacleManager.cs" />
-     <Compile Include="Assets\Scripts\Boids\Boid3DHelpers.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\noise_density_2.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\ParticleManager.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\_InspectorAttributes\HelpAttribute.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PointCloudObstacle.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\Grid3D.cs" />
-     <Compile Include="Assets\Scripts\Boids\Deprecated\BoidManager2.cs" />
-     <Compile Include="Assets\Scripts\Boids\TestGrid.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PointCloudObstacleManager.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\MeshManager.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\density_generator_2.cs" />
-     <Compile Include="Assets\TestMeshGenerator.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacle.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacleManager.cs" />
      <Compile Include="Assets\Scripts\Boids\Deprecated\BoidManager.cs" />
-     <Compile Include="Assets\Scripts\Particle_New\ReadOnlyAttribute.cs" />
+     <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Fog\Standard Assets\Effects\Projectors\Shaders\ProjectorLight.shader" />
@@ -239,6 +239,7 @@
      <None Include="Assets\Scripts\March\noise.compute" />
      <None Include="Assets\Scripts\Seafloor\seafloor.shader" />
      <None Include="Assets\Style\Resources\BFrameGenerator.compute" />
+     <None Include="Assets\Scripts\Particle_New\OldFilesWithMods\particle_opacity.shader" />
      <None Include="Assets\Scripts\March\noise_density.compute" />
      <None Include="Assets\Scripts\March\water.shader" />
      <None Include="Assets\Scripts\Particle_New\OldFilesWithMods\march_2.compute" />
@@ -894,29 +895,32 @@
     <Reference Include="System.Xml.Serialization">
         <HintPath>C:\Program Files\Unity\Hub\Editor\2021.3.11f1\Editor\Data\NetStandard\compat\2.1.0\shims\netfx\System.Xml.Serialization.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.ML-Agents">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.ML-Agents.dll</HintPath>
-    </Reference>
     <Reference Include="Unity.Barracuda.iOSBLAS">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Barracuda.iOSBLAS.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.Barracuda.ONNX">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Barracuda.ONNX.dll</HintPath>
+    <Reference Include="Unity.VisualEffectGraph.Editor">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.VisualEffectGraph.Editor.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.ML-Agents">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.ML-Agents.dll</HintPath>
     </Reference>
     <Reference Include="Unity.VSCode.Editor">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.VSCode.Editor.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.Barracuda.BurstBLAS">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Barracuda.BurstBLAS.dll</HintPath>
+    <Reference Include="Unity.Barracuda.ONNX">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Barracuda.ONNX.dll</HintPath>
     </Reference>
     <Reference Include="Unity.TextMeshPro.Editor">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.TextMeshPro.Editor.dll</HintPath>
     </Reference>
+    <Reference Include="Unity.Barracuda">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Barracuda.dll</HintPath>
+    </Reference>
     <Reference Include="Unity.VisualStudio.Editor">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.VisualStudio.Editor.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.Barracuda">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Barracuda.dll</HintPath>
+    <Reference Include="Unity.VisualEffectGraph.Runtime">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.VisualEffectGraph.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Timeline">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Timeline.dll</HintPath>
@@ -926,6 +930,12 @@
     </Reference>
     <Reference Include="Unity.Burst.Editor">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Burst.Editor.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.Searcher.Editor">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Searcher.Editor.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.RenderPipelines.Core.Runtime">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.RenderPipelines.Core.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Postprocessing.Editor">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Postprocessing.Editor.dll</HintPath>
@@ -939,6 +949,9 @@
     <Reference Include="Unity.Rider.Editor">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Rider.Editor.dll</HintPath>
     </Reference>
+    <Reference Include="Unity.RenderPipelines.Core.ShaderLibrary">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.RenderPipelines.Core.ShaderLibrary.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.UI">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\UnityEngine.UI.dll</HintPath>
     </Reference>
@@ -951,6 +964,9 @@
     <Reference Include="Unity.Mathematics">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Mathematics.dll</HintPath>
     </Reference>
+    <Reference Include="Unity.ShaderGraph.Editor">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.ShaderGraph.Editor.dll</HintPath>
+    </Reference>
     <Reference Include="Unity.Services.Core.Analytics">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Services.Core.Analytics.dll</HintPath>
     </Reference>
@@ -960,11 +976,17 @@
     <Reference Include="Unity.Postprocessing.Runtime">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Postprocessing.Runtime.dll</HintPath>
     </Reference>
+    <Reference Include="Unity.Barracuda.BurstBLAS">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Barracuda.BurstBLAS.dll</HintPath>
+    </Reference>
     <Reference Include="Unity.Services.Core.Environments">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Services.Core.Environments.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Timeline.Editor">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Timeline.Editor.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.RenderPipelines.ShaderGraph.ShaderGraphLibrary">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.RenderPipelines.ShaderGraph.ShaderGraphLibrary.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Mathematics.Editor">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Mathematics.Editor.dll</HintPath>
@@ -975,35 +997,14 @@
     <Reference Include="Unity.Barracuda.Editor">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Barracuda.Editor.dll</HintPath>
     </Reference>
+    <Reference Include="Unity.RenderPipelines.Core.Editor">
+        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.RenderPipelines.Core.Editor.dll</HintPath>
+    </Reference>
     <Reference Include="Unity.Barracuda.MacBLAS">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Barracuda.MacBLAS.dll</HintPath>
     </Reference>
     <Reference Include="Unity.ML-Agents.Editor">
         <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.ML-Agents.Editor.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.VisualEffectGraph.Editor">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.VisualEffectGraph.Editor.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.VisualEffectGraph.Runtime">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.VisualEffectGraph.Runtime.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.RenderPipelines.Core.Runtime">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.RenderPipelines.Core.Runtime.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.Searcher.Editor">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.Searcher.Editor.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.RenderPipelines.Core.Editor">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.RenderPipelines.Core.Editor.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.RenderPipelines.Core.ShaderLibrary">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.RenderPipelines.Core.ShaderLibrary.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.RenderPipelines.ShaderGraph.ShaderGraphLibrary">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.RenderPipelines.ShaderGraph.ShaderGraphLibrary.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.ShaderGraph.Editor">
-        <HintPath>C:\Users\Owner\Desktop\water\Library\ScriptAssemblies\Unity.ShaderGraph.Editor.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
