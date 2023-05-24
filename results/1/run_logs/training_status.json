@@ -63,15 +63,33 @@
                 "auxillary_file_paths": [
                     "results\\1\\rov\\rov-192.pt"
                 ]
+            },
+            {
+                "steps": 384,
+                "file_path": "results\\1\\rov\\rov-384.onnx",
+                "reward": null,
+                "creation_time": 1684953189.4000158,
+                "auxillary_file_paths": [
+                    "results\\1\\rov\\rov-384.pt"
+                ]
+            },
+            {
+                "steps": 3840,
+                "file_path": "results\\1\\rov\\rov-3840.onnx",
+                "reward": null,
+                "creation_time": 1684968397.2752097,
+                "auxillary_file_paths": [
+                    "results\\1\\rov\\rov-3840.pt"
+                ]
             }
         ],
         "final_checkpoint": {
-            "steps": 192,
+            "steps": 3840,
             "file_path": "results\\1\\rov.onnx",
             "reward": null,
-            "creation_time": 1684891955.605321,
+            "creation_time": 1684968397.2752097,
             "auxillary_file_paths": [
-                "results\\1\\rov\\rov-192.pt"
+                "results\\1\\rov\\rov-3840.pt"
             ]
         }
     }

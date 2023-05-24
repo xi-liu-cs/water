@@ -6,13 +6,13 @@ using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
 
-public class rov2 : Agent
+public class rov_old : Agent
 {
     Rigidbody rigid_body;
     public Transform target;
     public Vector3 initial_position;
-    public float speed = 100f,
-    sensitivity = 10f,
+    public float speed = 1f,
+    sensitivity = 1f,
     force_multiplier = 10f;
     
     void Start()
