@@ -10,11 +10,14 @@ public class PlaneObstacleManagerEditor : Editor
         PlaneObstacleManager manager = (PlaneObstacleManager)target;
         DrawDefaultInspector();
         
-        if (GUILayout.Button("Initialize")) {
-            manager.Initialize();
+        if (GUILayout.Button("Preprocess Planes")) {
+            manager.PreprocessPlanes();
+        }
+        if (GUILayout.Button("Reorder Vertices")) {
+            manager.ReorderVertices();
         }
         if (GUILayout.Button("Check If Intersecting")) {
-            manager.CheckIfIntersecting();
+            manager.DebugCheckIfIntersecting();
         }
         /*
         if(GUILayout.Button("Update Buffers")) {

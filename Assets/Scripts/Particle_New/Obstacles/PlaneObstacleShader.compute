@@ -1,0 +1,171 @@
+// GPU SETTINGS 
+#define _BLOCK_SIZE 1024        // How many threads can a thread group have?
+uint numBlocks;                 // number of thread groups that run on the GPU
+
+// VARIABLES
+float3 origin;
+int3 numCellsPerAxis;
+float gridCellSize;
+float3 bounds;
+
+uint numParticles;
+uint numBoids;
+
+// == STRUCTS ==
+struct Particle {
+    float3 position;
+    float speed;
+    int isBoid;
+    int touchedByBoid;
+    float3 boidInfluence;
+};
+struct Obstacle {
+    int index;
+    float3 position;
+    float4 rotation;
+    float3 scale;
+    int verticesStart;
+    int verticesCount;
+    int hasChanged;
+};
+struct ObstaclePlane {
+    int obstacleIndex;
+    float3 vertex1;
+    float3 vertex2;
+    float3 vertex3;
+    float3 center;
+    float3 normalVector;
+};
+
+// == BUFFERS ==
+RWStructuredBuffer<Particle> particles;         
+RWStructuredBuffer<Obstacle> obstacles;
+RWStructuredBuffer<float3> obstacleVertices;
+RWStructuredBuffer<ObstaclePlane> obstaclePlanes;
+RWStructuredBuffer<int> vertexTriangleMap;
+RWStructuredBuffer<int3> vertexTriangleCount;
+RWStructuredBuffer<int> vertexBuckets;
+RWStructuredBuffer<int2> vertexBucketCounts;
+
+// == HELPER FUNCTIONS ==
+// Given a world space position, what are the XYZ indices of the position's current cell?
+int3 GetGridXYZIndices(float3 position) {
+    return int3(
+        floor((position[0] - (origin[0] - (numCellsPerAxis[0] * gridCellSize)/2.0))/gridCellSize),
+        floor((position[1] - (origin[1] - (numCellsPerAxis[1] * gridCellSize)/2.0))/gridCellSize),
+        floor((position[2] - (origin[2] - (numCellsPerAxis[2] * gridCellSize)/2.0))/gridCellSize)
+    );
+}
+// Given an XYZ grid index, what is the projected 1D index?
+int GetProjectedGridIndexFromXYZ(int3 xyz) {
+    return xyz.x + (numCellsPerAxis[0] * xyz.y) + (numCellsPerAxis[0] * numCellsPerAxis[1] * xyz.z);
+}
+// Given a world space position, what is the projected 1D index of the position's current cell?
+int GetProjectedGridIndexFromGivenPosition(float3 position) {
+    int3 xyz = GetGridXYZIndices(position);
+    return GetProjectedGridIndexFromXYZ(xyz);
+}
+
+float3 RotMultVec3(float4 quat, float3 vec){
+    float num = quat[0] * 2.0;
+    float num2 = quat[1] * 2.0;
+    float num3 = quat[2] * 2.0;
+    float num4 = quat[0] * num;
+    float num5 = quat[1] * num2;
+    float num6 = quat[2] * num3;
+    float num7 = quat[0] * num2;
+    float num8 = quat[0] * num3;
+    float num9 = quat[1] * num3;
+    float num10 = quat[3] * num;
+    float num11 = quat[3] * num2;
+    float num12 = quat[3] * num3;
+    float3 result = float3(
+        (1.0 - (num5 + num6)) * vec[0] + (num7 - num12) * vec[1] + (num8 + num11) * vec[2],
+        (num7 + num12) * vec[0] + (1.0 - (num4 + num6)) * vec[1] + (num9 - num10) * vec[2],
+        (num8 - num11) * vec[0] + (num9 + num10) * vec[1] + (1.0 - (num4 + num5)) * vec[2]
+    );
+    return result;
+}
+float3 LocalPointToWorldPoint(Obstacle obstacle, float3 localPoint) {
+    float3 s = float3(
+        localPoint[0] * obstacle.scale[0], 
+        localPoint[1] * obstacle.scale[1], 
+        localPoint[2] * obstacle.scale[2]
+    );
+    float3 rotvec = RotMultVec3(obstacle.rotation, s);
+    return float3(
+        rotvec[0] + obstacle.position[0], 
+        rotvec[1] + obstacle.position[1], 
+        rotvec[2] + obstacle.position[2]
+    );
+}
+
+int GetClosestVertexIndex(float3 pos, out Obstacle closestObstacle) {
+    int closestIndex = -1;
+    float closestDistance = 0.0;
+    closestObstacle = obstacles[vertexTriangleCount[0][0]];
+        
+    float dist;
+    float3 worldVertex;
+    Obstacle obstacle;
+
+    // return early if our position is outside the bounds of the grid
+    if (
+        pos[0] < origin[0] - bounds[0]/2.0 || pos[0] > origin[0] + bounds[0]/2.0 ||
+        pos[1] < origin[1] - bounds[1]/2.0 || pos[1] > origin[1] + bounds[1]/2.0 ||
+        pos[2] < origin[2] - bounds[2]/2.0 || pos[2] > origin[2] + bounds[2]/2.0 
+    ) return -1;
+
+    // Get the projected position of our particle
+    int3 xyz = GetGridXYZIndices(pos);
+    int minX = max(0, xyz[0] - 1);
+    int maxX = min(numCellsPerAxis[0]-1, xyz[0]+1);
+    int minY = max(0, xyz[1] - 1);
+    int maxY = min(numCellsPerAxis[1]-1, xyz[1]+1);
+    int minZ = max(0, xyz[2] - 1);
+    int maxZ = min(numCellsPerAxis[2]-1, xyz[2]+1);
+    int projectedIndex;
+
+    for(int x = minX; x <= maxX; x++) {
+        for(int y = minY; y <= maxY; y++) {
+            for(int z = minZ; z <= maxZ; z++) {
+                projectedIndex = GetProjectedGridIndexFromXYZ(int3(x,y,z));
+                if (vertexBucketCounts[projectedIndex][1] == 0) continue;
+                // We'll iterate through 
+                for(
+                    int i = vertexBucketCounts[projectedIndex][0]; 
+                    i < vertexBucketCounts[projectedIndex][0] + vertexBucketCounts[projectedIndex][1]; 
+                    i++
+                ) {
+                    // Get the vertex index from vertexbuckets
+                    int index = vertexBuckets[i];
+                    // Get the obstacle associated with this vertex
+                    obstacle = obstacles[vertexTriangleCount[index][0]];
+                    // Calculate world position of this vertex
+                    worldVertex = LocalPointToWorldPoint(obstacle, obstacleVertices[index]);
+                    // Get distance
+                    dist = length(pos - worldVertex);
+                    // If closer, replace
+                    if (closestIndex == -1 || dist < closestDistance) {
+                        closestIndex = index;
+                        closestDistance = dist;
+                        closestObstacle = obstacle;
+                    }
+                }
+            }
+        }
+    }
+    return closestIndex;
+}
+
+#pragma kernel DampenParticlesByObstacles
+[numthreads(_BLOCK_SIZE,1,1)]
+void DampenParticlesByObstacles(uint3 id : SV_DispatchThreadID) {
+    if (id.x < numBoids || id.x >= numParticles) return;
+
+    Particle p = particles[id.x];
+
+    // 1) get closest vertex to our current one
+    
+
+}

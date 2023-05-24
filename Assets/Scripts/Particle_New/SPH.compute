@@ -12,7 +12,6 @@ float pi;                       // Mathf.PI
 // == PARTICLE CONFIGURATIONS ==
 uint numParticles;              // How many particles will we use in the simulation?
 uint numBoids;                  // How many boids are a part of the simulation?
-uint numPointsOnObstacles;
 float particleRenderRadius;     // How big (visually only!) are each particle? For CubeVolume method, this is pretty important
 // NEEDS TO BE INCORPORATED
 uint numParticlesPerGridCell;   // How many particles can we realistically fit into each grid cell? Calculated from particle render size.
@@ -55,6 +54,23 @@ struct Boid {
     float3 position;
     int3 gridIndices;
     int projectedGridIndex;
+};
+struct Obstacle {
+    int index;
+    float3 position;
+    float4 rotation;
+    float3 scale;
+    int verticesStart;
+    int verticesCount;
+    int hasChanged;
+};
+struct ObstaclePlane {
+    int obstacleIndex;
+    float3 vertex1;
+    float3 vertex2;
+    float3 vertex3;
+    float3 center;
+    float3 normalVector;
 };
 
 // == BUFFERS ==
@@ -110,6 +126,15 @@ RWStructuredBuffer<int> gridSumsBuffer;
 RWStructuredBuffer<int> gridSumsBufferIn;
 RWStructuredBuffer<uint> rearrangedParticles;
 RWStructuredBuffer<int> numNeighbors;
+
+// The buffers below are particular for obstacles
+RWStructuredBuffer<Obstacle> obstacles;
+RWStructuredBuffer<float3> obstacleVertices;
+RWStructuredBuffer<ObstaclePlane> obstaclePlanes;
+RWStructuredBuffer<int> vertexTriangleMap;
+RWStructuredBuffer<int3> vertexTriangleCount;
+RWStructuredBuffer<int> vertexBuckets;
+RWStructuredBuffer<int2> vertexBucketCounts;
 
 // == HELPER FUNCTIONS ==
 // Given a world space position, what are the XYZ indices of the position's current cell?
@@ -527,7 +552,7 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
     float3 v = velocity[id.x];
 
     v += dt * force[id.x];
-    if (id.x >= numBoids+numPointsOnObstacles) p.position += dt * v;
+    if (id.x >= numBoids) p.position += dt * v;
     float3 bInf = dt * p.boidInfluence;
     p.boidInfluence = bInf;
 
@@ -538,7 +563,7 @@ void Integrate(uint3 id : SV_DispatchThreadID) {
 #pragma kernel DampenByBounds
 [numthreads(_BLOCK_SIZE,1,1)]
 void DampenByBounds(uint3 id : SV_DispatchThreadID) {
-    if (id.x < numBoids+numPointsOnObstacles || id.x >= numParticles) return;
+    if (id.x < numBoids || id.x >= numParticles) return;
     
     particle p = particles[id.x];
     float3 v = velocity[id.x];
@@ -595,11 +620,4 @@ void IntegrateBoidsParticles(uint3 id : SV_DispatchThreadID) {
     if (id.x >= numBoids) return;
     particles[id.x].position = boids[id.x].position;
     velocity[id.x] = boidVelocities[id.x];
-}
-
-#pragma kernel IntegrateObstacleParticles
-[numthreads(_BLOCK_SIZE, 1,1)]
-void IntegrateObstacleParticles(uint3 id : SV_DispatchThreadID) {
-    if (id.x < numBoids || id.x >= numBoids + numPointsOnObstacles) return;
-    
 }
