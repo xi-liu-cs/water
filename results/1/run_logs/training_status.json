@@ -1,0 +1,78 @@
+{
+    "move": {
+        "checkpoints": [
+            {
+                "steps": 192,
+                "file_path": "results\\1\\move\\move-192.onnx",
+                "reward": null,
+                "creation_time": 1684889635.3067913,
+                "auxillary_file_paths": [
+                    "results\\1\\move\\move-192.pt"
+                ]
+            },
+            {
+                "steps": 256,
+                "file_path": "results\\1\\move\\move-256.onnx",
+                "reward": null,
+                "creation_time": 1684890589.6131248,
+                "auxillary_file_paths": [
+                    "results\\1\\move\\move-256.pt"
+                ]
+            },
+            {
+                "steps": 320,
+                "file_path": "results\\1\\move\\move-320.onnx",
+                "reward": null,
+                "creation_time": 1684891295.424309,
+                "auxillary_file_paths": [
+                    "results\\1\\move\\move-320.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 320,
+            "file_path": "results\\1\\move.onnx",
+            "reward": null,
+            "creation_time": 1684891295.424309,
+            "auxillary_file_paths": [
+                "results\\1\\move\\move-320.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.29.0",
+        "torch_version": "1.7.1+cu110"
+    },
+    "rov": {
+        "checkpoints": [
+            {
+                "steps": 0,
+                "file_path": "results\\1\\rov\\rov-0.onnx",
+                "reward": null,
+                "creation_time": 1684891869.9717295,
+                "auxillary_file_paths": [
+                    "results\\1\\rov\\rov-0.pt"
+                ]
+            },
+            {
+                "steps": 192,
+                "file_path": "results\\1\\rov\\rov-192.onnx",
+                "reward": null,
+                "creation_time": 1684891955.605321,
+                "auxillary_file_paths": [
+                    "results\\1\\rov\\rov-192.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 192,
+            "file_path": "results\\1\\rov.onnx",
+            "reward": null,
+            "creation_time": 1684891955.605321,
+            "auxillary_file_paths": [
+                "results\\1\\rov\\rov-192.pt"
+            ]
+        }
+    }
+}

@@ -1,0 +1,5 @@
+rov.cs
+mlagents-learn config/water.yaml --run-id=0 --resume
+
+rov2.cs
+mlagents-learn config/rov.yaml --run-id=1 --resume

@@ -138,6 +138,7 @@
      <Compile Include="Assets\Scripts\Boids\Deprecated\BoidManager.cs" />
      <Compile Include="Assets\Scripts\Particle_New\ReadOnlyAttribute.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid2.cs" />
+     <Compile Include="Assets\Scripts\Rov\rov2.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Marchxi\water.shader" />
@@ -157,6 +158,7 @@
      <None Include="Assets\Scripts\Terrain\terrain.shader" />
      <None Include="Assets\Scripts\Cave\Compute\SphereDensity.compute" />
      <None Include="Assets\Scripts\Particle\fluid.compute" />
+     <None Include="Assets\Scripts\Rov\rov.txt" />
      <None Include="Assets\Scripts\Cave\Compute\MarchingCubes.compute" />
      <None Include="Assets\Scripts\Boids\Deprecated\BoidManager.compute" />
      <None Include="Assets\Style\Resources\FrameToTilesConverter.compute" />
