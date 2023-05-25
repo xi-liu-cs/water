@@ -7,24 +7,6 @@
     "move": {
         "checkpoints": [
             {
-                "steps": 292128,
-                "file_path": "results\\0\\move\\move-292128.onnx",
-                "reward": null,
-                "creation_time": 1684970690.7177067,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-292128.pt"
-                ]
-            },
-            {
-                "steps": 292128,
-                "file_path": "results\\0\\move\\move-292128.onnx",
-                "reward": null,
-                "creation_time": 1684972427.7471194,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-292128.pt"
-                ]
-            },
-            {
                 "steps": 292178,
                 "file_path": "results\\0\\move\\move-292178.onnx",
                 "reward": -1.0,
@@ -50,15 +32,33 @@
                 "auxillary_file_paths": [
                     "results\\0\\move\\move-292490.pt"
                 ]
+            },
+            {
+                "steps": 292525,
+                "file_path": "results\\0\\move\\move-292525.onnx",
+                "reward": -1.0,
+                "creation_time": 1684975460.9877777,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-292525.pt"
+                ]
+            },
+            {
+                "steps": 292546,
+                "file_path": "results\\0\\move\\move-292546.onnx",
+                "reward": -1.0,
+                "creation_time": 1684975609.9613624,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-292546.pt"
+                ]
             }
         ],
         "final_checkpoint": {
-            "steps": 292490,
+            "steps": 292546,
             "file_path": "results\\0\\move.onnx",
-            "reward": null,
-            "creation_time": 1684974902.3146038,
+            "reward": -1.0,
+            "creation_time": 1684975609.9613624,
             "auxillary_file_paths": [
-                "results\\0\\move\\move-292490.pt"
+                "results\\0\\move\\move-292546.pt"
             ]
         }
     }
