@@ -7,24 +7,6 @@
     "move": {
         "checkpoints": [
             {
-                "steps": 291930,
-                "file_path": "results\\0\\move\\move-291930.onnx",
-                "reward": -2.8,
-                "creation_time": 1684969572.565464,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-291930.pt"
-                ]
-            },
-            {
-                "steps": 291936,
-                "file_path": "results\\0\\move\\move-291936.onnx",
-                "reward": -3.0,
-                "creation_time": 1684969990.533679,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-291936.pt"
-                ]
-            },
-            {
                 "steps": 292128,
                 "file_path": "results\\0\\move\\move-292128.onnx",
                 "reward": null,
@@ -50,13 +32,31 @@
                 "auxillary_file_paths": [
                     "results\\0\\move\\move-292128.pt"
                 ]
+            },
+            {
+                "steps": 292128,
+                "file_path": "results\\0\\move\\move-292128.onnx",
+                "reward": null,
+                "creation_time": 1684970690.7177067,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-292128.pt"
+                ]
+            },
+            {
+                "steps": 292128,
+                "file_path": "results\\0\\move\\move-292128.onnx",
+                "reward": null,
+                "creation_time": 1684972427.7471194,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-292128.pt"
+                ]
             }
         ],
         "final_checkpoint": {
             "steps": 292128,
             "file_path": "results\\0\\move.onnx",
             "reward": null,
-            "creation_time": 1684970575.4753907,
+            "creation_time": 1684972427.7471194,
             "auxillary_file_paths": [
                 "results\\0\\move\\move-292128.pt"
             ]

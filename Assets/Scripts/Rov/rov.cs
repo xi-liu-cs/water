@@ -14,6 +14,7 @@ public class rov : Agent
     public float speed = 1f,
     sensitivity = 1f,
     force_multiplier = 10f;
+    public float[] bound = {-50, 50, -50, 50, -50, 50};
     
     void Start()
     {
@@ -21,18 +22,11 @@ public class rov : Agent
         initial_position = gameObject.transform.position;
     }
 
-    int overlap = 0;
-    public bool is_overlap(){ return overlap > 0; }
-    void OnTriggerEnter(Collider other){ ++overlap; /* Debug.Log("on trigger enter"); */ }
-    void OnTriggerExit(Collider other)
-    { 
-        --overlap;
-        Debug.Log("on trigger exit name is " + other.gameObject.name);
-        if(String.Equals(other.gameObject.name, "Landscape"))
-        {
-            SetReward(-1.0f);
-            EndEpisode();
-        }
+    bool is_outside(Vector3 position)
+    {
+        return position.x < bound[0] || position.x > bound[1]
+        || position.y < bound[2] || position.y > bound[3]
+        || position.z < bound[4] || position.z > bound[5];
     }
     
     public override void OnEpisodeBegin()
@@ -60,9 +54,10 @@ public class rov : Agent
             SetReward(1f);
             EndEpisode();
         }
-        if(is_overlap()) /* if the rov collides with an object */
+        if(is_outside(this.transform.localPosition))
         {
-            SetReward(-1.0f); /* Debug.Log("collision"); */
+            SetReward(-1f);
+            EndEpisode();
         }
     }
 
