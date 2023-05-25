@@ -140,6 +140,14 @@
      <Compile Include="Assets\Scripts\March Cube\NoiseFieldVisualizer.cs" />
      <Compile Include="Assets\Scripts\Particle_New\ReadOnlyAttribute.cs" />
      <Compile Include="Assets\Scripts\Rov\rov_old.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\BoidBehaviour.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\BoidController.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\TransformShaker.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\Perlin.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\Tester.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\Shaker.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\SimpleRotation.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\BoidBehaviour_Test.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Marchxi\water.shader" />
