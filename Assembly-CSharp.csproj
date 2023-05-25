@@ -38,7 +38,9 @@
   <ItemGroup>
      <Compile Include="Assets\Scripts\Particle\march_table.cs" />
      <Compile Include="Assets\Scripts\March Cube\MeshBuilder.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\Shaker.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Camera\FirstPersonCamera.cs" />
+     <Compile Include="Assets\Scripts\Rov\rov_old.cs" />
      <Compile Include="Assets\Scripts\March Fluid\mesh_fluid_generator.cs" />
      <Compile Include="Assets\Scripts\Particle\cuda.cs" />
      <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\mesh_generator_2.cs" />
@@ -66,6 +68,7 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\OffsetPursuitUnit.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid2.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\HideUnit.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\TransformShaker.cs" />
      <Compile Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacleTest.cs" />
      <Compile Include="Assets\Scripts\Boids\ObstacleManager.cs" />
      <Compile Include="Assets\Scripts\Boids\Boid3DHelpers.cs" />
@@ -83,6 +86,7 @@
      <Compile Include="Assets\Scripts\March Cube\Util.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\WallAvoidance.cs" />
      <Compile Include="Assets\Scripts\Particle_New\ParticleManager.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\SimpleRotation.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid1.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Wander2.cs" />
      <Compile Include="Assets\Scripts\Cave\NoiseDensity.cs" />
@@ -101,10 +105,13 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\InterposeUnit.cs" />
      <Compile Include="Assets\Style\StyleData.cs" />
      <Compile Include="Assets\Scripts\Particle_New\Grid3D.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\Tester.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\BoidBehaviour_Test.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\MovementAIRigidbody.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid_cpu.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\WallAvoidanceUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Evade.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\Perlin.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\EvadeUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Pursue.cs" />
      <Compile Include="Assets\Scripts\Marchxi\density_generator_xi.cs" />
@@ -116,6 +123,7 @@
      <Compile Include="Assets\Scripts\Particle_New\OldFilesWithMods\density_generator_2.cs" />
      <Compile Include="Assets\Scripts\Collider\collider.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\ScreenBoundary3D.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\BoidController.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\Hide.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\GoDirectionUnit.cs" />
      <Compile Include="Assets\Scripts\March\mesh_generator.cs" />
@@ -128,6 +136,7 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\SeekUnit.cs" />
      <Compile Include="Assets\Scripts\Particle\fluid_gpu_pressure.cs" />
      <Compile Include="Assets\Scripts\Water\water_start.cs" />
+     <Compile Include="Assets\Scripts\boid_cpu\BoidBehaviour.cs" />
      <Compile Include="Assets\Scripts\Cave\DensityGenerator.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\PursueUnit.cs" />
      <Compile Include="Assets\UnityMovementAI\Scripts\ScreenBoundary2D.cs" />
@@ -139,15 +148,6 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
      <Compile Include="Assets\Scripts\March Cube\NoiseFieldVisualizer.cs" />
      <Compile Include="Assets\Scripts\Particle_New\ReadOnlyAttribute.cs" />
-     <Compile Include="Assets\Scripts\Rov\rov_old.cs" />
-     <Compile Include="Assets\Scripts\boid_cpu\BoidBehaviour.cs" />
-     <Compile Include="Assets\Scripts\boid_cpu\BoidController.cs" />
-     <Compile Include="Assets\Scripts\boid_cpu\TransformShaker.cs" />
-     <Compile Include="Assets\Scripts\boid_cpu\Perlin.cs" />
-     <Compile Include="Assets\Scripts\boid_cpu\Tester.cs" />
-     <Compile Include="Assets\Scripts\boid_cpu\Shaker.cs" />
-     <Compile Include="Assets\Scripts\boid_cpu\SimpleRotation.cs" />
-     <Compile Include="Assets\Scripts\boid_cpu\BoidBehaviour_Test.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
      <None Include="Assets\Scripts\Marchxi\water.shader" />

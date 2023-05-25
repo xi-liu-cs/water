@@ -615,7 +615,11 @@ public class ParticleManager : MonoBehaviour
     }
 
     private void Update() {
+        float a = Time.realtimeSinceStartup;
         if (initialized) UpdateParticles();
+        float b = Time.realtimeSinceStartup;
+        Debug.LogFormat("update particle time = {0}", b - a);
+        Debug.LogFormat("delta time = {0}", Time.deltaTime);
     }
 
     public void UpdateParticles() {
