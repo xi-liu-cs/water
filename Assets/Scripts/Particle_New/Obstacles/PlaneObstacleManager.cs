@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Mathematics;
+using System.Linq;
 
 public class PlaneObstacleManager : Grid3D
 {   
@@ -16,8 +17,9 @@ public class PlaneObstacleManager : Grid3D
 
     public List<int> vertexBuckets;
     public int2[] vertexBucketCounts;
+    public int maxVerticesPerBucket;
 
-    public Transform debugParticle = null;
+    public List<Transform> debugParticles = new List<Transform>();
     public bool awaitInitialization = false;
 
     public List<Vector3> closestVertices = new List<Vector3>();
@@ -30,16 +32,27 @@ public class PlaneObstacleManager : Grid3D
     public ComputeBuffer vertexTriangleCountBuffer;
     public ComputeBuffer vertexBucketsBuffer;
     public ComputeBuffer vertexBucketCountsBuffer;
+    // Purely for debugging
+    public ComputeBuffer debugParticlesBuffer;
+    public ComputeBuffer particleIsIntersectingBuffer;
+    public ComputeBuffer testWorldPosBuffer;
+    // Kernels
+    public int dampenParticlesByObstaclesKernel;
+    public int testParticleLocalToWorldKernel;
+    private int _BLOCK_SIZE = 1024;
 
-    public ComputeShader planeObstacleShader;
+    public ComputeShader obstacleShader;
 
     public bool drawGizmos = false;
 
     void OnDrawGizmos() {
         if (!drawGizmos) return;
+        
         DrawGridAxes();
         DrawGridBounds();
         DrawGridInnerBounds();
+        
+        /*
         if (closestVertices.Count == 0) return;
         Gizmos.color = Color.blue;
         for(int i = 0; i < closestVertices.Count; i++) {
@@ -47,6 +60,24 @@ public class PlaneObstacleManager : Grid3D
             Vector3 closestNormal = gizmoNormals[i];
             Gizmos.DrawSphere(closestVertex, 0.1f);
             Gizmos.DrawRay(closestVertex, closestNormal);
+        }
+        */
+        if(Application.isPlaying) {
+            Gizmos.color = Color.blue;
+            float3[] tempTestWorldPos = new float3[obstaclePlanes.Count];
+            testWorldPosBuffer.GetData(tempTestWorldPos);
+
+            int obsPlCount = 0;
+            for(int i = 0; i < tempTestWorldPos.Length; i++) {
+                if (tempTestWorldPos[i][0] != -100f && tempTestWorldPos[i][1] != -100f && tempTestWorldPos[i][2] != -100f) {
+                    Gizmos.DrawSphere(
+                        new Vector3(tempTestWorldPos[i][0], tempTestWorldPos[i][1], tempTestWorldPos[i][2]), 
+                        0.1f
+                    );
+                    obsPlCount += 1;
+                }
+            }
+            Debug.Log($"ObsPlCount: {obsPlCount}");
         }
     }
 
@@ -103,7 +134,12 @@ public class PlaneObstacleManager : Grid3D
             tempVertexBuckets[projectedIndex].Add(i);
         }
 
+        for(int i = 0; i < numGridCells; i++) {
+            if (tempVertexBuckets[i] == null) tempVertexBuckets[i] = new List<int>();
+        }
+
         // Now we can condense the buckets into a single list!
+        maxVerticesPerBucket = new List<List<int>>(tempVertexBuckets).Max(x => x.Count);
         vertexBuckets = new List<int>();
         vertexBucketCounts = new int2[numGridCells];
         for(int i = 0; i < numGridCells; i++) {
@@ -120,7 +156,7 @@ public class PlaneObstacleManager : Grid3D
     }
 
     public void DebugCheckIfIntersecting() {
-        if (debugParticle == null) {
+        if (debugParticles.Count == 0) {
             Debug.Log("Cannot check anything if the debug particle isn't set!");
             return;
         }
@@ -136,54 +172,54 @@ public class PlaneObstacleManager : Grid3D
         Vector3 targetVector;
         float dotBetweenParticleAndNormal, distanceToPlane;
 
-        // 1) Calculate the closest index... out of ALL vertices.
-        PlaneObstacle obstacle;
-        int closestIndex = GetClosestVertexIndex(debugParticle.position, out obstacle);
-        if (closestIndex == -1) {
-            Debug.Log("We couldn't find any obstacles close to our debug particle's position...");
+        // 1) Determine all vertices close to the particle's current position
+        int3[] cVertices = GetClosestVertexIndex(debugParticles[0].position);
+        if (cVertices.Length == 0) {
+            Debug.Log("We couldn't find any vertices close to our debug particle's position...");
             return;
         }
         
-        bool isIntersecting = false;
-        Debug.Log($"We think that the closest obstacle is obstacle {obstacle.obs.index}");
-
-        for(int c = vertexTriangleCount[closestIndex][1]; c < vertexTriangleCount[closestIndex][1] + vertexTriangleCount[closestIndex][2]; c++) {
-            p = obstaclePlanes[vertexTriangleMap[c]];
-            // For each plane `p`, we:
-            // 1) convert its centroid to world position
-            worldCentroid = LocalPointToWorldPoint(obstacle.obs, p.centroid);
-            closestVertices.Add(worldCentroid);
-            gizmoNormals.Add(LocalVectorToWorldVector(obstacle.obs, p.normalVector));
-            // 2) Calculate dot product between normal vector and vector b/w centroid and particle
-            targetVector = (debugParticle.position - worldCentroid).normalized;
-            dotBetweenParticleAndNormal = Vector3.Dot(targetVector, LocalVectorToWorldVector(obstacle.obs, p.normalVector));
-            // 3) Calculate the projection of the debug particle onto the plane
-            projectionPoint = ClosestPointOnPlane(
-                worldCentroid, 
-                LocalVectorToWorldVector(obstacle.obs, p.normalVector), 
-                debugParticle.position
-            );
-            //closestVertices.Add(projectionPoint);
-            // 4) Calculate distance from the debug particle to its projection
-            distanceToPlane = DistanceFromPlane(worldCentroid, LocalVectorToWorldVector(obstacle.obs, p.normalVector), debugParticle.position);
-            // 5) Finally check the intersection
-            isIntersecting = isIntersecting || (
-                dotBetweenParticleAndNormal <= 0f 
-                && ObstacleHelper.PointInTriangle(
-                    projectionPoint, 
-                    LocalPointToWorldPoint(obstacle.obs, p.vertex1), 
-                    LocalPointToWorldPoint(obstacle.obs, p.vertex2), 
-                    LocalPointToWorldPoint(obstacle.obs, p.vertex3)
-                )
-            );
-                
-            // Break early if we do find that we're intersecting
-            if (isIntersecting) break;
+        // We need to iterate through all vertices in this case
+        int isIntersecting = 0;
+        PlaneObstacle obstacle;
+        for(int i = 0; i < cVertices.Length; i++) {
+            // If the returned value has a 1st int == -1, then we know it's a dud and all future ones are duds as well
+            if (cVertices[i][0] == -1) break;
+            // Get the obstacle associated with this vertex
+            obstacle = obstacles[cVertices[i][0]];
+            // Now iterate through all planes associated with this vertex
+            for(int c = cVertices[i][1]; c < cVertices[i][1] + cVertices[i][2]; c++) {
+                p = obstaclePlanes[vertexTriangleMap[c]];
+                // For each plane `p`, we:
+                // 1) convert its centroid to world position
+                worldCentroid = LocalPointToWorldPoint(obstacle.obs, p.centroid);
+                closestVertices.Add(worldCentroid);
+                gizmoNormals.Add(LocalVectorToWorldVector(obstacle.obs, p.normalVector));
+                // 2) Calculate dot product between normal vector and vector b/w centroid and particle
+                targetVector = (debugParticles[0].position - worldCentroid).normalized;
+                dotBetweenParticleAndNormal = Vector3.Dot(targetVector, LocalVectorToWorldVector(obstacle.obs, p.normalVector));
+                // 3) Calculate the projection of the debug particle onto the plane
+                projectionPoint = ClosestPointOnPlane(
+                    worldCentroid, 
+                    LocalVectorToWorldVector(obstacle.obs, p.normalVector), 
+                    debugParticles[0].position
+                );
+                //closestVertices.Add(projectionPoint);
+                // 4) Calculate distance from the debug particle to its projection
+                distanceToPlane = DistanceFromPlane(worldCentroid, LocalVectorToWorldVector(obstacle.obs, p.normalVector), debugParticles[0].position);
+                // 5) Finally check the intersection
+                if(dotBetweenParticleAndNormal <= 0f && ObstacleHelper.PointInTriangle(
+                        projectionPoint, 
+                        LocalPointToWorldPoint(obstacle.obs, p.vertex1), 
+                        LocalPointToWorldPoint(obstacle.obs, p.vertex2), 
+                        LocalPointToWorldPoint(obstacle.obs, p.vertex3)
+                )) isIntersecting += 1;
+            }
         }
 
         // Let us know if we're intersecting!
-        if (isIntersecting)  Debug.Log($"The particle is intersecting with obstacle {obstacle.obs.index}!");
-        else                 Debug.Log($"The particle isn't intersecting with an obstacle...");
+            if (isIntersecting > 0)  Debug.Log("The particle is intersecting with one or more obstacles!");
+            else                 Debug.Log("The particle isn't intersecting with an obstacle...");
     } 
     
     private void Awake() {
@@ -192,7 +228,22 @@ public class PlaneObstacleManager : Grid3D
     }
 
     public void Initialize() {
+        InitializeKernels();
+        InitializeShaderVariables();
         InitializeBuffers();
+    }
+
+    private void InitializeKernels() {
+        dampenParticlesByObstaclesKernel = obstacleShader.FindKernel("DampenParticlesByObstacles");
+        testParticleLocalToWorldKernel = obstacleShader.FindKernel("TestParticleLocalToWorld");
+    }
+
+    private void InitializeShaderVariables() {
+        obstacleShader.SetInt("numParticles",debugParticles.Count);
+        obstacleShader.SetInt("numBoids",0);
+        obstacleShader.SetInt("numVertices",vertices.Count);
+        obstacleShader.SetInt("numPlanes", obstaclePlanes.Count);
+        UpdateShaderVariables();
     }
 
     private void InitializeBuffers() {
@@ -225,11 +276,58 @@ public class PlaneObstacleManager : Grid3D
         // Initialize vertex bucket counts
         vertexBucketCountsBuffer = new ComputeBuffer(vertexBucketCounts.Length, sizeof(int)*2);
         vertexBucketCountsBuffer.SetData(vertexBucketCounts);
+
+        // Purely for debugging
+        particleIsIntersectingBuffer = new ComputeBuffer(debugParticles.Count, sizeof(int));
+        debugParticlesBuffer = new ComputeBuffer(debugParticles.Count, sizeof(float)*3);
+        float3[] debugParticlesF = new float3[debugParticles.Count];
+        for(int i = 0; i < debugParticles.Count; i++) {
+            debugParticlesF[i] = new(
+                debugParticles[i].position.x,
+                debugParticles[i].position.y,
+                debugParticles[i].position.z
+            );
+        }
+        debugParticlesBuffer.SetData(debugParticlesF);
+
+        testWorldPosBuffer = new ComputeBuffer(obstaclePlanes.Count, sizeof(float)*3);
+
+        // Now to set to kernel
+        obstacleShader.SetBuffer(dampenParticlesByObstaclesKernel, "particles", debugParticlesBuffer);
+        obstacleShader.SetBuffer(dampenParticlesByObstaclesKernel, "obstacles", obstacleBuffer);
+        obstacleShader.SetBuffer(dampenParticlesByObstaclesKernel, "obstaclePlanes", planesBuffer);
+        obstacleShader.SetBuffer(dampenParticlesByObstaclesKernel, "vertexBucketCounts", vertexBucketCountsBuffer);
+        obstacleShader.SetBuffer(dampenParticlesByObstaclesKernel, "vertexBuckets", vertexBucketsBuffer);
+        obstacleShader.SetBuffer(dampenParticlesByObstaclesKernel, "vertexTriangleCount", vertexTriangleCountBuffer);
+        obstacleShader.SetBuffer(dampenParticlesByObstaclesKernel, "vertexTriangleMap", vertexTriangleMapBuffer);
+        //obstacleShader.SetBuffer(dampenParticlesByObstaclesKernel, "particleIsIntersecting", particleIsIntersectingBuffer);
+
+        obstacleShader.SetBuffer(dampenParticlesByObstaclesKernel, "testWorldPos", testWorldPosBuffer);
+
+        obstacleShader.SetBuffer(testParticleLocalToWorldKernel, "obstacles", obstacleBuffer);
+        obstacleShader.SetBuffer(testParticleLocalToWorldKernel, "obstacleVertices", verticesBuffer);
+        obstacleShader.SetBuffer(testParticleLocalToWorldKernel, "obstaclePlanes", planesBuffer);
+        obstacleShader.SetBuffer(testParticleLocalToWorldKernel, "vertexBucketCounts", vertexBucketCountsBuffer);
+        obstacleShader.SetBuffer(testParticleLocalToWorldKernel, "vertexBuckets", vertexBucketsBuffer);
+        obstacleShader.SetBuffer(testParticleLocalToWorldKernel, "vertexTriangleCount", vertexTriangleCountBuffer);
+        obstacleShader.SetBuffer(testParticleLocalToWorldKernel, "vertexTriangleMap", vertexTriangleMapBuffer);
+        obstacleShader.SetBuffer(testParticleLocalToWorldKernel, "testWorldPos", testWorldPosBuffer);
+
     }
 
     private void Update() {
-        UpdateBuffers();
-        //DebugCheckIfIntersecting();
+        if (!awaitInitialization) CustomUpdate();
+    }
+
+    private void UpdateShaderVariables() {
+        // Grid-related changes
+        obstacleShader.SetFloats("origin", originF);
+        obstacleShader.SetFloats("numCellsPerAxis", numGridCellsPerAxisF);
+        obstacleShader.SetFloat("gridCellSize", gridCellSize);
+        obstacleShader.SetFloats("bounds", boundsF);
+
+        // Vertex-related
+        obstacleShader.SetInt("maxVerticesPerCell", maxVerticesPerBucket);
     }
 
     private void UpdateBuffers() {
@@ -243,7 +341,12 @@ public class PlaneObstacleManager : Grid3D
         obstacleBuffer.SetData(obstaclesArray);
         
         if (needToReorder) {
+            Debug.Log("We need to reorder...");
             ReorderVertices();
+
+            // Vertex-related
+            obstacleShader.SetInt("maxVerticesPerCell", maxVerticesPerBucket);
+
             // Update vertex buckets
             vertexBucketsBuffer.Release();
             vertexBucketsBuffer = new ComputeBuffer(vertexBuckets.Count, sizeof(int));
@@ -253,7 +356,56 @@ public class PlaneObstacleManager : Grid3D
             vertexBucketCountsBuffer.Release();
             vertexBucketCountsBuffer = new ComputeBuffer(vertexBucketCounts.Length, sizeof(int)*2);
             vertexBucketCountsBuffer.SetData(vertexBucketCounts);
+
+            obstacleShader.SetBuffer(dampenParticlesByObstaclesKernel, "vertexBucketCounts", vertexBucketCountsBuffer);
+            obstacleShader.SetBuffer(dampenParticlesByObstaclesKernel, "vertexBuckets", vertexBucketsBuffer);
+
+            obstacleShader.SetBuffer(testParticleLocalToWorldKernel, "vertexBucketCounts", vertexBucketCountsBuffer);
+            obstacleShader.SetBuffer(testParticleLocalToWorldKernel, "vertexBuckets", vertexBucketsBuffer);
         }
+
+        if (!awaitInitialization) {
+            // We're doing this with our own particles
+            float3[] debugParticlesF = new float3[debugParticles.Count];
+            for(int i = 0; i < debugParticles.Count; i++) {
+                debugParticlesF[i] = new(
+                    debugParticles[i].position.x,
+                    debugParticles[i].position.y,
+                    debugParticles[i].position.z
+                );
+            }
+            debugParticlesBuffer.SetData(debugParticlesF);
+        }
+    }
+
+    public void CustomUpdate() {
+        // We have to update the compute shader
+        UpdateShaderVariables();
+        UpdateBuffers();
+
+        obstacleShader.Dispatch(testParticleLocalToWorldKernel, Mathf.CeilToInt((float)obstaclePlanes.Count / (float)_BLOCK_SIZE),1,1);
+
+        // Now, we can perform a dispatch
+        int n = Mathf.CeilToInt((float)debugParticles.Count / (float)_BLOCK_SIZE);
+        obstacleShader.Dispatch(dampenParticlesByObstaclesKernel, n,1,1);
+
+        /*
+        // To check our status, we grab the data from the `particleIsIntsersecting` buffer
+        int[] areParticlesIntersecting = new int[debugParticles.Count];
+        particleIsIntersectingBuffer.GetData(areParticlesIntersecting);
+        for(int i = 0; i < debugParticles.Count; i++) {
+            Debug.Log($"Particle {i+1} is... {areParticlesIntersecting[i]}");
+        }
+        */
+
+       
+        
+        /*
+        int2[] tempVertexBucketCounts = new int2[5];
+        vertexBucketCountsBuffer.GetData(tempVertexBucketCounts);
+        Debug.Log(tempVertexBucketCounts[0]);
+        */
+        //DebugCheckIfIntersecting();
     }
 
     private void OnDestroy() {
@@ -268,6 +420,7 @@ public class PlaneObstacleManager : Grid3D
         vertexTriangleCountBuffer.Release();
         vertexBucketsBuffer.Release();
         vertexBucketCountsBuffer.Release();
+        debugParticlesBuffer.Release();
     }
 
     private int GetClosestVertexIndex(PlaneObstacle obstacle, Vector3 pos) {
@@ -290,10 +443,9 @@ public class PlaneObstacleManager : Grid3D
         return closestIndex;
     }
 
-    private int GetClosestVertexIndex(Vector3 pos, out PlaneObstacle closestObstacle) {
-        int closestIndex = -1;
+    private int3[] GetClosestVertexIndex(Vector3 pos) {
         float closestDistance = Mathf.Infinity;
-        closestObstacle = obstacles[vertexTriangleCount[0][0]];
+        //closestObstacle = obstacles[vertexTriangleCount[0][0]];
         
         float dist;
         Vector3 worldVertex;
@@ -304,7 +456,7 @@ public class PlaneObstacleManager : Grid3D
             pos.x < origin.x - bounds.x/2f || pos.x > origin.x + bounds.x/2f ||
             pos.y < origin.y - bounds.y/2f || pos.y > origin.y + bounds.y/2f ||
             pos.z < origin.z - bounds.z/2f || pos.z > origin.z + bounds.z/2f 
-        ) return -1;
+        ) return new int3[0];
 
         // Get the projected position of our particle
         Vector3Int xyz = Grid3DHelpers.GetGridXYZIndices(numGridCellsPerAxis, origin, gridCellSize, pos);
@@ -314,8 +466,12 @@ public class PlaneObstacleManager : Grid3D
         int maxY = Mathf.Min(numGridCellsPerAxis.y-1, xyz.y+1);
         int minZ = Mathf.Max(0,xyz.z - 1);
         int maxZ = Mathf.Min(numGridCellsPerAxis.z-1, xyz.z+1);
-        int projectedIndex;
 
+        int maxPossibleVertices = (maxX - minX) * (maxY-minY) * (maxZ-minZ) * maxVerticesPerBucket;
+        int3[] closestVertices = new int3[maxPossibleVertices];
+        int closestVerticesCount = 0;
+
+        int projectedIndex;
         for(int x = minX; x <= maxX; x++) {
             for(int y = minY; y <= maxY; y++) {
                 for(int z = minZ; z <= maxZ; z++) {
@@ -325,6 +481,10 @@ public class PlaneObstacleManager : Grid3D
                     for(int i = vertexBucketCounts[projectedIndex][0]; i < vertexBucketCounts[projectedIndex][0] + vertexBucketCounts[projectedIndex][1]; i++) {
                         // Get the vertex index from vertexbuckets
                         int index = vertexBuckets[i];
+                        // Add this vertex triangle count to `closestvertices` and increment count
+                        closestVertices[closestVerticesCount] = vertexTriangleCount[index];
+                        closestVerticesCount += 1;
+                        /*
                         // Get the obstacle associated with this vertex
                         obstacle = obstacles[vertexTriangleCount[index][0]];
                         // Calculate world position of this vertex
@@ -337,6 +497,7 @@ public class PlaneObstacleManager : Grid3D
                             closestDistance = dist;
                             closestObstacle = obstacle;
                         }
+                        */
                     }
                 }
             }
@@ -367,7 +528,15 @@ public class PlaneObstacleManager : Grid3D
         }
         */
 
-        return closestIndex;
+        // Make sure to fill remainders with (-1,-1,-1) to ensure that we don't accidently do something stupid
+        for(int j = closestVerticesCount; j < maxPossibleVertices; j++) {
+            closestVertices[j] = new(-1,-1,-1);
+        }
+
+        // Finally return
+        return closestVertices;
+
+        //return closestIndex;
     }
 
 

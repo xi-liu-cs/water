@@ -186,6 +186,7 @@
      <Compile Include="Assets\UnityMovementAI\Scripts\Units\Movement\SteeringBasics.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
+     <None Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacleShader.compute" />
      <None Include="Assets\Fog\Standard Assets\Effects\Projectors\Shaders\ProjectorLight.shader" />
      <None Include="Assets\Fog\Standard Assets\Effects\Projectors\Shaders\ProjectorMultiply.shader" />
      <None Include="Assets\Scripts\Particle_New\SPH.compute" />

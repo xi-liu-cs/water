@@ -191,6 +191,7 @@ public class PlaneObstacle : MonoBehaviour
         obs.rotation = new(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
         obs.scale = new(transform.lossyScale.x, transform.lossyScale.y, transform.lossyScale.z);
         if (transform.hasChanged) {
+            Debug.Log($"{gameObject.name} has changed!");
             obs.hasChanged = 1;
             transform.hasChanged = false;
         } else {
