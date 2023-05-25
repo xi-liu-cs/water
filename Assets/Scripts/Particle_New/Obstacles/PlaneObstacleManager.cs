@@ -70,8 +70,18 @@ public class PlaneObstacleManager : Grid3D
             int obsPlCount = 0;
             for(int i = 0; i < tempTestWorldPos.Length; i++) {
                 if (tempTestWorldPos[i][0] != -100f && tempTestWorldPos[i][1] != -100f && tempTestWorldPos[i][2] != -100f) {
+                    /*
+                    Vector3 planeCenter = LocalPointToWorldPoint(
+                        obstacles[obstaclePlanes[i].obstacleIndex].obs, 
+                        obstaclePlanes[i].centroid
+                    );
+                    Gizmos.DrawRay(
+                        planeCenter,
+                        new Vector3(tempTestWorldPos[i][0], tempTestWorldPos[i][1], tempTestWorldPos[i][2])
+                    );
+                    */
                     Gizmos.DrawSphere(
-                        new Vector3(tempTestWorldPos[i][0], tempTestWorldPos[i][1], tempTestWorldPos[i][2]), 
+                        new Vector3(tempTestWorldPos[i][0], tempTestWorldPos[i][1], tempTestWorldPos[i][2]),
                         0.1f
                     );
                     obsPlCount += 1;

@@ -131,7 +131,7 @@ float3 ClosestPointOnPlane(float3 planeOffset, float3 planeNormal, float3 p) {
 }
 
 // Helper Function
-bool SameSide(float3 p1, float3 p2, float3 a, float3 b) {
+int SameSide(float3 p1, float3 p2, float3 a, float3 b) {
     float3 cp1 = cross(b-a, p1-a);
     float3 cp2 = cross(b-a, p2-a);
     if (dot(cp1, cp2) >= 0.0) return 1;
@@ -251,22 +251,18 @@ void DampenParticlesByObstacles(uint id : SV_DispatchThreadID) {
                             p
                         );
 
-                        testWorldPos[vertexTriangleMap[pi]] = projectionPoint;
-
                         // 5) Finally check the intersection. We add to `particleIsIntersecting` to check!
                         if (
                             dotBetweenParticleAndNormal <= 0.0 
-                            /*
                             && PointInTriangle(
-                                projectionPoint, 
+                                p, 
                                 LocalPointToWorldPoint(obs, plane.vertex1), 
                                 LocalPointToWorldPoint(obs, plane.vertex2), 
                                 LocalPointToWorldPoint(obs, plane.vertex3)
                             ) == 1
-                            */
                         ) {
                             //particleIsIntersecting[id] += 1;
-                            //testWorldPos[vertexTriangleMap[pi]] = worldCentroid;
+                            testWorldPos[vertexTriangleMap[pi]] = LocalPointToWorldPoint(obs, plane.vertex1);
                         }
                         
                     }
