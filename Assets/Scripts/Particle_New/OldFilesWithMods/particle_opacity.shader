@@ -59,7 +59,8 @@ Shader "Instanced/particle_opacity"
 		float r = 0.25;
 		float g = 0.5;
 		float b = 1.0;
-		float a = 0.01;
+		float a = 0.5;
+		/*
 		#ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
 			a = clamp(particle_buffer[unity_InstanceID].speed/10, 0.02, 1);
 			if (particle_buffer[unity_InstanceID].touchedByBoid > 0) {
@@ -69,6 +70,7 @@ Shader "Instanced/particle_opacity"
 				//a = clamp(particle_buffer[unity_InstanceID].speed/10, 0.02, 1);
 			}
 		#endif
+		*/
 		float4 c = float4(r,g,b,a);
 		/* #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
 		c = particle_buffer[unity_InstanceID].color;

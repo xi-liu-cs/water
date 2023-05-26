@@ -7,9 +7,9 @@ using Unity.Mathematics;
 using Random = UnityEngine.Random;
 using UnityEditor;
 
+[ExecuteInEditMode]
 public class ParticleManager : MonoBehaviour
 {
-
     public static ParticleManager current;
 
     public enum NeighborSearchType {
@@ -26,46 +26,103 @@ public class ParticleManager : MonoBehaviour
     }
 
     private bool initialized = false;
-
+    
     [Header("== REFERENCES ==")]
         public Boids3D boidManager;
-        public PlaneObstacleManager obstacleManager;
 
-    [Header("== WORLD CONFIGURATIONS ==")]
+    [Header("== GRID CONFIGURATIONS ==")]
         #if UNITY_EDITOR
-        [Help("These configurations can be used to adjust the simulation's world parameters. This includes how big the grid cells are, where the center of the simulation is in world space, etc.\n\n- `Bounds` is where the simulation is limited to\n- `Outer Bounds` is the world space including the buffer cells.\n- `Num Cells Per Axis` s is automatically calculated based on `Grid Cell Size` and `Outer Bounds`.\n- `Num Grid Cells` is the total number of grid cells populating `Outer Bounds` and is auto-calculated.\n- `G` is the gravitational force exerted on all particles in the simulation.", UnityEditor.MessageType.None)]
+        [Help("These configurations will adjust the grid conditions for the simulation.", UnityEditor.MessageType.None)]
         #endif
-        
-        [Tooltip("How big are our grid cells? For Prefix Summation, recommended to match `smoothingRadius`")] 
-        public float gridCellSize = 2f;
-        
-        [Tooltip("Where in world space are we centering the simulation around?")]
-        public float[] origin = {0f,0f,0f};
-        public Vector3 originVector3 { get => new Vector3(origin[0], origin[1], origin[2]); set {} }
-        
-        [Tooltip("What are the total world space length (per axis) is the simulation?")]
-        public float[] bounds = {50f, 50f, 50f};
-        public Vector3 boundsVector3 { get => new Vector3(bounds[0], bounds[1], bounds[2]); set {} }
-        [ReadOnly, SerializeField, Tooltip("In our grid space, how many buffer cells are added to each axis? Prefix Sum: 2; CubeVolume: 1")]
-        private int bufferCellsPerAxis;
-        [ReadOnly, SerializeField, Tooltip("What is the world space size of the simulation, after taking into account grid cell size and buffer cells?")]
-        private float[] _outerBounds = {60f, 60f, 60f};
-        public float[] outerBounds { get => _outerBounds; set {} }
+
+        [SerializeField, Tooltip("The transform reference for the lower bound of the grid")]
+        private Transform _LOWER_BOUND_TRANSFORM = null;
+        [SerializeField, Tooltip("The transform reference for the upper bound of the grid")]
+        private Transform _UPPER_BOUND_TRANSFORM = null;
+        [SerializeField, Tooltip("How big are our grid cells? For Prefix Summation (no longer used), recommended to match `smoothingRadius`")] 
+        private float _gridCellSize = 2f;
+        public float gridCellSize => _gridCellSize;
+        [SerializeField, Tooltip("In our grid space, how many buffer cells are added to each axis? Limited to 2 at a minimum, to add one cell on each end of the axis.")]
+        private int _bufferCellsPerAxis = 2;
+        [ReadOnly, SerializeField, Tooltip("Where in world space are we centering the simulation around?")]
+        private Vector3 _origin = new Vector3(0f,0f,0f);
+        public Vector3 origin => _origin;
+        public float[] originF => new float[3]{origin.x, origin.y, origin.z};
+        [ReadOnly, SerializeField, Tooltip("What are the world space length (per axis) is the simulation, limited by buffer cells?")]
+        private float[] _innerBounds = new float[6]{0f, 0f, 0f, 0f, 0f, 0f};
+        private Vector3 innerBounds => new Vector3(_innerBounds[3]-_innerBounds[0], _innerBounds[4]-_innerBounds[1], _innerBounds[5]-_innerBounds[2]);
+        private float[] innerBoundsF => new float[3]{_innerBounds[3]-_innerBounds[0], _innerBounds[4]-_innerBounds[1], _innerBounds[5]-_innerBounds[2]};
+        [ReadOnly, SerializeField, Tooltip("What are the total world space length (per axis) is the simulation?")]
+        private float[] _outerBounds = new float[6]{0f, 0f, 0f, 0f, 0f, 0f};
+        private Vector3 outerBounds => new Vector3(_outerBounds[3]-_outerBounds[0], _outerBounds[4]-_outerBounds[1], _outerBounds[5]-_outerBounds[2]);
+        private float[] outerBoundsF => new float[3]{_outerBounds[3]-_outerBounds[0], _outerBounds[4]-_outerBounds[1], _outerBounds[5]-_outerBounds[2]};
         [ReadOnly, SerializeField, Tooltip("Given `_outerBounds`, how many grid cells are along each axis?")]
-        private int[] _numCellsPerAxis;
-        public Vector3Int numCellsPerAxis { get => new Vector3Int(_numCellsPerAxis[0], _numCellsPerAxis[1], _numCellsPerAxis[2]); set {} }
-        public int[] numCellsPerAxisInt { get => _numCellsPerAxis; set {} }
-        [ReadOnly, SerializeField, Tooltip("How many grid cells do we have in total?")]
-        private int numGridCells;
-        [Tooltip("What's the gravitational force exerted on all particles?")]
-        public float[] g = {0f, -9.81f, 0f};
+        private int[] _numCellsPerAxis = new int[3]{0,0,0};
+        public Vector3Int numCellsPerAxis => new Vector3Int(_numCellsPerAxis[0], _numCellsPerAxis[1], _numCellsPerAxis[2]);
+        // How many grid cells do we have in total?
+        public int numGridCells => _numCellsPerAxis[0] * _numCellsPerAxis[1] * _numCellsPerAxis[2];
+    
+    // Helper function called while NOT IN PLAY MODE (aka during editing mode).
+    // This automatically calculates anything grid-related, such as what the boundaries for the simulation are, how many grid cells we have, etc.
+    // There are some key concepts to understand first:
+    //  1) WE don't set the origin - the SYSTEM does. The system calculates the origin based on the placement of two GameObjects in the unity scene.
+    //  2) The space defined by the two GameObjects is actually the outermost possible boundary. The simulation and all its grid cells are placed inside this space
+    //  3) We have an `inner` and an `outer` bounds. The `inner` bounds is essentially where all particles will remain. The `outer` bounds is buffer cell space so that the particles don't accidentally look at a nonexistent cell when looking in neighbor cells
+    private void UpdateBounds() {
+        if (_LOWER_BOUND_TRANSFORM == null || _UPPER_BOUND_TRANSFORM == null) return;
+        // First step: Determine our intended origin point from `_LOWER_BOUND_TRANSFORM` and `_UPPER_BOUND_TRANSFORM`
+        _origin = (_LOWER_BOUND_TRANSFORM.position + _UPPER_BOUND_TRANSFORM.position) / 2f;
+        // Now, we need to calculate the bounds out from origin, based on gridcellsize
+        // To do that, we calculate the 3D bounds by doing the following:
+        Vector3 space = _UPPER_BOUND_TRANSFORM.position - _LOWER_BOUND_TRANSFORM.position;
+        // Then, for each dimension (x, y, and z), we calculate how many cells we can ideally fit inside that.
+        // AKA: Calculate how many cells will fit within the provided dimensions
+        _numCellsPerAxis = new int[3] {
+            Mathf.FloorToInt(space.x / _gridCellSize),
+            Mathf.FloorToInt(space.y / _gridCellSize),
+            Mathf.FloorToInt(space.z / _gridCellSize)
+        };
+        // The new bounds are defined, from the origin, how many cells on the X, Y, and Z axes we can fit
+        // We define two different versions: a `bounds` that doesn't include the buffer cells, and and `outerBounds` that does consider buffer cells.
+        // Note that the space encased by `_UPPER/_LOWER_BOUND_TRANSFORM` contains `outerBounds
+        if (_bufferCellsPerAxis < 2) _bufferCellsPerAxis = 2;
+        else if (_bufferCellsPerAxis % 2 == 1) _bufferCellsPerAxis = Mathf.Max(2,Mathf.RoundToInt(_bufferCellsPerAxis/2));
+        Vector3 innerBoundsHalf = new Vector3(
+            (_numCellsPerAxis[0] - _bufferCellsPerAxis) * _gridCellSize,
+            (_numCellsPerAxis[1] - _bufferCellsPerAxis) * _gridCellSize,
+            (_numCellsPerAxis[2] - _bufferCellsPerAxis) * _gridCellSize
+        ) / 2f;
+        _innerBounds = new float[6] {
+            _origin.x - innerBoundsHalf.x,
+            _origin.y - innerBoundsHalf.y,
+            _origin.z - innerBoundsHalf.z,
+            _origin.x + innerBoundsHalf.x,
+            _origin.y + innerBoundsHalf.y,
+            _origin.z + innerBoundsHalf.z
+        };
+        Vector3 outerBoundsHalf = new Vector3(
+            _numCellsPerAxis[0] * _gridCellSize, 
+            _numCellsPerAxis[1] * _gridCellSize, 
+            _numCellsPerAxis[2] * _gridCellSize
+        ) / 2f;
+        _outerBounds = new float[6] {
+            _origin.x - outerBoundsHalf.x,
+            _origin.y - outerBoundsHalf.y,
+            _origin.z - outerBoundsHalf.z,
+            _origin.x + outerBoundsHalf.x,
+            _origin.y + outerBoundsHalf.y,
+            _origin.z + outerBoundsHalf.z
+        };
+    }
 
     [Header("== PARTICLE CONFIGURATIONS ==")]
         #if UNITY_EDITOR
         [Help("These configurations adjust the particles themselves, such as how many particles are present and how big they are in world scale.", UnityEditor.MessageType.None)]
         #endif
+        [SerializeField, Tooltip("How many particle should we use? This transform determines how many particles we can fit within `innerBounds`")]
+        private Transform _WATER_LEVEL_TRANSFORM = null;
 
-        [Tooltip("How many particles will we use in the simulation?")]
+        [ReadOnly, Tooltip("How many particles will we use in the simulation? Controlled by adjusting the WATER LEVEL transform lever in the scene (blue box)")]
         public int numParticles = 100000;
         [Tooltip("How big (visually only!) are each particle?")]
         public float particleRenderSize = 0.5f;
@@ -74,16 +131,44 @@ public class ParticleManager : MonoBehaviour
         public Mesh particle_mesh;
         public Material particle_material;
         // How many particles can we realistically fit into each grid cell? Calculated from particle render size. Intentional to use radius instead of size
-        private int _numParticlesPerGridCell => Mathf.CeilToInt(Mathf.Pow(gridCellSize / particleRenderRadius, 3));
+        private int _numParticlesPerGridCell => Mathf.CeilToInt(Mathf.Pow(gridCellSize / particleRenderSize, 3));
         public int numParticlesPerGridCell { get => _numParticlesPerGridCell; set {} }
+        [ReadOnly, SerializeField, Tooltip("How many particles, per axis?")]
+        private int[] _numParticlesPerAxis = new int[3]{0,0,0};
+        public int[] numParticlesPerAxis => _numParticlesPerAxis;
+
+
+    private void UpdateParticleConfig() {
+        if (_WATER_LEVEL_TRANSFORM == null || _LOWER_BOUND_TRANSFORM == null || _UPPER_BOUND_TRANSFORM == null) return;
+        // Keep the transform of `_WATER_LEVEL_TRANSFORM` to stick within the same y-axis as `_LOWER_BOUND_TRANSFORM`
+        _WATER_LEVEL_TRANSFORM.position = new Vector3(
+            _innerBounds[0], 
+            Mathf.Clamp(_WATER_LEVEL_TRANSFORM.position.y, _innerBounds[1]+gridCellSize, _innerBounds[4]), 
+            _innerBounds[2]
+        );
+        // We calculate how many particles we can fit within this simulation as a result
+        // The calculation for the # of particles is based on how many grid cells are below the line formed by _WATER_LEVEL_TRANSFORM's y-axis position
+        int numParticlesPerCellAxis = Mathf.CeilToInt(gridCellSize / particleRenderSize);
+        Debug.Log($"We're expecting {numParticlesPerCellAxis} particles per cell axis");
+        _numParticlesPerAxis[0] = numParticlesPerCellAxis * _numCellsPerAxis[0];
+        _numParticlesPerAxis[1] = numParticlesPerCellAxis * Mathf.FloorToInt((_WATER_LEVEL_TRANSFORM.position.y-_innerBounds[1])/gridCellSize);
+        _numParticlesPerAxis[2] = numParticlesPerCellAxis * _numCellsPerAxis[2];
+        Debug.Log($"Given that, we're expecting ({_numParticlesPerAxis[0]},{_numParticlesPerAxis[1]},{_numParticlesPerAxis[2]}) particles per global axis");
+        
+        // The number of particles that would fit inside of the cell is defined already as a get function. We just need to apply it
+        numParticles = _numParticlesPerAxis[0] * _numParticlesPerAxis[1] * _numParticlesPerAxis[2];
+        // We want to calculate that `numParticles` on an axis-level - AKA what's `numParticles` per axis?
+    }
 
     [Header("== FLUID MECHANICS ==")]
         #if UNITY_EDITOR
         [Help("These configurations adjust the behavior of the SPH fluid dynamics. These can get complicated, so make sure you know SPH inside out first. Learn about them here:\nhttps://www.cs.cornell.edu/~bindel/class/cs5220-f11/code/sph.pdf\nhttps://matthias-research.github.io/pages/publications/sca03.pdf\nThe current implementation is based off of the 1st reference.\n\n- `Dt` = The time step between frames. If set to any value < 0, then defaults to `Time.deltaTime`\n- `Smoothing Radius` = `K` - the radius used for the smoothing kernel.\n- `Particle Mass` = the mass of each individual particle.\n- `Viscosity Coefficient` = `mu`, how much particles stick to each other.\n- `Rest Density` = `p_0`, the default density the fluid is meant to embody when still.\n- `Damping` = How much the boundary walls reflect particles upon contact.\n - `Gas_constant` = how much the particles are excited. Normally dependent on temperature. Not used in this implementation.\n- `Bulk Modulus` = Every fluid has a modulus value - this can be looked up online. Try to pick values that aren't too large or small.", UnityEditor.MessageType.None)]
         #endif
-
+        
         [Tooltip("The time difference between frames. If set to a negative number, will default to `Time.deltaTime`.")]
         public float dt = 0.0165f;
+        [Tooltip("What's the gravitational force exerted on all particles?")]
+        public float[] g = {0f, -9.81f, 0f};
         [Tooltip("`h`: the smoothing kernel radius for SPH. Recommended to set to the same as `gridCellSize`.")]
         public float smoothingRadius = 1f;
         public float radius2 { get => Mathf.Pow(smoothingRadius, 2f); set {} }
@@ -112,12 +197,6 @@ public class ParticleManager : MonoBehaviour
         [Help("The first `numBoids` particles are considered boids and will be constantly cemented to the boids from a separate boids manager. We just need to let the SPH compute shader know which of its particles are boids", UnityEditor.MessageType.None)]
         #endif
         [ReadOnly] public int numBoids = 100;
-        public float boidMass = 5f;
-    
-    [Header("== OBSTACLE CONFIGURATIONS ==")]
-        public PointCloudObstacle[] obstacles = new PointCloudObstacle[0];
-        [SerializeField]
-        private int numPointsOnObstacles = 0;
 
     [Header("== GPU SETTINGS ==")]
         #if UNITY_EDITOR
@@ -126,8 +205,8 @@ public class ParticleManager : MonoBehaviour
 
         [Tooltip("Reference to the compute shader used to control particle movement")]
         public ComputeShader SPHComputeShader;
-        [Tooltip("What kind of neighbor search and parsing should we use?")]
-        public NeighborSearchType neighborSearchType = NeighborSearchType.CubeVolume;
+        //[Tooltip("What kind of neighbor search and parsing should we use?")]
+        //public NeighborSearchType neighborSearchType = NeighborSearchType.CubeVolume;
         // number of threads running in each thread group that runs the simulation
         private const int _BLOCK_SIZE = 1024;
         public int BLOCK_SIZE { get => _BLOCK_SIZE; set {} }
@@ -167,14 +246,12 @@ public class ParticleManager : MonoBehaviour
     // Initialization and Resetting (Universal)
     int generate_particles_kernel;
     int clear_grid_kernel;
-    int reset_num_neighbors_kernel;
     int update_grid_kernel;
     // Specific to prefix summation method
     int prefix_sum_kernel;
     int sum_blocks_kernel;
     int add_sums_kernel;
     int rearrange_particles_kernel;
-    int count_num_neighbors_kernel;
     int ps_compute_density_kernel;
     int ps_compute_interact_acceleration_kernel;
     // Specific to cube volume method
@@ -186,19 +263,13 @@ public class ParticleManager : MonoBehaviour
     int dampen_by_bounds_kernel;
     int integrate_boid_particles_kernel;
 
-    // public Vector3 velocity_initial = new Vector3(0, 10, 0);
-
-    [Header("voxel")]
-    public int n_point_per_axis = 50; 
-    // z * n_point_per_axis * n_point_per_axis + y * n_point_per_axis + x, x ^ 3 + x ^ 2 + x = numParticles, (x = 50, numParticles = 130000)
-    public float isolevel = 8;
-
     int size_property = Shader.PropertyToID("size");
     int particle_buffer_property = Shader.PropertyToID("particle_buffer");
 
     [Header("== COMPUTE BUFFERS ==")]
     public ComputeBuffer arg_buffer;
     
+    private ComputeBuffer boundsBuffer;
     // Stores how many particles are inside each grid cell. 
         // Length = numGridCells
         // To get grid cell count: 
@@ -254,14 +325,27 @@ public class ParticleManager : MonoBehaviour
     void OnDrawGizmos() {
         if (!show_gizmos) return;
 
-        Gizmos.color = Color.white;
-        Gizmos.DrawWireCube(originVector3, new Vector3(bounds[0], bounds[1], bounds[2]));
+        if (_LOWER_BOUND_TRANSFORM == null || _UPPER_BOUND_TRANSFORM == null) return;
         Gizmos.color = Color.yellow;
-        Gizmos.DrawWireCube(originVector3, new Vector3(_outerBounds[0], _outerBounds[1], _outerBounds[2]));
-        Gizmos.color = Color.red;
-        Gizmos.DrawSphere(originVector3,0.1f);
+        Gizmos.DrawSphere(origin, 0.1f);
+        Gizmos.DrawWireCube(origin, innerBounds);
+        Gizmos.color = Color.white;
+        
+        if (!Application.isPlaying) {
+            Gizmos.DrawWireCube(origin, outerBounds);
+            Gizmos.color = new Vector4(1f,1f,1f,0.5f);
+            Gizmos.DrawWireCube(origin, _UPPER_BOUND_TRANSFORM.position - _LOWER_BOUND_TRANSFORM.position);
 
-        if (!Application.isPlaying) return;
+            Gizmos.color = new Vector4(0f,0f,1f,0.75f);
+            float waterHeight = Mathf.FloorToInt((_WATER_LEVEL_TRANSFORM.position.y-_innerBounds[1])/gridCellSize) * gridCellSize;
+            Vector3 waterDisplayCenter = new Vector3(origin.x, _innerBounds[1] +  waterHeight * 0.5f, origin.z);
+            Gizmos.DrawCube(waterDisplayCenter, new Vector3(innerBounds.x, waterHeight, innerBounds.z));
+
+            Vector3 handlePos = _WATER_LEVEL_TRANSFORM.position + Vector3.left * 20f;
+            Handles.Label(handlePos, $"Grid Cell Dimensions: ({_numCellsPerAxis[0]},{_numCellsPerAxis[1]},{_numCellsPerAxis[2]})\n# Particles: {numParticles}");
+
+            return;
+        }
 
         Vector4 gridColor = new Vector4(1f,0f,0f,0.25f);
         Vector3 gridCellSize3D = new Vector3(gridCellSize, gridCellSize, gridCellSize);
@@ -271,13 +355,14 @@ public class ParticleManager : MonoBehaviour
         //numNeighborsBuffer.GetData(temp_num_neighbors);
         //float3[] temp_forces_array = new float3[numParticles];
         //force_buffer.GetData(temp_forces_array);
-        float3[] temp_velocities_array = new float3[numParticles];
-        velocity_buffer.GetData(temp_velocities_array);
+        //float3[] temp_velocities_array = new float3[numParticles];
+        //velocity_buffer.GetData(temp_velocities_array);
         for(int i = 1; i < numParticles; i++) {
             if (show_particles) {
                 Gizmos.color = gizmos_particle_color;
                 Gizmos.DrawSphere(temp_particles[i].position, particleRenderRadius);
             }
+            /*
             if (show_boid_influence) {
                 if (temp_particles[i].isBoid > 0) {
                     Gizmos.color = Color.red;
@@ -290,18 +375,18 @@ public class ParticleManager : MonoBehaviour
                 Gizmos.color = gridColor;
                 Gizmos.DrawCube(GetGridCellWorldPositionFromGivenPosition(temp_particles[i].position), gridCellSize3D);
             }
-            /*
-            if (show_forces) {
-                Gizmos.color = Color.green;
-                Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_forces_array[i]);
-            }
-            if (show_velocities) {
-                Gizmos.color = Color.blue;
-                Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_velocities_array[i]);
-            }
+            //if (show_forces) {
+            //    Gizmos.color = Color.green;
+            //    Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_forces_array[i]);
+            //}
+            //if (show_velocities) {
+            //    Gizmos.color = Color.blue;
+            //    Gizmos.DrawLine(temp_particles[i].position, temp_particles[i].position + temp_velocities_array[i]);
+            //}
             */
         }
 
+        /*
         if (show_boids) {
             Gizmos.color = Color.yellow;
             for(int i = 0; i < numBoids; i++) {
@@ -359,6 +444,7 @@ public class ParticleManager : MonoBehaviour
 
     private void Awake() {
         current = this;
+        if (!Application.isPlaying) return;
         // If this game object is its own active gameobject, we run initialize;
         if (!initialized) Initialize();
     }
@@ -366,10 +452,14 @@ public class ParticleManager : MonoBehaviour
     // This is a public method that can be called from some external manager or the like.
     // If this is a standalone component without any managers, the `Awake` method will handle this by itself. No management needed.
     public void Initialize() {
+        // Deactivate all scene transforms that affect bounds and grids
+        _LOWER_BOUND_TRANSFORM.gameObject.SetActive(false);
+        _UPPER_BOUND_TRANSFORM.gameObject.SetActive(false);
+        _WATER_LEVEL_TRANSFORM.gameObject.SetActive(false);
         // Initialize boids first
         boidManager.Initialize();
         // Initialize obstacles second
-        obstacleManager.Initialize();
+        //obstacleManager.Initialize();
         // Initialize key variables once
         InitializeVariables();
         // Determine the kernels from the GPU
@@ -391,29 +481,9 @@ public class ParticleManager : MonoBehaviour
     // - how many grid cells we have in total
     // - how many thread groups we need
     private void InitializeVariables() {
-        // Determine our process type
-        bufferCellsPerAxis = 4;
-        // Calculate how many cells will fit within the provided dimensions
-        _numCellsPerAxis = new int[3];
-        _numCellsPerAxis[0] = Mathf.CeilToInt(bounds[0] / gridCellSize) + bufferCellsPerAxis;
-        _numCellsPerAxis[1] = Mathf.CeilToInt(bounds[1] / gridCellSize) + bufferCellsPerAxis;
-        _numCellsPerAxis[2] = Mathf.CeilToInt(bounds[2] / gridCellSize) + bufferCellsPerAxis;
-        // Re-Calculate the new bounds based on the number of cells per axis
-        _outerBounds[0] = (float)_numCellsPerAxis[0] * gridCellSize;
-        _outerBounds[1] = (float)_numCellsPerAxis[1] * gridCellSize;
-        _outerBounds[2] = (float)_numCellsPerAxis[2] * gridCellSize;
-        // How many grid cells are there in total?
-        numGridCells = _numCellsPerAxis[0] * _numCellsPerAxis[1] * _numCellsPerAxis[2];
         // For volumetric neighbor search, the # of particles per grid cell is calculated automatically. No need to calculate it here.
-
         // However, we need to adjust the number of boids to ensure that it isn't larger than the # of particles in the current system.
         numBoids = Mathf.Min(boidManager.numBoids, Mathf.FloorToInt((float)numParticles*0.9f));
-
-        // We also need to count number of particles attached to obstacles
-        numPointsOnObstacles = 0;
-        foreach(PointCloudObstacle obstacle in obstacles) {
-            numPointsOnObstacles += obstacle.points.Count;
-        }
 
         // == GPU SETTINGS ==
         numBlocks = Mathf.CeilToInt((float)numGridCells / (float)_BLOCK_SIZE);
@@ -430,16 +500,14 @@ public class ParticleManager : MonoBehaviour
         // Initialization and Resetting (Universal). Reset num neighbors is purely for debugging purposes
         clear_grid_kernel = SPHComputeShader.FindKernel("ClearGrid");
         generate_particles_kernel = SPHComputeShader.FindKernel("GenerateParticles");
-        reset_num_neighbors_kernel = SPHComputeShader.FindKernel("ResetNumNeighbors");
         update_grid_kernel = SPHComputeShader.FindKernel("UpdateGridCellCounts");
         // Specific to Prefix Summation Method
-        prefix_sum_kernel = SPHComputeShader.FindKernel("PrefixSum");
-        sum_blocks_kernel = SPHComputeShader.FindKernel("SumBlocks");
-        add_sums_kernel = SPHComputeShader.FindKernel("AddSums");
-        rearrange_particles_kernel = SPHComputeShader.FindKernel("RearrangeParticles");
-        count_num_neighbors_kernel = SPHComputeShader.FindKernel("CountNumNeighbors");
-        ps_compute_density_kernel = SPHComputeShader.FindKernel("PS_ComputeDensity");
-        ps_compute_interact_acceleration_kernel = SPHComputeShader.FindKernel("PS_ComputeInteractAcceleration");
+        //prefix_sum_kernel = SPHComputeShader.FindKernel("PrefixSum");
+        //sum_blocks_kernel = SPHComputeShader.FindKernel("SumBlocks");
+        //add_sums_kernel = SPHComputeShader.FindKernel("AddSums");
+        //rearrange_particles_kernel = SPHComputeShader.FindKernel("RearrangeParticles");
+        //ps_compute_density_kernel = SPHComputeShader.FindKernel("PS_ComputeDensity");
+        //ps_compute_interact_acceleration_kernel = SPHComputeShader.FindKernel("PS_ComputeInteractAcceleration");
         // Specific to Cube Volume Method
         cv_compute_density_kernel = SPHComputeShader.FindKernel("CV_ComputeDensity");
         cv_compute_interact_acceleration_kernel = SPHComputeShader.FindKernel("CV_ComputeInteractAcceleration");
@@ -455,9 +523,9 @@ public class ParticleManager : MonoBehaviour
         SPHComputeShader.SetFloat("gridCellSize", gridCellSize);
         SPHComputeShader.SetInts("numCellsPerAxis", _numCellsPerAxis);
         SPHComputeShader.SetInt("total_number_of_cells", numGridCells);
-        SPHComputeShader.SetFloats("origin", origin);
-        SPHComputeShader.SetFloats("bounds", bounds);
-        SPHComputeShader.SetFloats("outerBounds", _outerBounds);
+        SPHComputeShader.SetFloats("origin", originF);
+        //SPHComputeShader.SetFloats("bounds", innerBoundsF);
+        SPHComputeShader.SetFloats("outerBounds", outerBoundsF);
         SPHComputeShader.SetFloats("g", g);
         SPHComputeShader.SetFloat("epsilon", Mathf.Epsilon);
         SPHComputeShader.SetFloat("pi", Mathf.PI);
@@ -465,20 +533,13 @@ public class ParticleManager : MonoBehaviour
         // == PARTICLE CONFIGURATIONS ==
         SPHComputeShader.SetInt("numParticles", numParticles);
         SPHComputeShader.SetInt("numBoids", numBoids);
-        SPHComputeShader.SetInt("numParticlesOnObstacles", numPointsOnObstacles);
         SPHComputeShader.SetFloat("particleRenderRadius", particleRenderRadius);
         SPHComputeShader.SetInt("numParticlesPerGridCell", _numParticlesPerGridCell);
+        SPHComputeShader.SetInts("numParticlesPerAxis", _numParticlesPerAxis);
 
         // == GPU SETTINGS
         SPHComputeShader.SetInt("numBlocks", numBlocks);
         SPHComputeShader.SetInt("randomSeed", Random.Range(0,int.MaxValue));
-
-        // == OLD SETTINGS ==
-        //SPHComputeShader.SetInt("n", 8);
-        //SPHComputeShader.SetFloat("e", Mathf.Exp(1));
-        //SPHComputeShader.SetVector("time", Shader.GetGlobalVector("_Time"));
-        SPHComputeShader.SetInt("n_point_per_axis", n_point_per_axis);
-        SPHComputeShader.SetFloat("isolevel", isolevel);
 
         // Update variables that may change over time due to modifying inspector values
         UpdateShaderVariables();
@@ -508,23 +569,22 @@ public class ParticleManager : MonoBehaviour
         }
     }
 
-    public unsafe void InitializeBuffers() {
+    public void InitializeBuffers() {
         uint[] arg = {particle_mesh.GetIndexCount(0), (uint)numParticles, particle_mesh.GetIndexStart(0), particle_mesh.GetBaseVertex(0), 0};
         arg_buffer = new ComputeBuffer(1, arg.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
         arg_buffer.SetData(arg);
+
+        boundsBuffer = new ComputeBuffer(6, sizeof(float));
+        boundsBuffer.SetData(_innerBounds);
 
         particle_buffer = new ComputeBuffer(numParticles, sizeof(float)*7 + sizeof(int)*2);
         particleOffsetsBuffer = new ComputeBuffer(numParticles, sizeof(int));
         gridBuffer = new ComputeBuffer(numGridCells, sizeof(int));
         particleNeighborsBuffer = new ComputeBuffer(numGridCells * _numParticlesPerGridCell, sizeof(int));
 
-        
-        //obstacleParticlesBuffer = new ComputeBuffer(numPointsOnObstacles, sizeof(Vector3));
-
-
         float[] particle_masses = new float[numParticles];
-        for(int i = 0; i < numParticles; i++) particle_masses[i] = boidMass;
-        for(int j = numBlocks; j < numParticles; j++) particle_masses[j] = particleMass;
+        for(int i = 0; i < numParticles; i++) particle_masses[i] = particleMass;
+        //for(int j = numBlocks; j < numParticles; j++) particle_masses[j] = particleMass;
         mass_buffer = new ComputeBuffer(numParticles, sizeof(float));
         mass_buffer.SetData(particle_masses);
 
@@ -542,8 +602,8 @@ public class ParticleManager : MonoBehaviour
         temp_buffer = new ComputeBuffer(numParticles, sizeof(int));
         
         SPHComputeShader.SetBuffer(clear_grid_kernel, "grid", gridBuffer);
-        SPHComputeShader.SetBuffer(reset_num_neighbors_kernel, "numNeighbors", numNeighborsBuffer);
 
+        SPHComputeShader.SetBuffer(generate_particles_kernel, "bounds", boundsBuffer);
         SPHComputeShader.SetBuffer(generate_particles_kernel, "particles", particle_buffer);
         SPHComputeShader.SetBuffer(generate_particles_kernel, "density", density_buffer);
         SPHComputeShader.SetBuffer(generate_particles_kernel, "pressure", pressure_buffer);
@@ -556,33 +616,28 @@ public class ParticleManager : MonoBehaviour
         SPHComputeShader.SetBuffer(update_grid_kernel, "particleNeighbors", particleNeighborsBuffer);
         SPHComputeShader.SetBuffer(update_grid_kernel, "temp_buffer", temp_buffer);
 
-        SPHComputeShader.SetBuffer(prefix_sum_kernel, "gridOffsetBufferIn", gridBuffer);
-        SPHComputeShader.SetBuffer(prefix_sum_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        SPHComputeShader.SetBuffer(prefix_sum_kernel, "gridSumsBuffer", gridSumsBuffer2);
+        //SPHComputeShader.SetBuffer(prefix_sum_kernel, "gridOffsetBufferIn", gridBuffer);
+        //SPHComputeShader.SetBuffer(prefix_sum_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        //SPHComputeShader.SetBuffer(prefix_sum_kernel, "gridSumsBuffer", gridSumsBuffer2);
 
-        SPHComputeShader.SetBuffer(add_sums_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        //SPHComputeShader.SetBuffer(add_sums_kernel, "gridOffsetBuffer", gridOffsetBuffer);
 
-        SPHComputeShader.SetBuffer(rearrange_particles_kernel, "particles", particle_buffer);
-        SPHComputeShader.SetBuffer(rearrange_particles_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        SPHComputeShader.SetBuffer(rearrange_particles_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        SPHComputeShader.SetBuffer(rearrange_particles_kernel, "particleOffsets", particleOffsetsBuffer);
+        //SPHComputeShader.SetBuffer(rearrange_particles_kernel, "particles", particle_buffer);
+        //SPHComputeShader.SetBuffer(rearrange_particles_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
+        //SPHComputeShader.SetBuffer(rearrange_particles_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        //SPHComputeShader.SetBuffer(rearrange_particles_kernel, "particleOffsets", particleOffsetsBuffer);
 
-        SPHComputeShader.SetBuffer(count_num_neighbors_kernel, "particles", particle_buffer);
-        SPHComputeShader.SetBuffer(count_num_neighbors_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        SPHComputeShader.SetBuffer(count_num_neighbors_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        SPHComputeShader.SetBuffer(count_num_neighbors_kernel, "numNeighbors", numNeighborsBuffer);
-
-        SPHComputeShader.SetBuffer(ps_compute_density_kernel, "particles", particle_buffer);
-        SPHComputeShader.SetBuffer(ps_compute_density_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        SPHComputeShader.SetBuffer(ps_compute_density_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        SPHComputeShader.SetBuffer(ps_compute_density_kernel, "density", density_buffer);
+        //SPHComputeShader.SetBuffer(ps_compute_density_kernel, "particles", particle_buffer);
+        //SPHComputeShader.SetBuffer(ps_compute_density_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
+        //SPHComputeShader.SetBuffer(ps_compute_density_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        //SPHComputeShader.SetBuffer(ps_compute_density_kernel, "density", density_buffer);
     
-        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "particles", particle_buffer);
-        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
-        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "gridOffsetBuffer", gridOffsetBuffer);
-        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "density", density_buffer);
-        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "velocity", velocity_buffer);
-        SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "force", force_buffer);
+        //SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "particles", particle_buffer);
+        //SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "rearrangedParticles", rearrangedParticlesBuffer);
+        //SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "gridOffsetBuffer", gridOffsetBuffer);
+        //SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "density", density_buffer);
+        //SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "velocity", velocity_buffer);
+        //SPHComputeShader.SetBuffer(ps_compute_interact_acceleration_kernel, "force", force_buffer);
 
         SPHComputeShader.SetBuffer(cv_compute_density_kernel, "particles", particle_buffer);
         SPHComputeShader.SetBuffer(cv_compute_density_kernel, "grid", gridBuffer);
@@ -604,6 +659,7 @@ public class ParticleManager : MonoBehaviour
         SPHComputeShader.SetBuffer(integrate_kernel, "force", force_buffer);
         SPHComputeShader.SetBuffer(integrate_kernel, "density", density_buffer);
 
+        SPHComputeShader.SetBuffer(dampen_by_bounds_kernel, "bounds", boundsBuffer);
         SPHComputeShader.SetBuffer(dampen_by_bounds_kernel, "particles", particle_buffer);
         SPHComputeShader.SetBuffer(dampen_by_bounds_kernel, "velocity", velocity_buffer);
 
@@ -615,6 +671,11 @@ public class ParticleManager : MonoBehaviour
     }
 
     private void Update() {
+        if (!Application.isPlaying) {
+            UpdateBounds();
+            UpdateParticleConfig();
+            return;
+        }
         if (initialized) UpdateParticles();
     }
 
@@ -626,10 +687,10 @@ public class ParticleManager : MonoBehaviour
 
         // Reset the grid and num neighbors buffer, if we are debugging
         SPHComputeShader.Dispatch(clear_grid_kernel, numBlocks,1,1);
-        SPHComputeShader.Dispatch(reset_num_neighbors_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
         
         // Calculate how many particles are in each grid cell, and get each particle's offset for their particular grid cell
         SPHComputeShader.Dispatch(update_grid_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE),1,1);
+        /*
         if (verbose_grid) {
             DebugBufferInt("Grid", debugNumGridCells, gridBuffer, true);
             DebugBufferParticle("Particles", debugNumParticles, particle_buffer);
@@ -638,21 +699,26 @@ public class ParticleManager : MonoBehaviour
         if (verbose_offsets) {
             DebugBufferInt("Particle Offsets", debugNumParticles, particleOffsetsBuffer);
         }
+        */
 
         // We perform the updates for density, pressure, and force/acceleration. 
         // Which compute shader methods to run will be based on our chosen method.
-        if (neighborSearchType == NeighborSearchType.PrefixSum) PrefixSumProcess(debugNumGridCells, debugNumParticles);
-        else CubeVolumeProcess(debugNumGridCells, debugNumParticles);
+        //if (neighborSearchType == NeighborSearchType.PrefixSum) {
+        //    PrefixSumProcess(debugNumGridCells, debugNumParticles);
+        //}
+        //else {
+        CubeVolumeProcess(debugNumGridCells, debugNumParticles);
+        //}
 
         SPHComputeShader.Dispatch(compute_external_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
-        if (verbose_force) DebugBufferFloat3("Forces",debugNumParticles,force_buffer);
+        // if (verbose_force) DebugBufferFloat3("Forces",debugNumParticles,force_buffer);
 
         // Integrate over particles, update their positions after taking all force calcualtions into account
         SPHComputeShader.Dispatch(integrate_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
 
         // Make sure that particles are within bounds, limit them if so
         SPHComputeShader.Dispatch(dampen_by_bounds_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
-        if (verbose_velocity) DebugBufferFloat3("Velocities",debugNumParticles,velocity_buffer);
+        // if (verbose_velocity) DebugBufferFloat3("Velocities",debugNumParticles,velocity_buffer);
 
         // Integrate the boid particles specifically
         SPHComputeShader.Dispatch(integrate_boid_particles_kernel, Mathf.CeilToInt((float)numBoids / (float)_BLOCK_SIZE), 1, 1);
@@ -662,6 +728,8 @@ public class ParticleManager : MonoBehaviour
         particle_material.SetBuffer(particle_buffer_property, particle_buffer);
         Graphics.DrawMeshInstancedIndirect(particle_mesh, 0, particle_material, new Bounds(Vector3.zero, new Vector3(1000f, 1000f, 1000f)), arg_buffer, castShadows: UnityEngine.Rendering.ShadowCastingMode.Off);
     }
+
+    /*
 
     private void PrefixSumProcess(int debugNumGridCells, int debugNumParticles) {
         SPHComputeShader.Dispatch(prefix_sum_kernel, numBlocks, 1, 1);
@@ -680,9 +748,6 @@ public class ParticleManager : MonoBehaviour
         SPHComputeShader.Dispatch(rearrange_particles_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_rearrange) DebugBufferInt("Rearranged particle", debugNumParticles, rearrangedParticlesBuffer);
 
-        SPHComputeShader.Dispatch(count_num_neighbors_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
-        if (verbose_num_neighbors) DebugBufferInt("Num Neighbors",debugNumParticles,numNeighborsBuffer);
-
         SPHComputeShader.Dispatch(ps_compute_density_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_density_pressure) {
             DebugBufferFloat("Densities",debugNumParticles,density_buffer);
@@ -692,17 +757,23 @@ public class ParticleManager : MonoBehaviour
         SPHComputeShader.Dispatch(ps_compute_interact_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
         if (verbose_force) DebugBufferFloat3("Forces",debugNumParticles,force_buffer);
     }
+    */
 
     private void CubeVolumeProcess(int debugNumGridCells, int debugNumParticles) {
         SPHComputeShader.Dispatch(cv_compute_density_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
+        /*
         if (verbose_density_pressure) {
             //DebugBufferFloat("Densities",debugNumParticles,density_buffer);
             DebugBufferParticleTouched("Touched by Boid", 15000, particle_buffer);
         }
+        */
         SPHComputeShader.Dispatch(cv_compute_interact_acceleration_kernel, Mathf.CeilToInt((float)numParticles / (float)_BLOCK_SIZE), 1, 1);
     }
 
     void OnDestroy() {
+        Debug.Log("Destroy has been called...");
+        if (!initialized) return;
+        boundsBuffer.Dispose();
         particle_buffer.Dispose();
         particleOffsetsBuffer.Dispose();
         particleNeighborsBuffer.Dispose();
@@ -717,6 +788,7 @@ public class ParticleManager : MonoBehaviour
         gridSumsBuffer2.Dispose();
         rearrangedParticlesBuffer.Dispose();
         numNeighborsBuffer.Dispose();
+        mass_buffer.Dispose();
         temp_buffer.Dispose();
     }
     
