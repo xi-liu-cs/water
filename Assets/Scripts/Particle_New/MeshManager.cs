@@ -38,7 +38,6 @@ public class MeshManager : MonoBehaviour
     public float[] origin = new float[3] { 0f, 0f, 0f };
     public Vector3 originVector3 => new Vector3(origin[0], origin[1], origin[2]);
     private float[] bounds = new float[3] {100f,100f,100f}; // Set based on voxelSize and numVoxelsPerAxis
-    public float[] bound = new float[]{-50, 50, -50, 50, -50, 50};
     private Vector3 boundsVector3 => new Vector3(bounds[0], bounds[1], bounds[2]);
 
     [Header("== Marching Cubes Configurations ==")]
@@ -56,7 +55,6 @@ public class MeshManager : MonoBehaviour
     private int maxTriangleCount;
     private int numPoints;
     public float isoLevel = 8f;
-    public float grid_size = 2f;
 
     [Header("== GPU CONFIGURATIONS  ==")]
     const int threadGroupSize = 8;
@@ -69,17 +67,14 @@ public class MeshManager : MonoBehaviour
     private int compute_neighbor_list_kernel;
     private int compute_density_kernel;
     private int compute_triangles_kernel;
-    private int compute_normal_kernel;
 
     [Header("== GPU BUFFERS ==")]
-    private ComputeBuffer bound_buffer;
     private ComputeBuffer pointsBuffer;
     private ComputeBuffer pointDensitiesBuffer;
     private ComputeBuffer cubeCornerNeighborListBuffer;
     private ComputeBuffer cubeCornerNeighborTrackerBuffer;
     private ComputeBuffer triangleBuffer;
     private ComputeBuffer triangleCountBuffer;
-    private ComputeBuffer normal_buffer;
 
     [Header("== DEBUGGING CONFIGURATIONS ==")]
     public bool gizmos_densities = false;
@@ -195,21 +190,16 @@ public class MeshManager : MonoBehaviour
         // Retrieved from ParticleManager
         densityShader.SetInt("numParticles", particleManager.numParticles);
         densityShader.SetFloat("particleRenderSize", particleManager.particleRenderSize);
-        densityShader.SetFloat("grid_size", grid_size);
     }
 
     private void InitializeShaderKernels() {
         clear_cube_corner_neighbor_tracker_kernel = densityShader.FindKernel("clear_cube_corner_neighbor_tracker");
         compute_neighbor_list_kernel = densityShader.FindKernel("compute_neighbor_list");
         compute_density_kernel = densityShader.FindKernel("compute_density");
-        compute_normal_kernel = densityShader.FindKernel("compute_normal");
     }
     
     private void InitializeShaderBuffers() {
-        bound_buffer = new ComputeBuffer(6, sizeof(float));
-        bound_buffer.SetData(bound);
         pointsBuffer = new ComputeBuffer(numPoints, sizeof(float) * 3);
-        normal_buffer = new ComputeBuffer(numPoints, sizeof(float) * 3);
         pointDensitiesBuffer = new ComputeBuffer(numPoints, sizeof(float));
         cubeCornerNeighborListBuffer = new ComputeBuffer(numPoints * maxParticlesPerVoxel, sizeof(int));
         cubeCornerNeighborTrackerBuffer = new ComputeBuffer(numPoints, sizeof(int));
@@ -222,17 +212,12 @@ public class MeshManager : MonoBehaviour
         densityShader.SetBuffer(compute_neighbor_list_kernel, "particles", particleManager.particle_buffer);
         densityShader.SetBuffer(compute_neighbor_list_kernel, "cube_corner_neighbor_list", cubeCornerNeighborListBuffer);
         densityShader.SetBuffer(compute_neighbor_list_kernel, "cube_corner_neighbor_tracker", cubeCornerNeighborTrackerBuffer);
-        densityShader.SetBuffer(compute_neighbor_list_kernel, "bound", bound_buffer);
 
         densityShader.SetBuffer(compute_density_kernel, "particles", particleManager.particle_buffer);
         densityShader.SetBuffer(compute_density_kernel, "voxel_density", pointDensitiesBuffer);
         densityShader.SetBuffer(compute_density_kernel, "points", pointsBuffer);
         densityShader.SetBuffer(compute_density_kernel, "cube_corner_neighbor_list", cubeCornerNeighborListBuffer);
         densityShader.SetBuffer(compute_density_kernel, "cube_corner_neighbor_tracker", cubeCornerNeighborTrackerBuffer);
-        densityShader.SetBuffer(compute_density_kernel, "bound", bound_buffer);
-
-        densityShader.SetBuffer(compute_normal_kernel, "voxel_density", pointDensitiesBuffer);
-        densityShader.SetBuffer(compute_normal_kernel, "normals", normal_buffer);
 
         triangleShader.SetBuffer(0, "triangles", triangleBuffer);
         triangleShader.SetInts("n_point_per_axis", numPointsPerAxis);
@@ -240,6 +225,7 @@ public class MeshManager : MonoBehaviour
         triangleShader.SetBuffer(0, "voxel_density", pointDensitiesBuffer);
         triangleShader.SetBuffer(0, "particles", particleManager.particle_buffer);
         triangleShader.SetBuffer(0, "points", pointsBuffer);
+
 
         fluidMaterial.SetFloat(size_property, particleManager.particleRenderSize);
         fluidMaterial.SetBuffer(particle_buffer_property, particleManager.particle_buffer);
@@ -249,9 +235,7 @@ public class MeshManager : MonoBehaviour
     private void Update() {
         particleManager.UpdateParticles();
         UpdateDensities();
-        debug_density();
         UpdateTriangles();
-        UpdateNormal();
         UpdateMesh();
     }
 
@@ -276,14 +260,6 @@ public class MeshManager : MonoBehaviour
         );
     }
 
-    void debug_density()
-    {
-        float[] a = new float[100];
-        pointDensitiesBuffer.GetData(a);
-        Debug.Log("voxel");
-        for(int i = 0; i < 100; ++i) Debug.Log(a[i]);
-    }
-
     private void UpdateTriangles() {
         triangleBuffer.SetCounterValue(0);
         triangleShader.Dispatch(0, numThreadsPerAxis[0], numThreadsPerAxis[1], numThreadsPerAxis[2]);
@@ -296,21 +272,10 @@ public class MeshManager : MonoBehaviour
         Debug.Log($"Number of triangles / total max count: {(float)numTriangles / (float)maxTriangleCount}");
     }
 
-    private void UpdateNormal()
-    {
-        densityShader.Dispatch(
-            compute_normal_kernel,
-            numThreadsPerAxis[0], 
-            numThreadsPerAxis[1],
-            numThreadsPerAxis[2]
-        );
-    }
-
     private void UpdateMesh() {
         fluidMesh.Clear();
         Vector3[] vertices = new Vector3[numTriangles * 3];
         int[] meshTriangles = new int[numTriangles * 3];
-        Vector3[] triangle_normal = new Vector3[numTriangles * 3];
 
         for(int i = 0; i < numTriangles; i++) {
             for(int j = 0; j < 3; j++) {
@@ -320,7 +285,6 @@ public class MeshManager : MonoBehaviour
         }
         fluidMesh.vertices = vertices;
         fluidMesh.triangles = meshTriangles;
-        fluidMesh.normals = triangle_normal;
         fluidMesh.RecalculateNormals();
     }
 

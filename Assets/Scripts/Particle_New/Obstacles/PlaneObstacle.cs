@@ -37,7 +37,7 @@ public class PlaneObstacle : MonoBehaviour
     public int[] oldToNewVertMap;
     public List<ObsPlane> obstaclePlanes = new List<ObsPlane>();
     public List<int> vertexTriangleMap;
-    public int2[] vertexTriangleCount;
+    public int3[] vertexTriangleCount;
 
     public bool awaitInitialization = false;
 
@@ -179,9 +179,9 @@ public class PlaneObstacle : MonoBehaviour
 
         // We now need to generate vertexTriangleMap and vertexTriangleCount
         vertexTriangleMap = new List<int>();
-        vertexTriangleCount = new int2[vertices.Count];
+        vertexTriangleCount = new int3[vertices.Count];
         for(int i = 0; i < vertices.Count; i++) {
-            vertexTriangleCount[i] = new(vertexTriangleMap.Count, vertexToTriangleList[i].Count);
+            vertexTriangleCount[i] = new(obs.index, vertexTriangleMap.Count, vertexToTriangleList[i].Count);
             vertexTriangleMap.AddRange(vertexToTriangleList[i]);
         }
     }
@@ -191,6 +191,7 @@ public class PlaneObstacle : MonoBehaviour
         obs.rotation = new(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
         obs.scale = new(transform.lossyScale.x, transform.lossyScale.y, transform.lossyScale.z);
         if (transform.hasChanged) {
+            Debug.Log($"{gameObject.name} has changed!");
             obs.hasChanged = 1;
             transform.hasChanged = false;
         } else {

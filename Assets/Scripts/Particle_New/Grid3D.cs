@@ -25,6 +25,7 @@ public class Grid3D : MonoBehaviour
         private Vector3Int _numGridCellsPerAxis = new Vector3Int(10,10,10);
         public Vector3Int numGridCellsPerAxis { get => _numGridCellsPerAxis; set {} }
         public float[] numGridCellsPerAxisF { get => new float[3]{_numGridCellsPerAxis.x, _numGridCellsPerAxis.y, _numGridCellsPerAxis.z}; set {} }
+        public int3 numGridCellsPerAxisI { get => new(_numGridCellsPerAxis.x, _numGridCellsPerAxis.y, _numGridCellsPerAxis.z); set {} }
         public int numGridCells { get => _numGridCellsPerAxis.x * _numGridCellsPerAxis.y * _numGridCellsPerAxis.z; set {} }
 
         [Tooltip("Automatically calculated world space length (per axis) of the simulation, based on `gridCellSize`. and `numGridCellsPerAxis`. ")]

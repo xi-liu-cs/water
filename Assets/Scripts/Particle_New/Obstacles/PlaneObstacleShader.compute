@@ -1,0 +1,273 @@
+// GPU SETTINGS 
+#define _BLOCK_SIZE 1024        // How many threads can a thread group have?
+uint numBlocks;                 // number of thread groups that run on the GPU
+
+// == VARIABLES ==
+// From `ParticleManager` and `BoidManager`. These ones do NOT change over time
+uint numParticles;
+uint numBoids;
+uint numVertices;
+uint numPlanes;
+// From `Grid3D`. These ones are susceptible to change, potentially
+float3 origin;          // The origin of the world
+float3 numCellsPerAxis;   // How many cells are along each axis of the grid
+float gridCellSize;     // How big is each grid cell
+float3 bounds;          // What are the bounds of the grid
+// Specific to obstacles
+int maxVerticesPerCell; // What's the max number of vertices possible for a grid cell?
+
+// == STRUCTS ==
+struct Particle {
+    float3 position;
+    float speed;
+    int isBoid;
+    int touchedByBoid;
+    float3 boidInfluence;
+};
+struct Obstacle {
+    int index;
+    float3 position;
+    float4 rotation;
+    float3 scale;
+    int verticesStart;
+    int verticesCount;
+    int hasChanged;
+};
+struct ObstaclePlane {
+    int obstacleIndex;
+    float3 vertex1;
+    float3 vertex2;
+    float3 vertex3;
+    float3 center;
+    float3 normalVector;
+};
+
+// == BUFFERS ==
+// These ones are from an external source, usually.
+RWStructuredBuffer<float3> particles;
+// These ones are specific to obstacle stuff
+RWStructuredBuffer<Obstacle> obstacles;
+RWStructuredBuffer<float3> obstacleVertices;
+RWStructuredBuffer<ObstaclePlane> obstaclePlanes;
+RWStructuredBuffer<int> vertexTriangleMap;
+RWStructuredBuffer<int3> vertexTriangleCount;
+RWStructuredBuffer<int> vertexBuckets;
+RWStructuredBuffer<int2> vertexBucketCounts;
+// For debugging
+RWStructuredBuffer<int> particleIsIntersecting;
+
+RWStructuredBuffer<float3> testWorldPos;
+
+// == HELPER FUNCTIONS ==
+// Given a world space position, what are the XYZ indices of the position's current cell?
+int3 GetGridXYZIndices(float3 position) {
+    return int3(
+        floor((position[0] - (origin[0] - (numCellsPerAxis[0] * gridCellSize)/2.0))/gridCellSize),
+        floor((position[1] - (origin[1] - (numCellsPerAxis[1] * gridCellSize)/2.0))/gridCellSize),
+        floor((position[2] - (origin[2] - (numCellsPerAxis[2] * gridCellSize)/2.0))/gridCellSize)
+    );
+}
+// Given an XYZ grid index, what is the projected 1D index?
+int GetProjectedGridIndexFromXYZ(int3 xyz) {
+    return xyz.x + (numCellsPerAxis[0] * xyz.y) + (numCellsPerAxis[0] * numCellsPerAxis[1] * xyz.z);
+}
+// Given a world space position, what is the projected 1D index of the position's current cell?
+int GetProjectedGridIndexFromGivenPosition(float3 position) {
+    int3 xyz = GetGridXYZIndices(position);
+    return GetProjectedGridIndexFromXYZ(xyz);
+}
+
+// Helper function for converting from local to world space
+float3 RotMultVec3(float4 quat, float3 vec){
+    float num = quat[0] * 2.0;
+    float num2 = quat[1] * 2.0;
+    float num3 = quat[2] * 2.0;
+    float num4 = quat[0] * num;
+    float num5 = quat[1] * num2;
+    float num6 = quat[2] * num3;
+    float num7 = quat[0] * num2;
+    float num8 = quat[0] * num3;
+    float num9 = quat[1] * num3;
+    float num10 = quat[3] * num;
+    float num11 = quat[3] * num2;
+    float num12 = quat[3] * num3;
+    float3 result = float3(
+        (1.0 - (num5 + num6)) * vec[0] + (num7 - num12) * vec[1] + (num8 + num11) * vec[2],
+        (num7 + num12) * vec[0] + (1.0 - (num4 + num6)) * vec[1] + (num9 - num10) * vec[2],
+        (num8 - num11) * vec[0] + (num9 + num10) * vec[1] + (1.0 - (num4 + num5)) * vec[2]
+    );
+    return result;
+}
+// Helper function to convert a local point to world space, given an object
+float3 LocalPointToWorldPoint(Obstacle obstacle, float3 localPoint) {
+    float3 s = float3(
+        localPoint[0] * obstacle.scale[0], 
+        localPoint[1] * obstacle.scale[1], 
+        localPoint[2] * obstacle.scale[2]
+    );
+    float3 rotvec = RotMultVec3(obstacle.rotation, s);
+    return float3(
+        rotvec[0] + obstacle.position[0], 
+        rotvec[1] + obstacle.position[1], 
+        rotvec[2] + obstacle.position[2]
+    );
+}
+// Helper function to return a vector from local to world space
+float3 LocalVectorToWorldVector(Obstacle obstacle, float3 v) {
+    float3 start = LocalPointToWorldPoint(obstacle, float3(0,0,0));
+    float3 end = LocalPointToWorldPoint(obstacle, v);
+    return end - start;
+}
+
+// Helper function - gets the idstance of a given point to a 2D plane in 3D space
+float DistanceFromPlane(float3 planeOffset, float3 planeNormal, float3 p) {
+    return dot(planeOffset - p, planeNormal);
+}
+// Helper function - finds the closest point on a plane, given a position
+float3 ClosestPointOnPlane(float3 planeOffset, float3 planeNormal, float3 p) {
+    float3 planeNormalNormalized = normalize(planeNormal);
+    return p + (DistanceFromPlane(planeOffset, planeNormalNormalized, p) * planeNormalNormalized);
+    //return p + planeNormalNormalized * -1.0;
+}
+
+// Helper Function
+int SameSide(float3 p1, float3 p2, float3 a, float3 b) {
+    float3 cp1 = cross(b-a, p1-a);
+    float3 cp2 = cross(b-a, p2-a);
+    if (dot(cp1, cp2) >= 0.0) return 1;
+    return 0;
+}
+// Helper function - check if a point is intersecting with a 2D plane or not
+int PointInTriangle(float3 p, float3 a, float3 b, float3 c) {
+    if (SameSide(p,a, b,c) == 1 && SameSide(p,b, a,c) == 1 && SameSide(p,c, a,b) == 1) return 1;
+    return 0;
+}
+
+#pragma kernel TestParticleLocalToWorld
+[numthreads(_BLOCK_SIZE,1,1)]
+void TestParticleLocalToWorld(uint id : SV_DispatchThreadID) {
+    if (id >= numPlanes) return;
+    /*
+    float3 vertex = obstacleVertices[id];
+    int3 vertexDetails = vertexTriangleCount[id];
+    Obstacle obs = obstacles[vertexDetails[0]];
+    for(int pi = vertexDetails[1]; pi < vertexDetails[1] + vertexDetails[2]; pi++) {
+        int planeIndex = vertexTriangleMap[pi];
+        ObstaclePlane plane = obstaclePlanes[planeIndex];
+        float3 worldCentroid = LocalPointToWorldPoint(obs, plane.center);
+        testWorldPos[planeIndex] = worldCentroid;
+    }
+    */
+    testWorldPos[id] = float3(-100,-100,-100);
+}
+
+#pragma kernel DampenParticlesByObstacles
+[numthreads(_BLOCK_SIZE,1,1)]
+void DampenParticlesByObstacles(uint id : SV_DispatchThreadID) {
+    if (id >= numParticles) return;
+    // For debugging purposes, we simply store how many planes we intersect with
+    // Get the particle's current position
+    float3 p = particles[id.x];
+
+    // We need to determine the xyz grid position of this particle's position
+    int3 xyz = GetGridXYZIndices(p);
+
+    // When looping through neighbor cells, we need to know the boundaries (i.e. is our current grid cell on the outermost edge/face of the grid?).
+    // We calculate the limits here, given our xyz position in the grid.
+    int minX = max(0, xyz[0]);
+    int maxX = min(numCellsPerAxis[0]-1, xyz[0]);
+    int minY = max(0, xyz[1]);
+    int maxY = min(numCellsPerAxis[1]-1, xyz[1]);
+    int minZ = max(0, xyz[2]);
+    int maxZ = min(numCellsPerAxis[2]-1, xyz[2]);
+
+    //  Reset the count
+    //particleIsIntersecting[id] = 0;
+
+    // We essentially loop through each grid cell now, within the boundaries of the grid
+    int3 cellXYZ, vertex;
+    int projectedCellIndex, vertexIndex;
+    Obstacle obs;
+    ObstaclePlane plane;
+    float3 worldCentroid, targetVectorRaw, targetVector, projectionPoint;
+    float dotBetweenParticleAndNormal, distanceToPlane;
+    for(int x = minX; x <= maxX; x++) {
+        for(int y = minY; y <= maxY; y++) {
+            for(int z = minZ; z <= maxZ; z++) {
+                // We determine the XYZ position of that grid cell, as well as the 1D projected index of that cell
+                cellXYZ = int3(x,y,z);
+                projectedCellIndex = GetProjectedGridIndexFromXYZ(cellXYZ);
+                
+                // Thanks to pre-calculation, we know:
+                //  1) which elements of vertexTriangleCount (each of which correspond to vertices)
+                //  2) how many vertices are placed within that cell
+                // To get that data, we access `vertexBucketCounts`
+                
+                // To ensure we save time, we merely `continue` if the # of vertices associated with a cell is 0
+                if (vertexBucketCounts[projectedCellIndex][1] == 0) continue;
+
+                // Now we can loop through `vertexBucketCounts`, which gives us some index that we can have access to `vertexBuckets` with
+                for(
+                    int i = vertexBucketCounts[projectedCellIndex][0]; 
+                    i < vertexBucketCounts[projectedCellIndex][0] + vertexBucketCounts[projectedCellIndex][1]; 
+                    i++
+                ) {
+                    // What does `i` do? It tells us which element of `vertexBuckets` to access.
+                    // `vertexBuckets` is a special array that stores indexes to each vertex inside a given cell. This makes it easy to access vertices in each grid cell
+                    // Because of the for loop, we cycle through only the indexes of the vertices inside our current cell
+                    vertexIndex = vertexBuckets[i];
+                    // To access info about this vertex, we use `vertexTriangleCount`, which corresponds to each vertex too.
+                    //  [0] = index of the obstacle that this vertex is associated with
+                    //  [1] = An index that corresponds to an entry in `vertexTriangleMap`
+                    //  [2] = A value that lets us know how many we need to advance starting from [1] to consider all planes attached to this vertex
+                    // For now, we just get that vertex data from `vertexTriangleCount`
+                    int3 vertex = vertexTriangleCount[vertexIndex];
+                    // We can access the obstacle associated with this vertex thanks to `obstacles`
+                    obs = obstacles[vertex[0]];
+                    // We need to iterate through the planes that are associated with this vertex. We do that with the help of [1], [2], and `vertexTriangleMap`
+                    // Naturally, if we're looping, we need a `for` loop. but what are we looping through?  `vertexTriangleMap`!
+                    // See, `vertexTriangleMap` operates similarly to `vertexBuckets` in that it tracks which vertex is associated with which planes
+                    // How it does so is that each vertex has a "starting point" in `vertexTriangleMap`. Starting from this index and advancing from there upwards to [1] + [2], we find all planes associated with this vertex
+                    for(int pi = vertex[1]; pi < vertex[1] + vertex[2]; pi++) {
+                        // We access one of the planes associated with this vertex
+                        plane = obstaclePlanes[vertexTriangleMap[pi]];
+                        // For each plane, we:
+                        // 1) convert its centroid to world position
+                        worldCentroid = LocalPointToWorldPoint(obs, plane.center);
+                        // 2) Calculate dot product between normal vector and vector b/w centroid and particle
+                        targetVectorRaw = p - worldCentroid;
+                        targetVector = normalize(targetVectorRaw);
+                        dotBetweenParticleAndNormal = dot(targetVector, LocalVectorToWorldVector(obs, plane.normalVector));
+                        // 3) Calculate the projection of the debug particle onto the plane
+                        projectionPoint = ClosestPointOnPlane(
+                            worldCentroid, 
+                            LocalVectorToWorldVector(obs, plane.normalVector), 
+                            p
+                        );
+                        // 4) Calculate distance from the debug particle to its projection
+                        distanceToPlane = DistanceFromPlane(
+                            worldCentroid, 
+                            LocalVectorToWorldVector(obs, plane.normalVector), 
+                            p
+                        );
+
+                        // 5) Finally check the intersection. We add to `particleIsIntersecting` to check!
+                        if (
+                            dotBetweenParticleAndNormal <= 0.0 
+                            && PointInTriangle(
+                                p, 
+                                LocalPointToWorldPoint(obs, plane.vertex1), 
+                                LocalPointToWorldPoint(obs, plane.vertex2), 
+                                LocalPointToWorldPoint(obs, plane.vertex3)
+                            ) == 1
+                        ) {
+                            //particleIsIntersecting[id] += 1;
+                            testWorldPos[vertexTriangleMap[pi]] = LocalPointToWorldPoint(obs, plane.vertex1);
+                        }
+                        
+                    }
+                }
+            }
+        }
+    }
+}
