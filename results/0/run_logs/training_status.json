@@ -7,24 +7,6 @@
     "move": {
         "checkpoints": [
             {
-                "steps": 292178,
-                "file_path": "results\\0\\move\\move-292178.onnx",
-                "reward": -1.0,
-                "creation_time": 1684973219.5417721,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-292178.pt"
-                ]
-            },
-            {
-                "steps": 292226,
-                "file_path": "results\\0\\move\\move-292226.onnx",
-                "reward": -1.0,
-                "creation_time": 1684973875.8886123,
-                "auxillary_file_paths": [
-                    "results\\0\\move\\move-292226.pt"
-                ]
-            },
-            {
                 "steps": 292490,
                 "file_path": "results\\0\\move\\move-292490.onnx",
                 "reward": null,
@@ -50,15 +32,33 @@
                 "auxillary_file_paths": [
                     "results\\0\\move\\move-292546.pt"
                 ]
+            },
+            {
+                "steps": 292711,
+                "file_path": "results\\0\\move\\move-292711.onnx",
+                "reward": -1.0,
+                "creation_time": 1685146098.9970934,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-292711.pt"
+                ]
+            },
+            {
+                "steps": 293857,
+                "file_path": "results\\0\\move\\move-293857.onnx",
+                "reward": -1.0,
+                "creation_time": 1685146478.132617,
+                "auxillary_file_paths": [
+                    "results\\0\\move\\move-293857.pt"
+                ]
             }
         ],
         "final_checkpoint": {
-            "steps": 292546,
+            "steps": 293857,
             "file_path": "results\\0\\move.onnx",
             "reward": -1.0,
-            "creation_time": 1684975609.9613624,
+            "creation_time": 1685146478.132617,
             "auxillary_file_paths": [
-                "results\\0\\move\\move-292546.pt"
+                "results\\0\\move\\move-293857.pt"
             ]
         }
     }

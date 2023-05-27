@@ -80,7 +80,10 @@ public class mesh_generator : MonoBehaviour
     void Update()
     {
         fluid_cs.Update();
+        float a = Time.realtimeSinceStartup;
         UpdateChunkMesh(fluid);
+        float b = Time.realtimeSinceStartup;
+        Debug.LogFormat("march time = {0}", b - a);
     }
 
     unsafe void CreateBuffers()

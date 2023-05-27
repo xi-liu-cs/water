@@ -2,7 +2,7 @@
     "name": "root",
     "metadata": {
         "timer_format_version": "0.1.0",
-        "start_time_seconds": "1684969137",
+        "start_time_seconds": "1685146225",
         "python_version": "3.7.16 (default, Jan 17 2023, 16:06:28) [MSC v.1916 64 bit (AMD64)]",
         "command_line_arguments": "C:\\Users\\xi liu\\AppData\\Roaming\\Python\\Python37\\Scripts\\mlagents-learn config/rov.yaml --run-id=1 --resume",
         "mlagents_version": "0.29.0",
@@ -10,36 +10,31 @@
         "communication_protocol_version": "1.5.0",
         "pytorch_version": "1.7.1+cu110",
         "numpy_version": "1.21.2",
-        "end_time_seconds": "1684969153"
+        "end_time_seconds": "1685146232"
     },
-    "total": 16.078684,
+    "total": 7.2149319,
     "count": 1,
-    "self": 0.04828949999999921,
+    "self": 0.04729120000000009,
     "children": {
         "run_training.setup": {
-            "total": 0.14250590000000019,
+            "total": 0.1378994,
             "count": 1,
-            "self": 0.14250590000000019
+            "self": 0.1378994
         },
         "TrainerController.start_learning": {
-            "total": 15.8878886,
+            "total": 7.0297412999999995,
             "count": 1,
-            "self": 0.0006273999999972801,
+            "self": 0.00010909999999952902,
             "children": {
                 "TrainerController._reset_env": {
-                    "total": 15.8872388,
+                    "total": 7.029616000000001,
                     "count": 1,
-                    "self": 15.8872388
-                },
-                "trainer_threads": {
-                    "total": 2.099999999671809e-06,
-                    "count": 1,
-                    "self": 2.099999999671809e-06
+                    "self": 7.029616000000001
                 },
                 "TrainerController._save_models": {
-                    "total": 2.0300000002748675e-05,
+                    "total": 1.6199999999244596e-05,
                     "count": 1,
-                    "self": 2.0300000002748675e-05
+                    "self": 1.6199999999244596e-05
                 }
             }
         }

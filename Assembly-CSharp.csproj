@@ -150,9 +150,11 @@
      <Compile Include="Assets\Scripts\Particle_New\ReadOnlyAttribute.cs" />
      <None Include="Assets\Scripts\March Cube\VolumeDataConverter.compute" />
      <None Include="Assets\Scripts\Noise\noise.cginc" />
+     <None Include="Assets\Scripts\Particle_New\Obstacles\PlaneObstacleShader.compute" />
      <None Include="Assets\Scripts\Marchxi\water.shader" />
      <None Include="Assets\Scripts\Marchxi\noise_density.compute" />
      <None Include="Assets\Scripts\Particle_New\SPH.compute" />
+     <None Include="Assets\Scripts\Particle_New\Shaders\SPH.compute" />
      <None Include="Assets\Scripts\Particle\march_table.compute" />
      <None Include="Assets\Scripts\Particle\fluid1.compute" />
      <None Include="Assets\Scripts\Boids\Deprecated\parallelShader.compute" />
@@ -169,6 +171,7 @@
      <None Include="Assets\Scripts\Particle\fluid.compute" />
      <None Include="Assets\Scripts\Rov\rov.txt" />
      <None Include="Assets\Scripts\Cave\Compute\MarchingCubes.compute" />
+     <None Include="Assets\Scripts\Particle_New\Shaders\SPH2.compute" />
      <None Include="Assets\Scripts\Boids\Deprecated\BoidManager.compute" />
      <None Include="Assets\Style\Resources\FrameToTilesConverter.compute" />
      <None Include="Assets\Scripts\Particle\f.compute" />

@@ -158,7 +158,8 @@ public class fluid_gpu : MonoBehaviour
     }
 
     public void Update()
-    { 
+    {
+        float a = Time.realtimeSinceStartup;
         compute_shader.Dispatch(clear_hash_grid_kernel, dimension2, 1, 1);
         compute_shader.Dispatch(compute_hash_grid_kernel, thread_group_size, 1, 1);
         compute_shader.Dispatch(compute_neighbor_list_kernel, thread_group_size, 1, 1);
@@ -171,6 +172,8 @@ public class fluid_gpu : MonoBehaviour
         compute_shader.SetFloat("max_density_multiplier", 1 / max_density); */
         compute_shader.Dispatch(compute_force_kernel, thread_group_size, 1, 1);
         compute_shader.Dispatch(integrate_kernel, thread_group_size, 1, 1);
+        float b = Time.realtimeSinceStartup;
+        Debug.LogFormat("neighbor search time = {0}", b - a);
 
         material.SetFloat(size_property, particle_size);
         material.SetBuffer(particle_buffer_property, particle_buffer);
